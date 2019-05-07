@@ -1,0 +1,132 @@
+package sqtables_test
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/wilphi/sqsrv/sqprofile"
+
+	"github.com/wilphi/sqsrv/cmd"
+	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
+)
+
+func TestNewIndex(t *testing.T) {
+	profile := sqprofile.CreateSQProfile()
+	// Setup table for testing
+	colNames := []string{"rownum", "col1", "col2", "col3", "col4"}
+	cols := []sqtables.ColDef{
+		sqtables.CreateColDef(colNames[0], tokens.TypeInt, false),
+		sqtables.CreateColDef(colNames[1], tokens.TypeInt, false),
+		sqtables.CreateColDef(colNames[2], tokens.TypeString, false),
+		sqtables.CreateColDef(colNames[3], tokens.TypeInt, false),
+		sqtables.CreateColDef(colNames[4], tokens.TypeBool, false),
+	}
+	colList := sqtables.NewColListDefs(cols)
+	testT := sqtables.CreateTableDef("indextest", cols...)
+	_, err := sqtables.CreateTable(profile, testT)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+	if err = colList.ValidateTable(profile, testT); err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+
+	}
+
+	dataSet := sqtables.NewDataSet(testT, colList)
+	dataSet.Vals = [][]sqtypes.Value{
+		{sqtypes.NewSQInt(1), sqtypes.NewSQInt(5), sqtypes.NewSQString("d test string"), sqtypes.NewSQInt(10), sqtypes.NewSQBool(true)},
+		{sqtypes.NewSQInt(2), sqtypes.NewSQInt(7), sqtypes.NewSQString("j test string"), sqtypes.NewSQInt(100), sqtypes.NewSQBool(false)},
+		{sqtypes.NewSQInt(3), sqtypes.NewSQInt(2), sqtypes.NewSQString("q test string"), sqtypes.NewSQInt(1000), sqtypes.NewSQBool(false)},
+		{sqtypes.NewSQInt(4), sqtypes.NewSQInt(9), sqtypes.NewSQString("a test string"), sqtypes.NewSQInt(10000), sqtypes.NewSQBool(true)},
+		{sqtypes.NewSQInt(5), sqtypes.NewSQInt(18), sqtypes.NewSQString("z test string"), sqtypes.NewSQInt(100000), sqtypes.NewSQBool(false)},
+		{sqtypes.NewSQInt(6), sqtypes.NewSQInt(3), sqtypes.NewSQString("c test string"), sqtypes.NewSQInt(10000000), sqtypes.NewSQBool(false)},
+		{sqtypes.NewSQInt(7), sqtypes.NewSQInt(17), sqtypes.NewSQString("f test string"), sqtypes.NewSQInt(10000000), sqtypes.NewSQBool(false)},
+	}
+	_, err = testT.AddRows(profile, &dataSet)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+
+	//col0 := []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQInt(2), sqtypes.NewSQInt(3), sqtypes.NewSQInt(4), sqtypes.NewSQInt(5), sqtypes.NewSQInt(6), sqtypes.NewSQInt(7)}
+	//col2 := []sqtypes.Value{sqtypes.NewSQString("d test string"), sqtypes.NewSQString("j test string"), sqtypes.NewSQString("q test string"), sqtypes.NewSQString("a test string"), sqtypes.NewSQString("z test string"), sqtypes.NewSQString("c test string"), sqtypes.NewSQString("f test string")}
+	idxCol := sqtables.NewColListNames([]string{colNames[2]})
+	idxDataSet, err := testT.GetRowData(profile, idxCol, nil)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+
+	idx, err := sqtables.NewIndex(profile, "TestIndex", idxDataSet)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+
+	fmt.Println(idx.ToString())
+	if !idx.IsSorted() {
+		t.Fatalf("Index is not sorted")
+	}
+	dSet := sqtables.NewDataSet(testT, idxCol)
+	dSet.Vals = append(dSet.Vals, []sqtypes.Value{sqtypes.NewSQString("b test string")})
+	dSet.Ptrs = []int{8}
+	idx.AddElement(&dSet)
+
+	fmt.Println(idx.ToString())
+	if !idx.IsSorted() {
+		t.Fatalf("Index is not sorted")
+	}
+
+}
+
+func TestMultiColIndex(t *testing.T) {
+	profile := sqprofile.CreateSQProfile()
+
+	stmt := "Create table testmulticol (id int, firstname string, lastname string, txt string)"
+	tList := *tokens.Tokenize(stmt)
+	tableName, err := cmd.CreateTableFromTokens(profile, tList)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+	tab := sqtables.GetTable(profile, tableName)
+	stmt = "INSERT INTO " + tableName + " (id, firstname, lastname, txt) VALUES (1, \"Donald\", \"Trump\", \"la lalalal\")"
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 2, "Ivanka", "Trump", "test1")
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 3, "Eric", "Trump", "test2")
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 4, "Melania", "Trump", "test3")
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 5, "Donald Jr", "Trump", "test4")
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 6, "Barron", "Trump", "test5")
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 7, "Marla", "Maples", "test6")
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 8, "Jarred", "Kushner", "test7")
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 9, "Karli", "Kloss", "test8")
+	stmt += fmt.Sprintf(", (%d, %q, %q, %q)", 10, "Stormy", "Daniels", "test9")
+	tListI := tokens.Tokenize(stmt)
+	msg, _, err := cmd.InsertInto(profile, tListI)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+	fmt.Println(msg)
+	idxCol := sqtables.NewColListNames([]string{"lastname", "firstname"})
+	idxDataSet, err := tab.GetRowData(profile, idxCol, nil)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+
+	idx, err := sqtables.NewIndex(profile, "TestIndex", idxDataSet)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+	fmt.Println(idx.ToString())
+	if !idx.IsSorted() {
+		t.Fatalf("Index is not sorted")
+	}
+	dSet := sqtables.NewDataSet(tab, idxCol)
+	dSet.Vals = append(dSet.Vals, []sqtypes.Value{sqtypes.NewSQString("Williams"), sqtypes.NewSQString("Tiger")})
+	dSet.Vals = append(dSet.Vals, []sqtypes.Value{sqtypes.NewSQString("Menard"), sqtypes.NewSQString("Dereck")})
+	dSet.Ptrs = []int{18, 20}
+
+	idx.AddElement(&dSet)
+
+	fmt.Println(idx.ToString())
+	if !idx.IsSorted() {
+		t.Fatalf("Index is not sorted")
+	}
+}

@@ -1,0 +1,104 @@
+package sqtables
+
+import (
+	"fmt"
+
+	"github.com/wilphi/sqsrv/sqerr"
+	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/tokens"
+)
+
+// ColDef - column definition
+type ColDef struct {
+	ColName   string
+	ColType   string
+	Idx       int
+	IsNotNull bool
+}
+
+// ColList - a list of column definitions
+type ColList struct {
+	colD      []ColDef
+	defsValid bool
+	colNames  []string
+	isCols    bool
+	isCount   bool
+}
+
+// CreateColDef -
+func CreateColDef(colName string, colType string, isNotNull bool) ColDef {
+	return ColDef{colName, colType, -1, isNotNull}
+}
+
+func (c *ColDef) toString() string {
+	return "{" + c.ColName + ", " + c.ColType + "}"
+}
+
+// NewColListDefs - Create a list of columns based on ColDefs
+func NewColListDefs(colD []ColDef) ColList {
+	colNames := make([]string, len(colD))
+	for i, col := range colD {
+		colNames[i] = col.ColName
+	}
+	return ColList{colD: colD, defsValid: true, colNames: colNames}
+}
+
+// NewColListNames - Create a list of columns based on name strings
+func NewColListNames(colNames []string) ColList {
+	return ColList{defsValid: false, colNames: colNames}
+}
+
+//ValidateTable -
+func (cl *ColList) ValidateTable(profile *sqprofile.SQProfile, tab *TableDef) error {
+	var cd *ColDef
+	cl.isCount = false
+	cl.isCols = false
+	colDefs := make([]ColDef, len(cl.colNames))
+	for i, name := range cl.colNames {
+		if name == tokens.Count {
+			ncd := CreateColDef(name, "FUNCTION", false)
+			cd = &ncd
+			cl.isCount = true
+		} else {
+			cd = tab.FindColDef(profile, name)
+			if cd == nil {
+				return sqerr.New(fmt.Sprintf("Table %s does not have a column named %s", tab.GetName(profile), name))
+			}
+			cl.isCols = true
+		}
+
+		colDefs[i] = *cd
+	}
+	if cl.isCount && cl.isCols {
+		return sqerr.New("The function Count can not be used with Columns")
+	}
+
+	cl.defsValid = true
+	cl.colD = colDefs
+	return nil
+}
+
+// GetColNames -
+func (cl *ColList) GetColNames() []string {
+	return cl.colNames
+}
+
+// GetColDefs -
+func (cl *ColList) GetColDefs() []ColDef {
+	return cl.colD
+}
+
+// FindColIdx -
+func (cl *ColList) FindColIdx(name string) int {
+	for i, col := range cl.colNames {
+		if col == name {
+			return i
+		}
+	}
+	return -1
+}
+
+// Len - get the number of columns in list
+func (cl *ColList) Len() int {
+	return len(cl.colNames)
+}
