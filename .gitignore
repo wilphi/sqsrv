@@ -15,6 +15,7 @@
 *.tlog
 *.old
 
+
 #ignore the dbfiles directory
 dbfiles/
-
+.vscode/
