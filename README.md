@@ -63,13 +63,16 @@ From the sqshell prompt you can either type in a SQL command, shell command or a
 #### SQL Commands ###
 The SQL commands supported by SQSRV are currently limited to very simple commands. Major limitations include:
 
+  - Individual commands are atomic but there are no transactions
+  - No user security
   - No Joins
   - From clauses are restricted to one table
   - No functions with the exception of a limited count ability
-  - Where clauses  have limited comparsion operators =, <, > and can use logical operators of AND, OR, NOT\
+  - Where clauses have limited comparsion operators =, <, > and can use logical operators of AND, OR, NOT
   - No Indexes
   - No Group by or Having clauses
   - No Unions
+  - No SELECT DISTINCT
 
 Allowed Types
 - **int** 64 bit signed integer
