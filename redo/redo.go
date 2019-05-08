@@ -219,9 +219,9 @@ func ReadTlog(profile *sqprofile.SQProfile, f io.Reader) error {
 		s = DecodeStatement(dec)
 		if s.GetID() <= transid.GetTransID() {
 			// statement is already in database
-			log.Infof("Skipping recover statement: %s transid < current Id (%d < %d)", s.Identify(), s.GetID(), transid.GetTransID())
+			log.Debugf("Skipping recover statement: %s transid < current Id (%d < %d)", s.Identify(), s.GetID(), transid.GetTransID())
 		} else {
-			log.Info("Attempting to recover statement: ", s.Identify())
+			log.Debug("Attempting to recover statement: ", s.Identify())
 			if err := s.Recreate(profile); err != nil {
 				log.Error("Unable to recreate from: ", s.Identify())
 				return err
