@@ -53,7 +53,7 @@ func init() {
 	mw := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(mw)
 
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 
 	//debug.SetGCPercent(400)
 }
