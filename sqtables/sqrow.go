@@ -44,9 +44,6 @@ func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols 
 	if len(cols) != len(vals) {
 		return nil, e.New(fmt.Sprintf("The Number of Columns (%d) does not match the number of Values (%d)", len(cols), len(vals)))
 	}
-	for i := range row.Data {
-		row.Data[i] = sqtypes.NewSQNull()
-	}
 
 	for i, col := range cols {
 		idx, _ := table.FindCol(profile, col)
@@ -58,8 +55,12 @@ func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols 
 	}
 	// Validate NotNull cols
 	for i, val := range row.Data {
-		if val.IsNull() && table.tableCols[i].IsNotNull {
+
+		if (val == nil || val.IsNull()) && table.tableCols[i].IsNotNull {
 			return nil, e.New(fmt.Sprintf("Column %q in Table %q can not be NULL", table.tableCols[i].ColName, table.tableName))
+		}
+		if val == nil {
+			row.Data[i] = sqtypes.NewSQNull()
 		}
 	}
 
