@@ -9,7 +9,7 @@ import (
 
 func TestMain(m *testing.M) {
 	// setup logging
-	logFile, err := os.OpenFile("sqparser_test.log", os.O_CREATE|os.O_WRONLY, 0666)
+	logFile, err := os.OpenFile("tokens_test.log", os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
@@ -32,49 +32,68 @@ func matchNames(names []string, tkns *TokenList) bool {
 	}
 	return true
 }
-func TestGetTokens(t *testing.T) {
-	names := []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident}
-	testStr := "SElect * from 	Tablea whEre a=b \n"
-	t.Run(testStr, testTokenizeFunc(testStr, names))
 
-	testStr = "SElect * from 	_Tablea whEre a=b \n"
-	t.Run(testStr, testTokenizeFunc(testStr, names))
-
-	//only leading _ is allow for Ident
-	names = []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident}
-	testStr = "SElect * from 	_Table_a whEre a=b \n"
-	t.Run(testStr, testTokenizeFunc(testStr, names))
-
-	//only leading _ is allow for Ident
-	names = []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident}
-	testStr = "SElect * from 	_Tablea whEre a_=b \n"
-	t.Run(testStr, testTokenizeFunc(testStr, names))
-
-	names = []string{Create, Table, Ident, OpenBracket,
-		Ident, Colon, TypeTKN, Comma, Ident, Colon, TypeTKN,
-		Comma, Ident, Colon, TypeTKN, CloseBracket}
-	testStr = "Create table _tab (col1:int, col2:string, col3:bool)"
-	t.Run(testStr, testTokenizeFunc(testStr, names))
-
-	names = []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident, Unk}
-	testStr = "SElect * from 	_Tablea whEre a=b ~\n"
-	t.Run(testStr, testTokenizeFunc(testStr, names))
-
+type TokenData struct {
+	TestName string
+	testStr  string
+	names    []string
 }
 
-func TestInsertStatment(t *testing.T) {
-	testStr := "Insert Into test1 (col1, col2, col3) values (123, \"test str\", true);"
-	names := []string{Insert, Into, Ident,
-		OpenBracket, Ident, Comma, Ident, Comma, Ident, CloseBracket,
-		Values, OpenBracket, Num, Comma, Quote, Comma, RWTrue, CloseBracket, SemiColon}
-	t.Run(testStr, testTokenizeFunc(testStr, names))
+func TestTokenize(t *testing.T) {
+	data := []TokenData{
+		{
+			TestName: "Select with extra whitespace",
+			testStr: " SElect * from 	Tablea whEre a=b \n",
+			names: []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident},
+		},
+		{
+			TestName: "Select with _Identifier",
+			testStr:  " SElect * from _Tablea whEre a=b \n",
+			names:    []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident},
+		},
+		{
+			TestName: "Identifier with multiple _",
+			testStr:  " SElect * from _Table_a whEre a=b \n",
+			names:    []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident},
+		},
+		{
+			TestName: "Identifier with trailing _",
+			testStr:  " SElect * from Tablea whEre a_=b \n",
+			names:    []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident},
+		},
+		{
+			TestName: "Create syntax",
+			testStr:  "Create table _tab (col1 int not null, col2 string null, col3 bool)",
+			names: []string{Create, Table, Ident, OpenBracket,
+				Ident, TypeTKN, Not, Null, Comma, Ident, TypeTKN, Null,
+				Comma, Ident, TypeTKN, CloseBracket},
+		},
+		{
+			TestName: "Unknown Char",
+			testStr: "SElect * from 	_Tablea whEre a=b ~\n",
+			names: []string{Select, Asterix, From, Ident, Where, Ident, Equal, Ident, Unk},
+		},
+		{
+			TestName: "Quoted string",
+			testStr:  "Insert Into test1 (col1, col2, col3) values (123, \"test str\", true);",
+			names: []string{Insert, Into, Ident,
+				OpenBracket, Ident, Comma, Ident, Comma, Ident, CloseBracket,
+				Values, OpenBracket, Num, Comma, Quote, Comma, RWTrue, CloseBracket, SemiColon},
+		},
+		{
+			TestName: "Missing End Quote for string",
+			testStr:  "Insert Into test1 (col1, col2, col3) values (123, \"test str, true);",
+			names: []string{Insert, Into, Ident,
+				OpenBracket, Ident, Comma, Ident, Comma, Ident, CloseBracket,
+				Values, OpenBracket, Num, Comma, Err},
+		},
+	}
 
-	// test with no end quote
-	testStr = "Insert Into test1 (col1, col2, col3) values (123, \"test str, true);"
-	names = []string{Insert, Into, Ident,
-		OpenBracket, Ident, Comma, Ident, Comma, Ident, CloseBracket,
-		Values, OpenBracket, Num, Comma, Err}
-	t.Run(testStr, testTokenizeFunc(testStr, names))
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testTokenizeFunc(row))
+
+	}
 
 }
 
@@ -119,34 +138,13 @@ func TestMiscFunctions(t *testing.T) {
 			t.Error(fmt.Sprintf("tkn.SetValue Failed! Expected %s != tkn.GetValue() -> %s", expected, tkn.GetValue()))
 		}
 	})
-	/*
-		t.Run("TestToken tests", func(*testing.T) {
-			if ret := TestToken([]Token{}, Select, From); ret != "" {
-				t.Error(fmt.Sprintf("TestToken Failed! Expected empty string but got -> %s", ret))
-			}
-			if ret := TestToken([]Token{AllWordTokens[Select]}, Select, From); ret == "" {
-				t.Error(fmt.Sprintf("TestToken Failed! Expected %s but got -> %s", Select, ret))
-			}
-		})
-		t.Run("TokensToString tests", func(*testing.T) {
-			tkns := []Token{AllWordTokens[Select],
-				SYMBOLS['*'],
-				AllWordTokens[From],
-				CreateToken(Ident, "seltest"),
-			}
-			expected := "SELECT * FROM [IDENT=seltest]"
-			if TokensToString(tkns) != expected {
-				t.Error(fmt.Sprintf("Expected: %q, got %q", expected, TokensToString(tkns)))
-			}
 
-		})
-	*/
 }
 
-func testTokenizeFunc(testStr string, names []string) func(*testing.T) {
+func testTokenizeFunc(d TokenData) func(*testing.T) {
 	return func(t *testing.T) {
-		tkns := Tokenize(testStr)
-		if !matchNames(names, tkns) {
+		tkns := Tokenize(d.testStr)
+		if !matchNames(d.names, tkns) {
 			t.Error(fmt.Sprint("Token list does not match expected list"))
 		}
 	}

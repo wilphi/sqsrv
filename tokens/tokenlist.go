@@ -5,13 +5,6 @@ type TokenList struct {
 	tkns []*Token
 }
 
-// CreateTokenListFromTokens -
-func CreateTokenListFromTokens(tkns []*Token) *TokenList {
-	tl := TokenList{}
-	tl.tkns = tkns
-	return &tl
-}
-
 // Add - Add a token to the list
 func (tl *TokenList) Add(tkn *Token) {
 	tl.tkns = append(tl.tkns, tkn)
@@ -19,8 +12,9 @@ func (tl *TokenList) Add(tkn *Token) {
 
 // Remove - Remove a token from the list
 func (tl *TokenList) Remove() {
-	//<<<Watch out for Empty List>>>
-	tl.tkns = tl.tkns[1:]
+	if len(tl.tkns) > 0 {
+		tl.tkns = tl.tkns[1:]
+	}
 }
 
 // Peek - returns the token at head of list
@@ -50,11 +44,12 @@ func (tl *TokenList) ToString() string {
 	for _, tkn := range tl.tkns {
 		output = output + tkn.GetString() + " "
 	}
+
+	// Remove trailing space
 	if len(output) > 0 {
 		output = output[:len(output)-1]
-	} else {
-		output = ""
 	}
+
 	return output
 }
 
@@ -70,36 +65,6 @@ func (tl *TokenList) Test(tknNames ...string) string {
 		}
 	}
 	return ""
-}
-
-// Insert - Insert given tokens at idx
-func (tl *TokenList) Insert(idx int, newTkns ...*Token) {
-	t := make([]*Token, len(tl.tkns)+len(newTkns))
-	offset := 0
-	for i, tkn := range tl.tkns {
-		t[i+offset] = tkn
-		if i+offset == idx {
-			for _, ntkn := range newTkns {
-				offset++
-				t[i+offset] = ntkn
-			}
-		}
-	}
-	tl.tkns = t
-	return
-}
-
-// Delete - Delete num tokens starting at idx
-func (tl *TokenList) Delete(idx, num int) {
-	t := make([]*Token, len(tl.tkns)-num)
-	i := 0
-	for j, tkn := range tl.tkns {
-		if j < idx || j > idx+num-1 {
-			t[i] = tkn
-			i++
-		}
-	}
-	tl.tkns = t
 }
 
 // NewTokenList - Create a new token list

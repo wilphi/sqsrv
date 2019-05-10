@@ -68,8 +68,6 @@ const (
 	Null    = "NULL"
 )
 
-var reservedWords = []string{Create, Table, Select, From, Where, And, Insert, Into, Values, RWTrue, RWFalse, Delete, Count, Null}
-
 // Types
 const (
 	TypeTKN    = "TYPETOKEN"
@@ -132,42 +130,18 @@ func (tkn Token) GetString() string {
 }
 
 // GetName - Returns a string with the name of the token
-func (tkn Token) GetName() string {
+func (tkn *Token) GetName() string {
 	return tkn.tokenID
 }
 
 // GetValue - Returns string with the value of token
-func (tkn Token) GetValue() string {
+func (tkn *Token) GetValue() string {
 	return tkn.tokenValue
 }
 
 // SetValue - replaces the value of token with v
 func (tkn *Token) SetValue(v string) {
 	tkn.tokenValue = v
-}
-
-// IsOperator - is the token an operator (=, <, >)
-func (tkn *Token) IsOperator() bool {
-	ret := false
-	switch tkn.tokenID {
-	case Equal, LessThan, GreaterThan:
-		ret = true
-	default:
-		ret = false
-	}
-	return ret
-}
-
-// IsValue - is the token a value type (num, Quoted string, true/false)
-func (tkn *Token) IsValue() bool {
-	ret := false
-	switch tkn.tokenID {
-	case Num, Quote, RWFalse, RWTrue:
-		ret = true
-	default:
-		ret = false
-	}
-	return ret
 }
 
 //CreateToken - Returns a token based on name. value inputs
@@ -194,38 +168,6 @@ func getWhiteSpace(r []rune) ([]rune, *Token) {
 	}
 }
 
-/*
-func checkKeyWords(tkn Token) Token {
-
-	var isReserved = false
-	var tknVal = s.ToUpper(tkn.GetValue())
-
-	for i, val := range reservedWords {
-		if tknVal == val {
-			t.Run(testStr, testGetTokensFunc(testStr, names))
-ID = reservedWords[i]
-			t.Run(testStr, testGetTokensFunc(testStr, names))
-d = true
-			t.Run(testStr, testGetTokensFunc(testStr, names))
-
-		}	t.Run(testStr, testGetTokensFunc(testStr, names))
-
-	}
-	// check for types
-	if !isReserved {
-		for i, val := range reservedTypes {
-			if tknVal == val {
-				tkn.tokenID = TypeTKN
-				tkn.tokenValue = reservedTypes[i]
-				break
-			}
-		}
-	}
-
-	return tkn
-}
-*/
-
 func checkKeyWords(word string) *Token {
 	tkn, ok := AllWordTokens[strings.ToUpper(word)]
 	if !ok {
@@ -238,7 +180,6 @@ func isLetter(ch rune) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 func getIdentifier(r []rune) ([]rune, *Token) {
-	//tkn := Token{Ident, ""}
 	word := ""
 
 	// loop until identifier complete
