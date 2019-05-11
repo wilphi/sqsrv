@@ -170,10 +170,11 @@ type InterfaceData struct {
 func TestInterfaces(t *testing.T) {
 
 	data := []InterfaceData{
-		{"Create is a LogStatement", &CreateDDL{}},
-		{"Insert is a LogStatement", &InsertRows{}},
-		{"Update is a LogStatement", &UpdateRows{}},
-		{"Delete is a LogStatement", &DeleteRows{}},
+		{"CreateDDL is a LogStatement", &CreateDDL{}},
+		{"InsertRows is a LogStatement", &InsertRows{}},
+		{"UpdateRows is a LogStatement", &UpdateRows{}},
+		{"DeleteRows is a LogStatement", &DeleteRows{}},
+		{"DropDDL is a LogStatement", &DropDDL{}},
 		{"TestStmt is a LogStatement", &TestStmt{}},
 		{"TestWithErr is a LogStatement", &TestWithErr{}},
 	}
@@ -431,7 +432,7 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 		// clean up db
 		tab := sqtables.GetTable(d.Profile, "names")
 		if tab != nil {
-			_, err = sqtables.DropTable(d.Profile, "names")
+			err = sqtables.DropTable(d.Profile, "names")
 			if err != nil && err.Error() != "Invalid Name: Table names does not exist" {
 				t.Fatal(err)
 			}

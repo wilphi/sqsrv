@@ -30,76 +30,6 @@ func TestMain(m *testing.M) {
 
 }
 
-func TestCreateTable(t *testing.T) {
-	profile := sqprofile.CreateSQProfile()
-
-	// Test create table
-	tab := sqtables.CreateTableDef("_test1", []sqtables.ColDef{sqtables.CreateColDef("col1", tokens.TypeInt, false), sqtables.CreateColDef("col2", tokens.TypeBool, false)}...)
-	t.Run("CREATE TABLE _test1", testCreateTableFunc(profile, tab, withErr))
-
-	tab = sqtables.CreateTableDef("test1", []sqtables.ColDef{sqtables.CreateColDef("col1", tokens.TypeInt, false), sqtables.CreateColDef("col2", tokens.TypeBool, false)}...)
-	t.Run("CREATE TABLE test1", testCreateTableFunc(profile, tab, withoutErr))
-
-	t.Run("CREATE TABLE test1", testCreateTableFunc(profile, tab, withErr))
-
-	tab = sqtables.CreateTableDef("test2", []sqtables.ColDef{}...)
-	t.Run("CREATE TABLE test2 (no col)", testCreateTableFunc(profile, tab, withErr))
-	/*
-		tab = sqtables.CreateTableDef("test2", []sqtables.ColDef{sqtables.CreateColDef("city", tokens.TypeString),
-			sqtables.CreateColDef("street", tokens.TypeString),
-			sqtables.CreateColDef("streetno", tokens.TypeInt)}...)
-		tab.TableCols[0].ColName = "NoNameCol"
-		t.Run("CREATE TABLE test2 - (no _rownum col) ", testCreateTableFunc(*tab, withErr))
-	*/
-	tab = sqtables.CreateTableDef("test2", []sqtables.ColDef{sqtables.CreateColDef("city", tokens.TypeString, false), sqtables.CreateColDef("street", tokens.TypeString, false), sqtables.CreateColDef("streetno", tokens.TypeInt, false)}...)
-	t.Run("CREATE TABLE test2", testCreateTableFunc(profile, tab, withoutErr))
-
-	tab = sqtables.CreateTableDef("test3", []sqtables.ColDef{sqtables.CreateColDef("city", tokens.TypeString, false), sqtables.CreateColDef("street", tokens.TypeString, false), sqtables.CreateColDef("streetno", tokens.TypeInt, false)}...)
-	t.Run("CREATE TABLE test3", testCreateTableFunc(profile, tab, withoutErr))
-
-	name := "_tables"
-	t.Run("Drop Table "+name, testDropTableFunc(profile, name, withErr))
-
-	name = "test29"
-	t.Run("Drop Table "+name, testDropTableFunc(profile, name, withErr))
-
-	name = "test2"
-	t.Run("Drop Table "+name, testDropTableFunc(profile, name, withoutErr))
-
-}
-
-func testCreateTableFunc(profile *sqprofile.SQProfile, tab *sqtables.TableDef, expErr bool) func(*testing.T) {
-	return func(t *testing.T) {
-		_, err := sqtables.CreateTable(profile, tab)
-		if err == nil {
-			if expErr {
-				t.Error("Expected error but instead success")
-			}
-		} else {
-			log.Println(err.Error())
-			if !expErr {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-			}
-		}
-	}
-}
-
-func testDropTableFunc(profile *sqprofile.SQProfile, name string, expErr bool) func(*testing.T) {
-	return func(t *testing.T) {
-		_, err := sqtables.DropTable(profile, name)
-		if err == nil {
-			if expErr {
-				t.Error("Expected error but instead success")
-			}
-		} else {
-			log.Println(err.Error())
-			if !expErr {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-			}
-		}
-	}
-}
-
 type RowDataTest struct {
 	TName   string
 	Tab     *sqtables.TableDef
@@ -148,7 +78,7 @@ func TestGetRowData(t *testing.T) {
 	//colNames := []string{"rownum", "col1", "col2", "col3", "col4"}
 	stmt := "CREATE TABLE rowdatatest (rownum int, col1 int, col2 string, col3 int, col4 bool)"
 	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, *tkList)
+	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
 	if err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}

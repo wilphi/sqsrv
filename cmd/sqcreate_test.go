@@ -10,7 +10,7 @@ import (
 	tk "github.com/wilphi/sqsrv/tokens"
 )
 
-func testCreateTableFunc(profile *sqprofile.SQProfile, tkns tk.TokenList, errTxt string, tableName string) func(*testing.T) {
+func testCreateTableFunc(profile *sqprofile.SQProfile, tkns *tk.TokenList, errTxt string, tableName string) func(*testing.T) {
 	return func(t *testing.T) {
 		tname, err := cmd.CreateTableFromTokens(profile, tkns)
 		if err != nil {
@@ -57,7 +57,7 @@ func TestCreateTable(t *testing.T) {
 	for i, row := range testStruct {
 		tlist := tk.Tokenize(row.Command)
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testCreateTableFunc(profile, *tlist, row.ExpErr, row.ExpTableName))
+			testCreateTableFunc(profile, tlist, row.ExpErr, row.ExpTableName))
 
 	}
 

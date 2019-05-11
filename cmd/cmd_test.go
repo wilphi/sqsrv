@@ -102,7 +102,7 @@ func TestGetWhereConditions(t *testing.T) {
 		sqt.CreateColDef("col1", tk.TypeInt, false),
 		sqt.CreateColDef("col2", tk.TypeString, false),
 		sqt.CreateColDef("col3", tk.TypeBool, false))
-	_, err := sqt.CreateTable(profile, tab)
+	err := sqt.CreateTable(profile, tab)
 	if err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}

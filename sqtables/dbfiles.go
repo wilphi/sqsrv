@@ -342,7 +342,7 @@ func ReadDB(profile *sqprofile.SQProfile) error {
 		if err != nil {
 			log.Panicf("Unable to read table info for %s: %s", tableName, err)
 		}
-		_, err = CreateTable(profile, tab)
+		err = CreateTable(profile, tab)
 		if err != nil {
 			log.Panicf("Unable to create table %s: %s", tableName, err)
 		}

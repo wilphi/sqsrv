@@ -67,7 +67,7 @@ func TestCreateRow(t *testing.T) {
 	// Setup Data
 	stmt := "CREATE TABLE createrowtest (col1 int not null, col2 string null, col3 int, col4 string not null)"
 	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, *tkList)
+	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
 	if err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
@@ -169,7 +169,7 @@ func TestGetColData(t *testing.T) {
 	// Setup Data
 	stmt := "CREATE TABLE getcoldatatest (col1 int not null, col2 string null, col3 int, col4 bool not null)"
 	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, *tkList)
+	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
 	if err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}

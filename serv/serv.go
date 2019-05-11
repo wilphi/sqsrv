@@ -25,6 +25,7 @@ var dispatcher = []struct {
 	{Exec: cmd.InsertInto, First: tk.Insert, Second: tk.Into},
 	{Exec: cmd.Delete, First: tk.Delete, Second: ""},
 	{Exec: cmd.CreateTable, First: tk.Create, Second: tk.Table},
+	{Exec: cmd.DropTable, First: tk.Drop, Second: tk.Table},
 }
 
 // SrvCmds -

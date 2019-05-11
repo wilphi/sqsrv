@@ -18,6 +18,7 @@ const (
 	IDInsertRows = 2
 	IDUpdateRows = 3
 	IDDeleteRows = 4
+	IDDropDDL    = 5
 )
 
 // LogStatement - Interface to represent each type of redo statement
@@ -72,7 +73,7 @@ func (c *CreateDDL) Decode(dec *sqbin.Codec) {
 func (c *CreateDDL) Recreate(profile *sqprofile.SQProfile) error {
 
 	table := sqtables.CreateTableDef(c.TableName, c.Cols...)
-	_, err := sqtables.CreateTable(profile, table)
+	err := sqtables.CreateTable(profile, table)
 
 	profile.VerifyNoLocks()
 	return err
@@ -360,6 +361,8 @@ func DecodeStatement(dec *sqbin.Codec) LogStatement {
 		stmt = &UpdateRows{}
 	case IDDeleteRows:
 		stmt = &DeleteRows{}
+	case IDDropDDL:
+		stmt = &DropDDL{}
 	default:
 		if DecodeStatementHook != nil {
 			stmt = DecodeStatementHook(stype)
@@ -423,4 +426,64 @@ func decodeData(dec *sqbin.Codec) [][]sqtypes.Value {
 		data[i] = row
 	}
 	return data
+}
+
+// DropDDL - Transaction Recording for Drop Table Statement
+type DropDDL struct {
+	TableName string
+	ID        uint64
+}
+
+// Encode uses sqbin.Codec to return a binary encoded version of the statement
+func (d *DropDDL) Encode() *sqbin.Codec {
+	enc := sqbin.NewCodec(nil)
+	// Identify the type of logstatment
+	enc.Writebyte(IDDropDDL)
+	// Id of transaction statement
+	enc.WriteUint64(d.ID)
+
+	enc.WriteString(d.TableName)
+	return enc
+}
+
+// Decode uses sqbin.Codec to return a binary encoded version of the statement
+func (d *DropDDL) Decode(dec *sqbin.Codec) {
+	mkr := dec.Readbyte()
+	if mkr != IDDropDDL {
+		log.Panic("Found wrong statement type. Expecting IDDropDDL")
+	}
+	// Id of transaction statement
+	d.ID = dec.ReadUint64()
+
+	d.TableName = dec.ReadString()
+}
+
+// Recreate - reprocess the recorded transaction log SQL statement to restore the database
+func (d *DropDDL) Recreate(profile *sqprofile.SQProfile) error {
+
+	err := sqtables.DropTable(profile, d.TableName)
+
+	profile.VerifyNoLocks()
+	return err
+}
+
+// Identify - returns a short string to identify the transaction log statement
+func (d *DropDDL) Identify() string {
+	return fmt.Sprintf("#%d - DROP TABLE %s", d.ID, d.TableName)
+}
+
+// SetID is used by the transaction logger to indicate the what order the message was sent to the
+//   transaction log. It should be a monotonically increasing number.
+func (d *DropDDL) SetID(id uint64) {
+	d.ID = id
+}
+
+// GetID returns the ID of the transaction statement. ID = 0 means that it is not valid
+func (d *DropDDL) GetID() uint64 {
+	return d.ID
+}
+
+// NewDropDDL returns a logstatement that is a CREATE TABLE
+func NewDropDDL(name string) *DropDDL {
+	return &DropDDL{TableName: name}
 }

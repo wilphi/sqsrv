@@ -11,13 +11,13 @@ import (
 
 // CreateTable - Wraps CreateTableFromTokens
 func CreateTable(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.DataSet, error) {
-	msg, err := CreateTableFromTokens(profile, *tkns)
+	msg, err := CreateTableFromTokens(profile, tkns)
 
 	return msg, nil, err
 }
 
 // CreateTableFromTokens - Creates a table from array of tokens that represent a CREATE TABLE statement
-func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns t.TokenList) (string, error) {
+func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, error) {
 	var tableName string
 	var cols []sqtables.ColDef
 
@@ -100,7 +100,7 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns t.TokenList) (stri
 	}
 	log.Debug("Creating table ", tableName)
 	table := sqtables.CreateTableDef(tableName, cols...)
-	_, err := sqtables.CreateTable(profile, table)
+	err := sqtables.CreateTable(profile, table)
 	if err != nil {
 		return tableName, err
 	}

@@ -99,7 +99,7 @@ func TestTokenize(t *testing.T) {
 
 func TestMiscFunctions(t *testing.T) {
 
-	t.Run("(*Token)GetString() tests", func(*testing.T) {
+	t.Run("(*Token)GetString() tests", func(t *testing.T) {
 		for name, tkn := range AllWordTokens {
 			if name != tkn.GetString() {
 				t.Error(fmt.Sprintf("%s != tkn.GetString() -> %s", name, tkn.GetString()))
@@ -123,14 +123,14 @@ func TestMiscFunctions(t *testing.T) {
 			t.Error(fmt.Sprintf("%s != tkn.GetString() -> %s", expected, tkn.GetString()))
 		}
 	})
-	t.Run("(*Token)GetName() tests", func(*testing.T) {
+	t.Run("(*Token)GetName() tests", func(t *testing.T) {
 		tkn := CreateToken(Unk, "test")
 		expected := "UNK"
 		if tkn.GetName() != expected {
 			t.Error(fmt.Sprintf("%s != tkn.GetName() -> %s", expected, tkn.GetName()))
 		}
 	})
-	t.Run("(*Token)SetValue tests", func(*testing.T) {
+	t.Run("(*Token)SetValue tests", func(t *testing.T) {
 		tkn := CreateToken(Unk, "test")
 		expected := "UNK"
 		tkn.SetValue(expected)
@@ -141,7 +141,7 @@ func TestMiscFunctions(t *testing.T) {
 
 }
 
-func testTokenizeFunc(d TokenData) func(*testing.T) {
+func testTokenizeFunc(d TokenData) func(t *testing.T) {
 	return func(t *testing.T) {
 		tkns := Tokenize(d.testStr)
 		if !matchNames(d.names, tkns) {

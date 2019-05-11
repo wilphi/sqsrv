@@ -116,7 +116,7 @@ func transProc() {
 
 		//Sync the file to make sure that the logstatment is durably written to disk
 		err = file.Sync()
-		log.Infof("%d written to transaction log", stmt.GetID())
+		log.Debugf("%d written to transaction log", stmt.GetID())
 		sent.respond <- err
 	}
 }
