@@ -11,7 +11,7 @@ SQSRV was written as a project to learn the GO language. It uses many of the fea
 - Interfaces
 - First class functions
 - Variadic functions
-- gobs (Go)
+- gobs
 - file handling
 - Cross Platform (Linux, Windows)
 
@@ -34,7 +34,7 @@ On the welcome screen of VisualStudio code under Customize/Tools & Languages, Se
     ```
     cd %GOPATH%\src\github.com\wilphi\sqsrv
     go build
-    go test ./...          
+    go test ./...
     ```
     To see more detail use go test -v ./...
 6. To build shell project & run tests (sqshell)
@@ -74,35 +74,8 @@ The SQL commands supported by SQSRV are currently limited to very simple command
   - No Unions
   - No SELECT DISTINCT
 
-Allowed Types
-- **int** 64 bit signed integer
-- **string** variable length strings
-- **bool** boolean variables with values of **true** or **false**
+See [syntax.md](./syntax.md) for more
 
-Note: **null** values are supported
-
-##### Examples of supported commands
-###### CREATE TABLE ######
-```
-CREATE TABLE test (id int not null, firstname string, valid bool)
-```
-###### INSERT
-```
-INSERT INTO test (id, firstname, valid) VALUES (1, "Tim", true)
-INSERT INTO test (id, firstname, valid) VALUES (2, "Tom", false), (3, "Tex", true)
-```
-###### SELECT
-```
-SELECT * FROM test
-SELECT id, firstname FROM test
-SELECT count() FROM test
-SELECT id FROM test where id=1 or id>2
-```
-###### DELETE
-```
-DELETE FROM test WHERE id <2
-DELETE FROM test WHERE firstname = "Tim" 
-```
 #### Shell Commands ###
 There are currently only two shell commands
 * **@*filename***  reads SQL commands from specified file line by line and sends them to the server. Each SQL command must be on one line.
