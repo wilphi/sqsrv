@@ -67,6 +67,8 @@ const (
 	Count   = "COUNT"
 	Null    = "NULL"
 	Drop    = "DROP"
+	Update  = "UPDATE"
+	Set     = "SET"
 )
 
 // Types
@@ -108,6 +110,8 @@ var AllWordTokens = map[string]*Token{
 	Count:      &Token{tokenID: Count, tokenValue: Count},
 	Null:       &Token{tokenID: Null, tokenValue: Null},
 	Drop:       &Token{tokenID: Drop, tokenValue: Drop},
+	Update:     &Token{tokenID: Update, tokenValue: Update},
+	Set:        &Token{tokenID: Set, tokenValue: Set},
 }
 
 // Token Methods
@@ -116,7 +120,8 @@ var AllWordTokens = map[string]*Token{
 func (tkn Token) GetString() string {
 	var tknStr = ""
 	switch tkn.tokenID {
-	case Create, Table, Select, From, Where, And, Insert, Into, Values, RWTrue, RWFalse, Or, Not, Delete, Count, Null, Drop:
+	case Create, Table, Select, From, Where, And, Insert, Into, Values, RWTrue,
+		RWFalse, Or, Not, Delete, Count, Null, Drop, Update, Set:
 		tknStr = tkn.tokenID
 	case TypeTKN:
 		tknStr = tkn.tokenValue

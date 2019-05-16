@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -348,7 +349,7 @@ type UpdateData struct {
 	Function  string
 	TableName string
 	Cols      []string
-	Data      [][]sqtypes.Value
+	Vals      []sqtypes.Value
 	RowPtrs   []int64
 	ID        uint64
 	Identstr  string
@@ -359,97 +360,121 @@ func TestUpdate(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 
 	tab := sqtables.CreateTableDef("testUpdateRedo",
-		sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
+		sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: true},
 		sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false})
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Errorf("Error setting up table for TestInsert: %s", err)
+		t.Errorf("Error setting up table for TestUpdate: %s", err)
+		return
 	}
+	ins := "INSERT INTO testUpdateRedo (col1, col2) VALUES " +
+		"(1, \"test row 1\"), " +
+		"(2, \"test row 2\"), " +
+		"(3, \"test row 3\"), " +
+		"(4, \"test row 4\"), " +
+		"(5, \"test row 5\"), " +
+		"(6, \"test row 6\")"
+	tkns := tokens.Tokenize(ins)
+	_, _, err = cmd.InsertInto(profile, tkns)
+	if err != nil {
+		t.Errorf("Error setting up table for TestUpdate: %s", err)
+		return
+	}
+
 	data := []UpdateData{
 		{
 			TestName:  "Update Row",
 			Function:  "NEW",
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs: []int64{0, 1, 2},
-			ID:      123,
+			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
+			RowPtrs:   []int64{1, 2, 5},
+			ID:        123,
 		},
 		{
 			TestName:  "Update ID String",
 			Function:  "IDSTR",
 			TableName: "testInsertRedo",
 			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - UPDATE  testInsertRedo : Rows = 3",
+			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
+			RowPtrs:   []int64{1, 2, 5},
+			ID:        123,
+			Identstr:  "#123 - UPDATE  testInsertRedo : Rows = 3",
 		},
 		{
 			TestName:  "Update Encode/Decode",
 			Function:  "CODEC",
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
+			RowPtrs:   []int64{1, 2, 5},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
 		},
 		{
 			TestName:  "Update DecodeStatement",
 			Function:  "DECODESTATEMENT",
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
+			RowPtrs:   []int64{1, 2, 5},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
 		},
 		{
 			TestName:  "Update Recreate",
 			Function:  "REDO",
 			TableName: "testUpdateRedo",
-			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
-			ExpErr:   "Internal Error: UpdateRows.Recreate is not implemented",
+			Cols:      []string{"col2"},
+			Vals:      []sqtypes.Value{sqtypes.NewSQString("Row X")},
+			RowPtrs:   []int64{1, 2, 5},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			ExpErr:    "",
 		},
 		{
 			TestName:  "Update Recreate Invalid table",
 			Function:  "REDO",
 			TableName: "testUpdateRedo2",
 			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
-			ExpErr:   "Internal Error: UpdateRows.Recreate is not implemented",
+			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
+			RowPtrs:   []int64{1, 2, 5},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			ExpErr:    "Error: Table testUpdateRedo2 does not exist",
+		},
+		{
+			TestName:  "Update Recreate Null values",
+			Function:  "REDO",
+			TableName: "testUpdateRedo",
+			Cols:      []string{"col1", "col2"},
+			Vals:      []sqtypes.Value{sqtypes.NewSQNull(), sqtypes.NewSQString("Row X")},
+			RowPtrs:   []int64{1, 2, 5},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			ExpErr:    "Error: Column \"col1\" in Table \"testupdateredo\" can not be NULL",
+		},
+		{
+			TestName:  "Update Recreate Extra Column",
+			Function:  "REDO",
+			TableName: "testUpdateRedo",
+			Cols:      []string{"col1", "col2", "col3"},
+			Vals:      []sqtypes.Value{sqtypes.NewSQInt(10), sqtypes.NewSQString("Row X"), sqtypes.NewSQNull()},
+			RowPtrs:   []int64{1, 2, 5},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			ExpErr:    "Error: Column (col3) does not exist in table (testupdateredo)",
+		},
+		{
+			TestName:  "Update Recreate Row does not Exist",
+			Function:  "REDO",
+			TableName: "testUpdateRedo",
+			Cols:      []string{"col1", "col2", "col3"},
+			Vals:      []sqtypes.Value{sqtypes.NewSQInt(10), sqtypes.NewSQString("Row X"), sqtypes.NewSQNull()},
+			RowPtrs:   []int64{999, 2, 5},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			ExpErr:    "Internal Error: Row 999 does not exist for update",
 		},
 	}
 
@@ -469,7 +494,7 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			}
 		}()
 
-		s := redo.NewUpdateRows(d.TableName, d.Cols, d.Data, d.RowPtrs)
+		s := redo.NewUpdateRows(d.TableName, d.Cols, d.Vals, d.RowPtrs)
 		s.SetID(d.ID)
 		switch d.Function {
 		case "NEW":
@@ -512,7 +537,7 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 				}
 				return
 			}
-			if tab.RowCount(profile) != initRowCount+len(d.Data) {
+			if tab.RowCount(profile) != initRowCount {
 				t.Errorf("RowCount is off for recreate of UpdateRows")
 			}
 		}

@@ -94,8 +94,8 @@ func TestInsertInto(t *testing.T) {
 var ct sync.Once
 
 var initTable = func() {
-	tab := "CREATE TABLE insbench (id:int, col1:int, col2:string, col3:bool)"
-	tlist := tk.Tokenize(tab)
+	txt := "CREATE TABLE insbench (id:int, col1:int, col2:string, col3:bool)"
+	tlist := tk.Tokenize(txt)
 	_, err := cmd.CreateTableFromTokens(sqprofile.CreateSQProfile(), tlist)
 	if err != nil {
 		fmt.Printf("Unexpected Error setting up test: %s", err.Error())

@@ -192,7 +192,7 @@ func NewInsertRows(TableName string, cols []string, data [][]sqtypes.Value, ptrs
 type UpdateRows struct {
 	TableName string
 	Cols      []string
-	Data      [][]sqtypes.Value
+	Vals      []sqtypes.Value
 	RowPtrs   []int64
 	ID        uint64
 }
@@ -210,7 +210,8 @@ func (u *UpdateRows) Encode() *sqbin.Codec {
 	// encode the Cols
 	enc.WriteArrayString(u.Cols)
 	enc.WriteArrayInt64(u.RowPtrs)
-	encodeData(enc, u.Data)
+	data := [][]sqtypes.Value{u.Vals}
+	encodeData(enc, data)
 	return enc
 }
 
@@ -229,18 +230,24 @@ func (u *UpdateRows) Decode(dec *sqbin.Codec) {
 	// encode the Cols
 	u.Cols = dec.ReadArrayString()
 	u.RowPtrs = dec.ReadArrayInt64()
-	u.Data = decodeData(dec)
+	data := decodeData(dec)
+	u.Vals = data[0]
 }
 
 // Recreate - reprocess the recorded transaction log SQL statement to restore the database
 func (u *UpdateRows) Recreate(profile *sqprofile.SQProfile) error {
+	// make sure there is a valid table
+	tab := sqtables.GetTable(profile, u.TableName)
+	if tab == nil {
+		return sqerr.New("Table " + u.TableName + " does not exist")
+	}
 
-	return sqerr.NewInternal("UpdateRows.Recreate is not implemented")
+	return tab.UpdateRowsFromPtrs(profile, u.RowPtrs, u.Cols, u.Vals)
 }
 
 // Identify - returns a short string to identify the transaction log statement
 func (u *UpdateRows) Identify() string {
-	return fmt.Sprintf("#%d - UPDATE  %s : Rows = %d", u.ID, u.TableName, len(u.Data))
+	return fmt.Sprintf("#%d - UPDATE  %s : Rows = %d", u.ID, u.TableName, len(u.RowPtrs))
 }
 
 // SetID is used by the transaction logger to indicate the what order the message was sent to the
@@ -255,8 +262,8 @@ func (u *UpdateRows) GetID() uint64 {
 }
 
 // NewUpdateRows -  returns a logstatement that is a UPDATE statement
-func NewUpdateRows(TableName string, cols []string, data [][]sqtypes.Value, ptrs []int64) *UpdateRows {
-	val := &UpdateRows{TableName: TableName, Cols: cols, Data: data, RowPtrs: ptrs}
+func NewUpdateRows(TableName string, cols []string, vals []sqtypes.Value, ptrs []int64) *UpdateRows {
+	val := &UpdateRows{TableName: TableName, Cols: cols, Vals: vals, RowPtrs: ptrs}
 	return val
 
 }

@@ -23,6 +23,31 @@ type RowDef struct {
 
 // Methods
 
+// UpdateRow updates the values of the row
+func (r *RowDef) UpdateRow(profile *sqprofile.SQProfile, cols []string, vals []sqtypes.Value) error {
+	if len(cols) != len(vals) {
+		return e.New(fmt.Sprintf("The Number of Columns (%d) does not match the number of Values (%d)", len(cols), len(vals)))
+	}
+
+	for i, col := range cols {
+		colDef := r.table.FindColDef(profile, col)
+		if colDef == nil {
+			return e.New("Column (" + col + ") does not exist in table (" + r.table.GetName(profile) + ")")
+		}
+		if colDef.IsNotNull && vals[i].IsNull() {
+			return e.New(fmt.Sprintf("Column %q in Table %q can not be NULL", col, r.table.tableName))
+		}
+		if colDef.ColType != vals[i].GetType() {
+			return e.New(fmt.Sprintf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, r.table.tableName, colDef.ColType, vals[i].GetType()))
+		}
+		r.Data[colDef.Idx] = vals[i]
+
+	}
+	r.isModified = true
+
+	return nil
+}
+
 // CreateRow -
 func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols []string, vals []sqtypes.Value) (*RowDef, error) {
 	colNum := len(table.tableCols)

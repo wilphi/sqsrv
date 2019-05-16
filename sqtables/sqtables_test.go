@@ -1,8 +1,10 @@
 package sqtables_test
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/wilphi/sqsrv/cmd"
@@ -105,5 +107,103 @@ func TestGetRowData(t *testing.T) {
 
 	for _, rw := range testData {
 		t.Run(rw.TName, testGetRowDataFunc(profile, &rw))
+	}
+}
+
+type RowPtrsTest struct {
+	TestName string
+	Tab      *sqtables.TableDef
+	Cond     sqtables.Condition
+	ExpErr   string
+	ExpRows  []int64
+	Sort     bool
+}
+
+func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*testing.T) {
+	return func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(d.TestName + " panicked unexpectedly")
+			}
+		}()
+		ptrs, err := d.Tab.GetRowPtrs(profile, d.Cond, d.Sort)
+		if err != nil {
+			log.Println(err.Error())
+			if d.ExpErr == "" {
+				t.Errorf("Unexpected Error in test: %s", err.Error())
+				return
+			}
+			if d.ExpErr != err.Error() {
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
+				return
+			}
+		}
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+			return
+		}
+
+		if len(d.ExpRows) != len(ptrs) {
+			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", len(ptrs), len(d.ExpRows))
+			return
+		}
+
+		// make sure the row numbers match
+		sort.Slice(d.ExpRows, func(i, j int) bool { return ptrs[i] < ptrs[j] })
+		for i := range ptrs {
+			if ptrs[i] != d.ExpRows[i] {
+				t.Errorf("Returned Row num (%d) does not match expected (%d)", ptrs[i], d.ExpRows[i])
+			}
+		}
+	}
+}
+
+func TestGetRowPtrs(t *testing.T) {
+	profile := sqprofile.CreateSQProfile()
+	// Data Setup
+	stmt := "CREATE TABLE rowptrstest (rowid int, firstname string, active bool)"
+	tkList := tokens.Tokenize(stmt)
+	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+
+	testT := sqtables.GetTable(profile, tableName)
+	stmt = "INSERT INTO " + tableName + "(rowid, firstname, active) VALUES " +
+		"(1, \"Tim\", true), " +
+		"(2, \"Ted\", true), " +
+		"(3, \"Tex\", true), " +
+		"(4, \"Tad\", true), " +
+		"(5, \"Tom\", true), " +
+		"(6, \"Top\", false)"
+	tkList = tokens.Tokenize(stmt)
+	_, _, err = cmd.InsertInto(profile, tkList)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+	col1Def := *testT.FindColDef(profile, "rowid")
+	col2Def := *testT.FindColDef(profile, "active")
+	condAll := sqtables.NewCVCond(col1Def, "<", sqtypes.NewSQInt(50))
+	condNoRow := sqtables.NewCVCond(col1Def, "=", sqtypes.NewSQInt(26))
+	condFirst := sqtables.NewCVCond(col1Def, "=", sqtypes.NewSQInt(1))
+	condLast := sqtables.NewCVCond(col2Def, "=", sqtypes.NewSQBool(false))
+	condHalf2 := sqtables.NewCVCond(col1Def, "=", sqtypes.NewSQInt(3))
+	condHalf := sqtables.NewORCondition(condFirst, sqtables.NewORCondition(condHalf2, condLast))
+	condMis := sqtables.NewCVCond(col1Def, "=", sqtypes.NewSQString("TEST"))
+	data := []RowPtrsTest{
+		{TestName: "All Rows no Cond", Tab: testT, Cond: nil, ExpErr: "", ExpRows: []int64{1, 2, 3, 4, 5, 6}, Sort: true},
+		{TestName: "All Rows with Cond", Tab: testT, Cond: condAll, ExpErr: "", ExpRows: []int64{1, 2, 3, 4, 5, 6}, Sort: true},
+		{TestName: "No Rows", Tab: testT, Cond: condNoRow, ExpErr: "", ExpRows: []int64{}, Sort: true},
+		{TestName: "First Row", Tab: testT, Cond: condFirst, ExpErr: "", ExpRows: []int64{1}, Sort: true},
+		{TestName: "Last Row", Tab: testT, Cond: condLast, ExpErr: "", ExpRows: []int64{6}, Sort: true},
+		{TestName: "Half the Rows", Tab: testT, Cond: condHalf, ExpErr: "", ExpRows: []int64{1, 3, 6}, Sort: true},
+		{TestName: "Condition type mismatch", Tab: testT, Cond: condMis, ExpErr: "Error: Where clause expression rowid = TEST has a type mismatch", ExpRows: []int64{}, Sort: true},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testGetRowPtrsFunc(profile, &row))
+
 	}
 }

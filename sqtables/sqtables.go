@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqmutex"
 	"github.com/wilphi/sqsrv/sqprofile"
 	sqtypes "github.com/wilphi/sqsrv/sqtypes"
@@ -126,27 +127,15 @@ func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, conditions Condition
 	var err error
 	var ptrs []int64
 
-	includeRow := (conditions == nil)
 	t.Lock(profile)
 	defer t.Unlock(profile)
 
-	// Get the pointers
-	for i := range t.rowm {
-
-		if conditions != nil {
-			includeRow, err = conditions.Evaluate(profile, t.rowm[i])
-			if err != nil {
-				return []int64{}, err
-			}
-		}
-		if !includeRow {
-			continue
-		}
-
-		ptrs = append(ptrs, i)
-	}
+	ptrs, err = t.GetRowPtrs(profile, conditions, false)
 
 	// If no errors then delete
+	if err != nil {
+		return nil, err
+	}
 
 	return ptrs, DeleteRowsFromPtrs(profile, t, ptrs, SoftDelete)
 }
@@ -297,21 +286,52 @@ func (t *TableDef) NumCol(profile *sqprofile.SQProfile) int {
 	return len(t.tableCols)
 }
 
-// GetRowPtrs returns the full list of rowIDs for the table. It can be sorted or not.
-func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, sorted bool) []int {
+// GetRowPtrs returns the list of rowIDs for the table based on the conditions.
+//    If the conditions are nil, then all rows are returned. The list can be sorted or not.
+//    By default the table is Read Locked, to have a write lock the calling function must do it.
+func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, conditions Condition, sorted bool) ([]int64, error) {
+	var err error
+	var ptrs []int64
 
-	// get the ordered list of RowIDs
-	list := make([]int, len(t.rowm))
+	includeRow := (conditions == nil)
+	t.RLock(profile)
+	defer t.RUnlock(profile)
 
-	i := 0
-	for rowid := range t.rowm {
-		list[i] = int(rowid)
-		i++
+	for rowID := range t.rowm {
+		if conditions != nil {
+			includeRow, err = conditions.Evaluate(profile, t.rowm[rowID])
+			if err != nil {
+				return nil, err
+			}
+		}
+		if !includeRow {
+			continue
+		}
+
+		ptrs = append(ptrs, rowID)
 	}
 	if sorted {
-		sort.Ints(list)
+		sort.Slice(ptrs, func(i, j int) bool { return ptrs[i] < ptrs[j] })
 	}
-	return list
+	return ptrs, nil
+}
+
+//UpdateRowsFromPtrs updates rows in the table based on the given list of pointers, columns to be changed and values to be set
+func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64, cols []string, vals []sqtypes.Value) error {
+	t.Lock(profile)
+	defer t.Unlock(profile)
+	for _, idx := range ptrs {
+		row, ok := t.rowm[idx]
+		if row == nil || !ok {
+			return sqerr.NewInternal(fmt.Sprintf("Row %d does not exist for update", idx))
+		}
+		err := row.UpdateRow(profile, cols, vals)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
 
 // isUnderScore - Checks to see if first char in string is an underscore

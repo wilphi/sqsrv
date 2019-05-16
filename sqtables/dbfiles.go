@@ -146,7 +146,7 @@ func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 	nextOffset := td.nextOffset
 
 	// get the ordered list of RowIDs
-	list := td.GetRowPtrs(profile, true)
+	list, _ := td.GetRowPtrs(profile, nil, true)
 
 	for _, rowid := range list {
 		row := td.rowm[int64(rowid)]
