@@ -37,7 +37,7 @@ func (r *RowDef) UpdateRow(profile *sqprofile.SQProfile, cols []string, vals []s
 		if colDef.IsNotNull && vals[i].IsNull() {
 			return e.New(fmt.Sprintf("Column %q in Table %q can not be NULL", col, r.table.tableName))
 		}
-		if colDef.ColType != vals[i].GetType() {
+		if colDef.ColType != vals[i].GetType() && !vals[i].IsNull() {
 			return e.New(fmt.Sprintf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, r.table.tableName, colDef.ColType, vals[i].GetType()))
 		}
 		r.Data[colDef.Idx] = vals[i]
@@ -71,11 +71,18 @@ func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols 
 	}
 
 	for i, col := range cols {
-		idx, _ := table.FindCol(profile, col)
-		if idx < 0 {
+		colDef := row.table.FindColDef(profile, col)
+		if colDef == nil {
 			return nil, e.New("Column (" + col + ") does not exist in table (" + table.GetName(profile) + ")")
 		}
-		row.Data[idx] = vals[i]
+		if colDef.IsNotNull && vals[i].IsNull() {
+			return nil, e.New(fmt.Sprintf("Column %q in Table %q can not be NULL", col, row.table.tableName))
+		}
+		if colDef.ColType != vals[i].GetType() && !vals[i].IsNull() {
+			return nil, e.New(fmt.Sprintf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, row.table.tableName, colDef.ColType, vals[i].GetType()))
+		}
+
+		row.Data[colDef.Idx] = vals[i]
 
 	}
 	// Validate NotNull cols
