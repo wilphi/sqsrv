@@ -163,7 +163,7 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 	defer t.RUnlock(profile)
 	for i, idx := range ptrs {
 		row, ok := t.rowm[idx]
-		if ok {
+		if !ok {
 			return nil, sqerr.New(fmt.Sprintf("Row %d does not exist", idx))
 		}
 		ds.Vals[i] = append(row.Data[:0:0], row.Data...)
