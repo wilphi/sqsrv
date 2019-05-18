@@ -137,11 +137,11 @@ func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, conditions Condition
 		return nil, err
 	}
 
-	return ptrs, DeleteRowsFromPtrs(profile, t, ptrs, SoftDelete)
+	return ptrs, t.DeleteRowsFromPtrs(profile, ptrs, SoftDelete)
 }
 
 //DeleteRowsFromPtrs deletes rows from a table based on the given list of pointers
-func DeleteRowsFromPtrs(profile *sqprofile.SQProfile, t *TableDef, ptrs []int64, soft bool) error {
+func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64, soft bool) error {
 	t.Lock(profile)
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
@@ -153,6 +153,22 @@ func DeleteRowsFromPtrs(profile *sqprofile.SQProfile, t *TableDef, ptrs []int64,
 		}
 	}
 	return nil
+}
+
+// GetRowDataFromPtrs returns data based on the rowIDs passed
+func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64) (*DataSet, error) {
+	ds := NewDataSet(t, t.GetCols(profile))
+	ds.Vals = make([][]sqtypes.Value, len(ptrs))
+	t.RLock(profile)
+	defer t.RUnlock(profile)
+	for i, idx := range ptrs {
+		row, ok := t.rowm[idx]
+		if ok {
+			return nil, sqerr.New(fmt.Sprintf("Row %d does not exist", idx))
+		}
+		ds.Vals[i] = append(row.Data[:0:0], row.Data...)
+	}
+	return ds, nil
 }
 
 // GetRowData - Returns a dataset with the data from table

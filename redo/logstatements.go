@@ -314,7 +314,7 @@ func (d *DeleteRows) Recreate(profile *sqprofile.SQProfile) error {
 	if tab == nil {
 		return sqerr.New("Table " + d.TableName + " does not exist")
 	}
-	err := sqtables.DeleteRowsFromPtrs(profile, tab, d.RowPtrs, sqtables.SoftDelete)
+	err := tab.DeleteRowsFromPtrs(profile, d.RowPtrs, sqtables.SoftDelete)
 	profile.VerifyNoLocks()
 
 	return err
