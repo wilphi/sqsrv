@@ -323,9 +323,13 @@ func CreateValueFromToken(tkn t.Token) (Value, error) {
 
 //Raw given any type convert it into a SQ Value
 // Currently only works for int, string, bool
+//  nil values get converted to SQNull
 func Raw(raw interface{}) Value {
 	var retVal Value
 
+	if raw == nil {
+		return NewSQNull()
+	}
 	switch reflect.TypeOf(raw).Kind() {
 	case reflect.Int:
 		retVal = NewSQInt(raw.(int))
