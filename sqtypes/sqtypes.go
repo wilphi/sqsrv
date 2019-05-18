@@ -1,7 +1,9 @@
 package sqtypes
 
 import (
+	"fmt"
 	"log"
+	"reflect"
 	"strconv"
 
 	"github.com/wilphi/sqsrv/sqbin"
@@ -36,6 +38,10 @@ type Value interface {
 	IsNull() bool
 	Write(c *sqbin.Codec)
 }
+
+// RawVals raw values that can be converted to sq Values
+// 	used for testing
+type RawVals [][]interface{}
 
 // ReadValue takes a byte array an decodes the Value from it.
 // 	Int returns the number of bytes read
@@ -313,4 +319,37 @@ func CreateValueFromToken(tkn t.Token) (Value, error) {
 		return nil, e.NewInternal(tkn.GetString() + " is not a valid Value")
 	}
 	return retVal, nil
+}
+
+//Raw given any type convert it into a SQ Value
+// Currently only works for int, string, bool
+func Raw(raw interface{}) Value {
+	var retVal Value
+
+	switch reflect.TypeOf(raw).Kind() {
+	case reflect.Int:
+		retVal = NewSQInt(raw.(int))
+	case reflect.String:
+		retVal = NewSQString(raw.(string))
+	case reflect.Bool:
+		retVal = NewSQBool(raw.(bool))
+	default:
+		panic(fmt.Sprintf("%T is not a valid Raw SQ type", raw))
+	}
+	return retVal
+}
+
+// CreateValuesFromRaw converts a 2D array of raw to a 2D array of SQ Values
+func CreateValuesFromRaw(raw RawVals) [][]Value {
+	nRows := len(raw)
+	retVals := make([][]Value, nRows)
+
+	for i, row := range raw {
+		retVals[i] = make([]Value, len(row))
+		for j, item := range row {
+			retVals[i][j] = Raw(item)
+		}
+	}
+	return retVals
+
 }

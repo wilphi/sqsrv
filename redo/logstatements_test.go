@@ -584,7 +584,7 @@ func TestDelete(t *testing.T) {
 		ds.Vals[i][0] = sqtypes.NewSQInt(i + 1)
 		ds.Vals[i][1] = sqtypes.NewSQString(fmt.Sprintf("Delete Test %d", i+1))
 	}
-	_, err = tab.AddRows(profile, &ds)
+	_, err = tab.AddRows(profile, ds)
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}

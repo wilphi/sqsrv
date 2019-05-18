@@ -160,7 +160,7 @@ func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 	dataSet.Vals = i.Data
 	dataSet.Ptrs = i.RowPtrs
 
-	_, err := tab.AddRows(profile, &dataSet)
+	_, err := tab.AddRows(profile, dataSet)
 
 	profile.VerifyNoLocks()
 	return err

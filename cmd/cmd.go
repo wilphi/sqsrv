@@ -7,6 +7,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 	t "github.com/wilphi/sqsrv/tokens"
 )
 
@@ -111,7 +112,7 @@ func GetWhereConditions(profile *sqprofile.SQProfile, tkns *t.TokenList, td *sqt
 		return tkns, nil, err
 	}
 	for {
-		if tkns.Len() <= 0 {
+		if tkns.Len() <= 0 || tkns.Test(t.Order) != "" {
 			break
 		}
 		if val := tkns.Test(t.And, t.Or); val != "" {
@@ -128,10 +129,55 @@ func GetWhereConditions(profile *sqprofile.SQProfile, tkns *t.TokenList, td *sqt
 				cond = sqtables.NewORCondition(lCond, rCond)
 				break
 			}
-		} else if tkns.Len() > 0 {
-			return tkns, nil, e.New("The where clause is malformed.")
 		}
 	}
 
 	return tkns, cond, nil
+}
+
+//OrderByClause processing
+func OrderByClause(tkns *t.TokenList) ([]sqtables.OrderItem, error) {
+	var sortCol, sortType string
+	var orderBy []sqtables.OrderItem
+
+	if tkns.Test(tokens.Order) != "" {
+		tkns.Remove()
+	}
+	if tkns.Test(tokens.By) == "" {
+		return nil, e.NewSyntax("ORDER missing BY")
+	}
+	tkns.Remove()
+	hangingComma := true
+	for {
+
+		// colName ASC/DESC, ...
+		if sortCol = tkns.Test(tokens.Ident); sortCol != "" {
+			if !hangingComma {
+				return nil, e.NewSyntax("Missing comma in ORDER BY clause")
+			}
+			tkns.Remove()
+			hangingComma = false
+			if sortType = tkns.Test(tokens.Asc, tokens.Desc); sortType != "" {
+				tkns.Remove()
+			} else {
+				sortType = tokens.Asc
+			}
+			orderBy = append(orderBy, sqtables.OrderItem{ColName: sortCol, SortType: sortType})
+			if tkns.Test(tokens.Comma) != "" {
+				tkns.Remove()
+				hangingComma = true
+				continue
+			}
+		} else {
+			return nil, e.NewSyntax("Missing column name in ORDER BY clause")
+		}
+
+		if tkns.Len() == 0 || tkns.Peek().GetName() != tokens.Ident {
+			break
+		}
+	}
+	if hangingComma {
+		return nil, e.NewSyntax("Missing comma in ORDER BY clause")
+	}
+	return orderBy, nil
 }

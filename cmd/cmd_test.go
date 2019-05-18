@@ -2,11 +2,15 @@ package cmd_test
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"reflect"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/tokens"
 
 	"github.com/wilphi/sqsrv/cmd"
 	sqt "github.com/wilphi/sqsrv/sqtables"
@@ -29,140 +33,381 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 
 }
-func testGetIdentListFunc(tkns *tk.TokenList, terminator *tk.Token, expectedIdents []string, errTxt string) func(*testing.T) {
+
+type GetIdentListData struct {
+	TestName     string
+	Terminator   *tk.Token
+	Command      string
+	ExpErr       string
+	ExpectedCols []string
+}
+
+func testGetIdentListFunc(d GetIdentListData) func(*testing.T) {
 	return func(t *testing.T) {
-		rTkns, rIdents, err := cmd.GetIdentList(tkns, terminator, false)
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(d.TestName + " panicked unexpectedly")
+			}
+		}()
+		tkns := tk.Tokenize(d.Command)
+
+		rTkns, rIdents, err := cmd.GetIdentList(tkns, d.Terminator, false)
 		if err != nil {
 			log.Println(err.Error())
-			if errTxt == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
+			if d.ExpErr == "" {
+				t.Errorf("Unexpected Error in test: %s", err.Error())
 				return
 			}
-			if errTxt != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", errTxt, err.Error()))
+			if d.ExpErr != err.Error() {
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
 				return
 			}
 			return
 		}
-		if err == nil && errTxt != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", errTxt))
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
 		if rTkns.Len() != 0 {
 			t.Error("All tokens should be consumed by test")
 			return
 		}
-		if len(expectedIdents) != len(rIdents) {
-			t.Error(fmt.Sprintf("The length Expected Idents (%d) and returned Idents (%d) do not match", len(expectedIdents), len(rIdents)))
+		if len(d.ExpectedCols) != len(rIdents) {
+			t.Errorf("The length Expected Idents (%d) and returned Idents (%d) do not match", len(d.ExpectedCols), len(rIdents))
 			return
 		}
-		for i, id := range expectedIdents {
-			if rIdents[i] != id {
-				t.Error(fmt.Sprintf("Expected Ident (%s) does not match returned Ident (%s)", id, rIdents))
-			}
+		for !reflect.DeepEqual(d.ExpectedCols, rIdents) {
+			t.Error("Expected Columns do not match actual Columns")
 		}
 
 	}
 }
 func TestGetIdentList(t *testing.T) {
 
-	var testStruct = []struct {
-		TestName     string
-		Terminator   *tk.Token
-		Command      string
-		ExpectedErr  string
-		ExpectedCols []string
-	}{
-		{"One Col", tk.SYMBOLS[')'], "col1", "Syntax Error: Comma is required to separate column definitions", nil},
-		{"Expect another Col", tk.SYMBOLS[')'], "col1,", "Syntax Error: Expecting name of column", nil},
-		{"Two Col", tk.SYMBOLS[')'], "col1, col2", "Syntax Error: Comma is required to separate column definitions", nil},
-		{"Expect a third Col", tk.SYMBOLS[')'], "col1,col2,", "Syntax Error: Expecting name of column", nil},
-		{"Three Col", tk.SYMBOLS[')'], "col1, col2, col3", "Syntax Error: Comma is required to separate column definitions", nil},
-		{"Complete col definition with )", tk.SYMBOLS[')'], "col1, col2, col3)", "", []string{"col1", "col2", "col3"}},
-		{"Complete col definition with FROM", tk.AllWordTokens[tk.From], "firstname, lastname, phonenum FROM", "", []string{"firstname", "lastname", "phonenum"}},
-		{"Extra Comma in list", tk.SYMBOLS[')'], "col1, col2, col3,)", "Syntax Error: Unexpected \",\" before \")\"", []string{"col1", "col2", "col3"}},
-		{"No Cols in list", tk.SYMBOLS[')'], ")", "Syntax Error: No columns defined for table", []string{"col1", "col2", "col3"}},
+	data := []GetIdentListData{
+		{
+			TestName:     "One Col",
+			Terminator:   tk.SYMBOLS[')'],
+			Command:      "col1",
+			ExpErr:       "Syntax Error: Comma is required to separate column definitions",
+			ExpectedCols: nil,
+		},
+		{
+			TestName:     "Expect another Col",
+			Terminator:   tk.SYMBOLS[')'],
+			Command:      "col1,",
+			ExpErr:       "Syntax Error: Expecting name of column",
+			ExpectedCols: nil,
+		},
+		{
+			TestName:     "Two Col",
+			Terminator:   tk.SYMBOLS[')'],
+			Command:      "col1, col2",
+			ExpErr:       "Syntax Error: Comma is required to separate column definitions",
+			ExpectedCols: nil,
+		},
+		{
+			TestName:     "Expect a third Col",
+			Terminator:   tk.SYMBOLS[')'],
+			Command:      "col1,col2,",
+			ExpErr:       "Syntax Error: Expecting name of column",
+			ExpectedCols: nil,
+		},
+		{
+			TestName:     "Three Col",
+			Terminator:   tk.SYMBOLS[')'],
+			Command:      "col1, col2, col3",
+			ExpErr:       "Syntax Error: Comma is required to separate column definitions",
+			ExpectedCols: nil,
+		},
+		{
+			TestName:     "Complete col definition with )",
+			Terminator:   tk.SYMBOLS[')'],
+			Command:      "col1, col2, col3)",
+			ExpErr:       "",
+			ExpectedCols: []string{"col1", "col2", "col3"},
+		},
+		{
+			TestName:     "Complete col definition with FROM",
+			Terminator:   tk.AllWordTokens[tk.From],
+			Command:      "firstname, lastname, phonenum FROM",
+			ExpErr:       "",
+			ExpectedCols: []string{"firstname", "lastname", "phonenum"},
+		},
+		{
+			TestName:     "Extra Comma in list",
+			Terminator:   tk.SYMBOLS[')'],
+			Command:      "col1, col2, col3,)",
+			ExpErr:       "Syntax Error: Unexpected \",\" before \")\"",
+			ExpectedCols: []string{"col1", "col2", "col3"},
+		},
+		{
+			TestName:     "No Cols in list",
+			Terminator:   tk.SYMBOLS[')'],
+			Command:      ")",
+			ExpErr:       "Syntax Error: No columns defined for table",
+			ExpectedCols: []string{"col1", "col2", "col3"},
+		},
 	}
 
-	for i, row := range testStruct {
-		tlist := tk.Tokenize(row.Command)
+	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testGetIdentListFunc(tlist, row.Terminator, row.ExpectedCols, row.ExpectedErr))
+			testGetIdentListFunc(row))
 
 	}
 
+}
+
+type GetWhereConditionsData struct {
+	TestName     string
+	Command      string
+	TableName    string
+	ExpectedCond string
+	ExpErr       string
 }
 
 func TestGetWhereConditions(t *testing.T) {
 
 	//make sure table exists for testing
 	profile := sqprofile.CreateSQProfile()
-
-	tab := sqt.CreateTableDef("cmdtest",
-		sqt.CreateColDef("col1", tk.TypeInt, false),
-		sqt.CreateColDef("col2", tk.TypeString, false),
-		sqt.CreateColDef("col3", tk.TypeBool, false))
-	err := sqt.CreateTable(profile, tab)
+	tkns := tokens.Tokenize("CREATE TABLE WhereCondtest (col1 int, col2 string, col3 bool)")
+	tableName, err := cmd.CreateTableFromTokens(profile, tkns)
 	if err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	var testStruct = []struct {
-		TestName     string
-		Command      string
-		TableD       *sqt.TableDef
-		ExpectedCond string
-		ExpectedErr  string
-	}{
-		{"Equal Condition", "col1 = 1", tab, "col1 = 1", ""},
-		{"Reverse Equal Condition", "1 = col1", tab, "col1 = 1", "Syntax Error: Expecting a column name in where clause"},
-		{"No Col Condition", "2=1", tab, "", "Syntax Error: Expecting a column name in where clause"},
-		{"Invalid Operator", "col1 ~ 1", tab, "col1 = 1", "Syntax Error: Expecting an operator after column name (col1) in where clause"},
-		{"Missing Value", "col1 = ", tab, "col1 = 1", "Syntax Error: Expecting a value in where clause after col1 ="},
-		{"Invalid Value", "col1 = 9999999999999999999999 ", tab, "col1 = 1", "Syntax Error: \"9999999999999999999999\" is not a number"},
-		{"Simple AND Condition", "col1 = 1 AND col2 = \"test\"", tab, "(col1 = 1 AND col2 = \"test\")", ""},
-		{"Simple OR Condition", "col1 = 1 OR col2 = \"test\"", tab, "(col1 = 1 OR col2 = \"test\")", ""},
-		{"Multiple AND Conditions", "col1 = 1 AND col2 = \"test\" AND col3 = false", tab, "((col1 = 1 AND col2 = \"test\") AND col3 = false)", ""},
-		{"Multiple OR Conditions", "col1 = 1 OR col2 = \"test\" OR col3 = false", tab, "(col1 = 1 OR (col2 = \"test\" OR col3 = false))", ""},
-		{"Multiple AND/OR conditions", "col1 = 1 AND col2 = \"test\" OR col3 = false", tab, "((col1 = 1 AND col2 = \"test\") OR col3 = false)", ""},
-		{"Multiple OR/AND conditions", "col1 = 1 OR col2 = \"test\" AND col3 = false", tab, "(col1 = 1 OR (col2 = \"test\" AND col3 = false))", ""},
+	data := []GetWhereConditionsData{
+		{
+			TestName:     "Equal Condition",
+			Command:      "col1 = 1",
+			TableName:    tableName,
+			ExpectedCond: "col1 = 1",
+			ExpErr:       "",
+		},
+		{
+			TestName:     "Reverse Equal Condition",
+			Command:      "1 = col1",
+			TableName:    tableName,
+			ExpectedCond: "col1 = 1",
+			ExpErr:       "Syntax Error: Expecting a column name in where clause",
+		},
+		{
+			TestName:     "No Col Condition",
+			Command:      "2=1",
+			TableName:    tableName,
+			ExpectedCond: "",
+			ExpErr:       "Syntax Error: Expecting a column name in where clause",
+		},
+		{
+			TestName:     "Invalid Operator",
+			Command:      "col1 ~ 1",
+			TableName:    tableName,
+			ExpectedCond: "col1 = 1",
+			ExpErr:       "Syntax Error: Expecting an operator after column name (col1) in where clause",
+		},
+		{
+			TestName:     "Missing Value",
+			Command:      "col1 = ",
+			TableName:    tableName,
+			ExpectedCond: "col1 = 1",
+			ExpErr:       "Syntax Error: Expecting a value in where clause after col1 =",
+		},
+		{
+			TestName:     "Invalid Value",
+			Command:      "col1 = 9999999999999999999999 ",
+			TableName:    tableName,
+			ExpectedCond: "col1 = 1",
+			ExpErr:       "Syntax Error: \"9999999999999999999999\" is not a number",
+		},
+		{
+			TestName:     "Simple AND Condition",
+			Command:      "col1 = 1 AND col2 = \"test\"",
+			TableName:    tableName,
+			ExpectedCond: "(col1 = 1 AND col2 = \"test\")",
+			ExpErr:       "",
+		},
+		{
+			TestName:     "Simple OR Condition",
+			Command:      "col1 = 1 OR col2 = \"test\"",
+			TableName:    tableName,
+			ExpectedCond: "(col1 = 1 OR col2 = \"test\")",
+			ExpErr:       "",
+		},
+		{
+			TestName:     "Multiple AND Conditions",
+			Command:      "col1 = 1 AND col2 = \"test\" AND col3 = false",
+			TableName:    tableName,
+			ExpectedCond: "((col1 = 1 AND col2 = \"test\") AND col3 = false)",
+			ExpErr:       "",
+		},
+		{
+			TestName:     "Multiple OR Conditions",
+			Command:      "col1 = 1 OR col2 = \"test\" OR col3 = false",
+			TableName:    tableName,
+			ExpectedCond: "(col1 = 1 OR (col2 = \"test\" OR col3 = false))",
+			ExpErr:       "",
+		},
+		{
+			TestName:     "Multiple AND/OR conditions",
+			Command:      "col1 = 1 AND col2 = \"test\" OR col3 = false",
+			TableName:    tableName,
+			ExpectedCond: "((col1 = 1 AND col2 = \"test\") OR col3 = false)",
+			ExpErr:       "",
+		},
+		{
+			TestName:     "Multiple OR/AND conditions",
+			Command:      "col1 = 1 OR col2 = \"test\" AND col3 = false",
+			TableName:    tableName,
+			ExpectedCond: "(col1 = 1 OR (col2 = \"test\" AND col3 = false))",
+			ExpErr:       "",
+		},
 	}
 
-	for i, row := range testStruct {
-		tlist := tk.Tokenize(row.Command)
+	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testGetWhereConditionsFunc(profile, tlist, row.TableD, row.ExpectedCond, row.ExpectedErr))
+			testGetWhereConditionsFunc(profile, row))
 
 	}
 
 }
 
-func testGetWhereConditionsFunc(profile *sqprofile.SQProfile, tkns *tk.TokenList, tab *sqt.TableDef, expectedCond string, errTxt string) func(*testing.T) {
+func testGetWhereConditionsFunc(profile *sqprofile.SQProfile, d GetWhereConditionsData) func(*testing.T) {
 	return func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(d.TestName + " panicked unexpectedly")
+			}
+		}()
+		tkns := tk.Tokenize(d.Command)
+		tab := sqt.GetTable(profile, d.TableName)
 		rTkns, rConds, err := cmd.GetWhereConditions(profile, tkns, tab)
 		if err != nil {
 			log.Println(err.Error())
-			if errTxt == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
+			if d.ExpErr == "" {
+				t.Errorf("Unexpected Error in test: %s", err.Error())
 				return
 			}
-			if errTxt != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", errTxt, err.Error()))
+			if d.ExpErr != err.Error() {
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
 				return
 			}
 			return
 		}
-		if err == nil && errTxt != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", errTxt))
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
 		if rTkns.Len() != 0 {
 			t.Error("All tokens should be consumed by test")
 			return
 		}
-		if rConds.ToString() != expectedCond {
-			t.Error(fmt.Sprintf("Expected Condition (%s) does not match returned Condition (%s)", expectedCond, rConds.ToString()))
+		if rConds.ToString() != d.ExpectedCond {
+			t.Errorf("Expected Condition (%s) does not match actual Condition (%s)", d.ExpectedCond, rConds.ToString())
 		}
+
+	}
+}
+
+func testOrderByFunc(profile *sqprofile.SQProfile, d OrderByData) func(*testing.T) {
+	return func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(d.TestName + " panicked unexpectedly")
+			}
+		}()
+		tkns := tokens.Tokenize(d.Command)
+
+		aOrderBy, err := cmd.OrderByClause(tkns)
+		if err != nil {
+			log.Println(err.Error())
+			if d.ExpErr == "" {
+				t.Errorf("Unexpected Error in test: %s", err.Error())
+				return
+			}
+			if d.ExpErr != err.Error() {
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
+				return
+			}
+			return
+		}
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+			return
+		}
+
+		if !reflect.DeepEqual(aOrderBy, d.ExpOrder) {
+			t.Error("Expected Order By Columns do not match actual columns")
+		}
+	}
+}
+
+type OrderByData struct {
+	TestName string
+	Command  string
+	ExpErr   string
+	ExpOrder []sqtables.OrderItem
+}
+
+func TestOrderBy(t *testing.T) {
+
+	//make sure table exists for testing
+	profile := sqprofile.CreateSQProfile()
+
+	data := []OrderByData{
+		{
+			TestName: "Order By Three Cols",
+			Command:  "Order by col1 asc, col2 desc, col3",
+			ExpErr:   "",
+			ExpOrder: []sqtables.OrderItem{
+				{ColName: "col1", SortType: "ASC"},
+				{ColName: "col2", SortType: "DESC"},
+				{ColName: "col3", SortType: "ASC"},
+			},
+		},
+		{
+			TestName: "Order  no By Three Cols",
+			Command:  "Order col1 asc, col2 desc, col3",
+			ExpErr:   "Syntax Error: ORDER missing BY",
+			ExpOrder: []sqtables.OrderItem{
+				{ColName: "col1", SortType: "ASC"},
+				{ColName: "col2", SortType: "DESC"},
+				{ColName: "col3", SortType: "ASC"},
+			},
+		},
+		{
+			TestName: "Order By followed by Where",
+			Command:  "Order By col1 asc, col2 desc, col3 Where",
+			ExpErr:   "",
+			ExpOrder: []sqtables.OrderItem{
+				{ColName: "col1", SortType: "ASC"},
+				{ColName: "col2", SortType: "DESC"},
+				{ColName: "col3", SortType: "ASC"},
+			},
+		},
+		{
+			TestName: "Order By single col",
+			Command:  "Order By col1 ",
+			ExpErr:   "",
+			ExpOrder: []sqtables.OrderItem{
+				{ColName: "col1", SortType: "ASC"},
+			},
+		},
+		{
+			TestName: "Order By hanging comma",
+			Command:  "Order By col1, ",
+			ExpErr:   "Syntax Error: Missing column name in ORDER BY clause",
+			ExpOrder: []sqtables.OrderItem{
+				{ColName: "col1", SortType: "ASC"},
+			},
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testOrderByFunc(profile, row))
 
 	}
 }

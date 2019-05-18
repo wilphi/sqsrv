@@ -19,7 +19,7 @@ type InsertStmt struct {
 	tableName string
 	//cols      []string
 	//vals      [][]sqtypes.Value
-	data sqtables.DataSet
+	data *sqtables.DataSet
 }
 
 // InsertIntoOld -
@@ -208,7 +208,7 @@ func (ins *InsertStmt) insertIntoTables(profile *sqprofile.SQProfile) (int, erro
 		return 0, e.New("Table " + ins.tableName + " does not exist")
 	}
 
-	nRows, err := tab.AddRows(profile, &ins.data)
+	nRows, err := tab.AddRows(profile, ins.data)
 	if err != nil {
 		return 0, err
 	}

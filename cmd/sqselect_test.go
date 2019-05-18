@@ -2,58 +2,85 @@ package cmd_test
 
 import (
 	"fmt"
-	"log"
+	"reflect"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtables"
 	sqt "github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtypes"
 	tk "github.com/wilphi/sqsrv/tokens"
 )
 
-func testSelectFunc(profile *sqprofile.SQProfile, tkns *tk.TokenList, nExp int, cols []string, errTxt string) func(*testing.T) {
+type SelectData struct {
+	TestName string
+	Command  string
+	ExpErr   string
+	ExpRows  int
+	ExpCols  []string
+	ExpVals  [][]interface{}
+}
+
+func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T) {
 	return func(t *testing.T) {
-		data, err := cmd.SelectFromTokens(profile, tkns)
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(d.TestName + " panicked unexpectedly")
+			}
+		}()
+		tkns := tk.Tokenize(d.Command)
+		_, data, err := cmd.Select(profile, tkns)
 		if err != nil {
 			log.Println(err.Error())
-			if errTxt == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
+			if d.ExpErr == "" {
+				t.Errorf("Unexpected Error in test: %s", err.Error())
 				return
 			}
-			if errTxt != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", errTxt, err.Error()))
+			if d.ExpErr != err.Error() {
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
 				return
 			}
 			return
 		}
-		if data.NumRows() != nExp {
-			fmt.Println("Expected: ", cols)
+		if data.NumRows() != d.ExpRows {
+			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", data.NumRows(), d.ExpRows)
+			return
+		}
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+			return
+		}
+		if d.ExpCols == nil && data.GetColNames() != nil {
+			t.Errorf("Expecting nil columns but got %d of them", data.NumCols())
+			return
+		}
+		if data.NumCols() != len(d.ExpCols) {
+			fmt.Println("Expected: ", d.ExpCols)
 			fmt.Println("Result: ", data.GetColNames())
-			t.Error(fmt.Sprintf("The number of rows returned (%d) does not match expected rows (%d)", data.NumRows(), nExp))
-			return
-		}
-		if err == nil && errTxt != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", errTxt))
-			return
-		}
-		if cols == nil && data.GetColNames() != nil {
-			t.Error(fmt.Sprintf("Expecting nil columns but got %d of them", data.NumCols()))
-			return
-		}
-		if data.NumCols() != len(cols) {
-			fmt.Println("Expected: ", cols)
-			fmt.Println("Result: ", data.GetColNames())
-			t.Error(fmt.Sprintf("Number of columns returned (%d) does not match expected number of cols(%d)", data.NumCols(), len(cols)))
+			t.Errorf("Number of columns returned (%d) does not match expected number of cols(%d)", data.NumCols(), len(d.ExpCols))
 			return
 		}
 		for i, colName := range data.GetColNames() {
-			if cols[i] != colName {
-				t.Error(fmt.Sprintf("Expecting col named (%s) but returned (%s) instead", cols[i], colName))
+			if d.ExpCols[i] != colName {
+				t.Errorf("Expecting col named (%s) but returned (%s) instead", d.ExpCols[i], colName)
+				return
+			}
+		}
+		if d.ExpVals != nil {
+			expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
+			if !reflect.DeepEqual(expVals, data.Vals) {
+				t.Error("Expected Values and Actual values do not match")
+				return
 			}
 		}
 	}
 }
-func TestSelectFromTokens(t *testing.T) {
+
+func TestSelect(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	//make sure table exists for testing
 	tab := sqt.CreateTableDef("seltest",
@@ -68,45 +95,257 @@ func TestSelectFromTokens(t *testing.T) {
 	// Test to see what happens with empty table
 	command := "SELECT col1, col2, col3 from seltest"
 
-	tkList := tk.Tokenize(command)
-	t.Run("Select from empty table", testSelectFunc(profile, tkList, 0, []string{"col1", "col2", "col3"}, ""))
+	t.Run("Select from empty table", testSelectFunc(profile, SelectData{
+		Command: command,
+		ExpRows: 0,
+		ExpCols: []string{"col1", "col2", "col3"},
+		ExpErr:  "",
+		ExpVals: sqtypes.RawVals{}}))
 
-	testData := "INSERT INTO seltest (col1, col2, col3) VALUES (123, \"With Cols Test\", true), (456, \"Seltest 2\", true), (789, \"Seltest 3\", false)"
-	tkList = tk.Tokenize(testData)
-	if _, err := cmd.InsertIntoOld(profile, tkList); err != nil {
+	testData := "INSERT INTO seltest (col1, col2, col3) VALUES " +
+		"(123, \"With Cols Test\", true), " +
+		"(456, \"Seltest 2\", true), " +
+		"(789, \"Seltest 3\", false)"
+	tkns := tk.Tokenize(testData)
+	if _, err := cmd.InsertIntoOld(profile, tkns); err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	var testStruct = []struct {
-		TestName string
-		Command  string
-		ExpErr   string
-		ExpRows  int
-		ExpCols  []string
-	}{
-		{"SELECT Where invalid", "SELECT col1 FROM seltest WHERE col1=9999999999999999999999", "Syntax Error: \"9999999999999999999999\" is not a number", 1, []string{"col1"}},
-		{TestName: "SELECT only", Command: "SELECT", ExpErr: "Syntax Error: Expecting name of column", ExpRows: 0, ExpCols: []string{}},
-		{"SELECT missing comma", "SELECT col1", "Syntax Error: Comma is required to separate column definitions", 0, []string{}},
-		{"SELECT missing FROM", "SELECT col1, col2, col3", "Syntax Error: Comma is required to separate column definitions", 0, []string{}},
-		{"SELECT missing FROM", "SELECT col1, col2, col3 FROM", "Syntax Error: Expecting table name in select statement", 0, []string{}},
-		{"SELECT from seltest", "SELECT col1, col2, col3 FROM seltest", "", 3, []string{"col1", "col2", "col3"}},
-		{"SELECT * from seltest", "SELECT * FROM seltest", "", 3, []string{"col1", "col2", "col3"}},
-		{"Invalid table name", "SELECT col1, col2 FROM NotATable", "Error: Table NotATable does not exist for select statement", 0, []string{}},
-		{"Invalid column name", "SELECT col1, col2, colx FROM seltest", "Error: Table seltest does not have a column named colx", 0, []string{}},
-		{"SELECT * tableName", "SELECT * seltest", "Syntax Error: Expecting FROM", 0, []string{}},
-		{"Select * from NotATable", "Select * from NotATable", "Error: Table NotATable does not exist for select statement", 0, []string{}},
-		{"SELECT too many columns", "SELECT col1, col2, col3, colx FROM seltest", "Error: Table seltest does not have a column named colx", 0, []string{}},
-		{"SELECT Where", "SELECT col1 FROM seltest WHERE col1=456", "", 1, []string{"col1"}},
-		{"SELECT COUNT", "SELECT COUNT FROM seltest", "Syntax Error: Count must be followed by ()", 1, []string{"COUNT"}},
-		{"SELECT COUNT(", "SELECT COUNT( FROM seltest", "Syntax Error: Count must be followed by ()", 1, []string{"COUNT"}},
-		{"SELECT COUNT)", "SELECT COUNT) FROM seltest", "Syntax Error: Count must be followed by ()", 1, []string{"COUNT"}},
-		{"SELECT COUNT()", "SELECT COUNT() FROM seltest", "", 1, []string{"COUNT"}},
+	data := []SelectData{
+		{
+			TestName: "SELECT Where invalid",
+			Command:  "SELECT col1 FROM seltest WHERE col1=9999999999999999999999",
+			ExpErr:   "Syntax Error: \"9999999999999999999999\" is not a number",
+			ExpRows:  1,
+			ExpCols:  []string{"col1"},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT only",
+			Command:  "SELECT",
+			ExpErr:   "Syntax Error: Expecting name of column",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT missing comma",
+			Command:  "SELECT col1",
+			ExpErr:   "Syntax Error: Comma is required to separate column definitions",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT missing FROM",
+			Command:  "SELECT col1, col2, col3",
+			ExpErr:   "Syntax Error: Comma is required to separate column definitions",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT missing FROM",
+			Command:  "SELECT col1, col2, col3 FROM",
+			ExpErr:   "Syntax Error: Expecting table name in select statement",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT from seltest",
+			Command:  "SELECT col1, col2, col3 FROM seltest",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT * from seltest",
+			Command:  "SELECT * FROM seltest",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "Invalid table name",
+			Command:  "SELECT col1, col2 FROM NotATable",
+			ExpErr:   "Error: Table NotATable does not exist for select statement",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "Invalid column name",
+			Command:  "SELECT col1, col2, colx FROM seltest",
+			ExpErr:   "Error: Table seltest does not have a column named colx",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT * tableName",
+			Command:  "SELECT * seltest",
+			ExpErr:   "Syntax Error: Expecting FROM",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "Select * from NotATable",
+			Command:  "Select * from NotATable",
+			ExpErr:   "Error: Table NotATable does not exist for select statement",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT too many columns",
+			Command:  "SELECT col1, col2, col3, colx FROM seltest",
+			ExpErr:   "Error: Table seltest does not have a column named colx",
+			ExpRows:  0,
+			ExpCols:  []string{},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT Where",
+			Command:  "SELECT col1 FROM seltest WHERE col1=456",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"col1"},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT COUNT",
+			Command:  "SELECT COUNT FROM seltest",
+			ExpErr:   "Syntax Error: Count must be followed by ()",
+			ExpRows:  1,
+			ExpCols:  []string{"COUNT"},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT COUNT(",
+			Command:  "SELECT COUNT( FROM seltest",
+			ExpErr:   "Syntax Error: Count must be followed by ()",
+			ExpRows:  1,
+			ExpCols:  []string{"COUNT"},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT COUNT)",
+			Command:  "SELECT COUNT) FROM seltest",
+			ExpErr:   "Syntax Error: Count must be followed by ()",
+			ExpRows:  1,
+			ExpCols:  []string{"COUNT"},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT COUNT()",
+			Command:  "SELECT COUNT() FROM seltest",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"COUNT"},
+			ExpVals:  nil,
+		},
+		{
+			TestName: "SELECT Order BY",
+			Command:  "SELECT * FROM seltest ORDER BY col1",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+				{789, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Order BY err",
+			Command:  "SELECT * FROM seltest ORDER BY col1, dec",
+			ExpErr:   "Error: Column dec not found in dataset",
+			ExpRows:  3,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+				{789, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Order BY missing comma",
+			Command:  "SELECT * FROM seltest ORDER BY col1 col2",
+			ExpErr:   "Syntax Error: Missing comma in ORDER BY clause",
+			ExpRows:  3,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+				{789, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Order BY DESC",
+			Command:  "SELECT * FROM seltest ORDER BY col1 desc",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{789, "Seltest 3", false},
+				{456, "Seltest 2", true},
+				{123, "With Cols Test", true},
+			},
+		},
+		{
+			TestName: "SELECT Where & Order BY",
+			Command:  "SELECT * FROM seltest WHERE col3 = true ORDER BY col1",
+			ExpErr:   "",
+			ExpRows:  2,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+			},
+		},
+		{
+			TestName: "SELECT Order BY & Where",
+			Command:  "SELECT * FROM seltest ORDER BY col1 WHERE col3 = true ",
+			ExpErr:   "",
+			ExpRows:  2,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+			},
+		},
 	}
 
-	for i, row := range testStruct {
-		tlist := tk.Tokenize(row.Command)
+	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testSelectFunc(profile, tlist, row.ExpRows, row.ExpCols, row.ExpErr))
+			testSelectFunc(profile, row))
 
 	}
+}
+
+func TestSelectExecute(t *testing.T) {
+	profile := sqprofile.CreateSQProfile()
+
+	t.Run("Invalid Table", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		data, err := cmd.SelectExecute(profile, "NotATable", sqtables.ColList{}, nil, nil)
+		if err != nil && err.Error() != "Error: Table NotATable does not exist for select statement" {
+			t.Errorf("Unexpected Error: %s", err)
+			return
+
+		}
+		// Avoids unused variable
+		if data != nil {
+			data.Len()
+		}
+	})
 }

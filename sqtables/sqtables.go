@@ -228,7 +228,7 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, cols ColList, condit
 		ret.Vals[0] = make([]sqtypes.Value, ncols)
 		ret.Vals[0][0] = sqtypes.NewSQInt(cnt)
 	}
-	return &ret, nil
+	return ret, nil
 
 }
 

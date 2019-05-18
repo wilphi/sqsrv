@@ -2,9 +2,10 @@ package cmd_test
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"

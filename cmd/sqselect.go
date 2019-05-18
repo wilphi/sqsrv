@@ -7,22 +7,22 @@ import (
 	e "github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
-	t "github.com/wilphi/sqsrv/tokens"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
-// Select -
-func Select(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.DataSet, error) {
-	data, err := SelectFromTokens(profile, tkns)
+// Select command with function prototype as required for dispatching
+func Select(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+	data, err := SelectParse(profile, tkns)
 	if err != nil {
 		return "", nil, err
 	}
 	return fmt.Sprintf("%d rows found", data.NumRows()), data, err
 }
 
-// SelectFromTokens - takes a list of tokens returns:
+// SelectParse takes a list of tokens and verifies the syntax of the command
 //	 DataSet - All data found by select statement
 //   error - if !nil an error has occurred
-func SelectFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (*sqtables.DataSet, error) {
+func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtables.DataSet, error) {
 	var err error
 	var colNames []string
 	var cols sqtables.ColList
@@ -30,32 +30,36 @@ func SelectFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (*sqtable
 	var tableName string
 	var td *sqtables.TableDef
 	var whereConditions sqtables.Condition
+	var orderBy []sqtables.OrderItem
+
+	orderBy = nil
+
 	log.Info("SELECT statement...")
 
 	//eat SELECT token
 	tkns.Remove()
 
 	// Get the column list. * is special case
-	if tkns.Test(t.Asterix) != "" {
+	if tkns.Test(tokens.Asterix) != "" {
 		tkns.Remove()
 		isAsterix = true
 
 		// eat the From
-		if tkns.Test(t.From) == "" {
+		if tkns.Test(tokens.From) == "" {
 			// no FROM
 			return nil, e.NewSyntax("Expecting FROM")
 		}
 		tkns.Remove()
 	} else {
 		// get the column list
-		tkns, colNames, err = GetIdentList(tkns, t.AllWordTokens[t.From], true)
+		tkns, colNames, err = GetIdentList(tkns, tokens.AllWordTokens[tokens.From], true)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	//expecting Ident (tablename)
-	if tableName = tkns.Test(t.Ident); tableName == "" {
+	if tableName = tkns.Test(tokens.Ident); tableName == "" {
 		return nil, e.NewSyntax("Expecting table name in select statement")
 	}
 	tkns.Remove()
@@ -78,28 +82,56 @@ func SelectFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (*sqtable
 		}
 	}
 
-	// Optional Where clause processing goes here
-	if tkns.Test(t.Where) != "" {
-		tkns.Remove()
-		tkns, whereConditions, err = GetWhereConditions(profile, tkns, td)
+	// loop twice just in case the where clause is after the order by clause
+	for i := 0; i < 2; i++ {
+		// Optional Where clause processing goes here
+		if tkns.Test(tokens.Where) != "" {
+			tkns.Remove()
+			tkns, whereConditions, err = GetWhereConditions(profile, tkns, td)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// Optional Order By clause processing goes here
+		if tkns.Test(tokens.Order) != "" {
+			tkns.Remove()
+			orderBy, err = OrderByClause(tkns)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return SelectExecute(profile, tableName, cols, whereConditions, orderBy)
+
+}
+
+// SelectExecute executes the select command against the data to return the result
+func SelectExecute(
+	profile *sqprofile.SQProfile,
+	tableName string,
+	cols sqtables.ColList,
+	whereConditions sqtables.Condition,
+	orderBy []sqtables.OrderItem) (*sqtables.DataSet, error) {
+
+	tab := sqtables.GetTable(profile, tableName)
+	if tab == nil {
+		return nil, e.New("Table " + tableName + " does not exist for select statement")
+	}
+	data, err := tab.GetRowData(profile, cols, whereConditions)
+	if err != nil {
+		return nil, err
+	}
+	if orderBy != nil || len(orderBy) > 0 {
+		err = data.SetOrder(orderBy)
+		if err != nil {
+			return nil, err
+		}
+		err = data.Sort()
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	return SelectFromTable(profile, tableName, cols, whereConditions)
-}
-
-// SelectFromTable -
-func SelectFromTable(profile *sqprofile.SQProfile, tableName string, cols sqtables.ColList, whereConditions sqtables.Condition) (*sqtables.DataSet, error) {
-	t := sqtables.GetTable(profile, tableName)
-	if t == nil {
-		return nil, e.New("Table " + tableName + " does not exist for select statement")
-	}
-	data, err := t.GetRowData(profile, cols, whereConditions)
-	if err != nil {
-		return nil, err
-	}
-
 	return data, nil
 }
