@@ -29,6 +29,11 @@ type TableDef struct {
 	sqmutex.SQMutex
 }
 
+// RowOrder sets the default sort for a dataset. If true then all rows are sorted by the RowID
+//   if false then the order will be random.
+//   the Sort function on a data set will override the default sort
+var RowOrder = false
+
 // CreateTableDef -
 func CreateTableDef(name string, cols ...ColDef) *TableDef {
 	var tab TableDef
@@ -50,8 +55,6 @@ func CreateTableDef(name string, cols ...ColDef) *TableDef {
 	tab.nextRowID = new(int64)
 	return &tab
 }
-
-//var _rowID = new(int64)
 
 // GetName - Name of the table
 func (t *TableDef) GetName(profile *sqprofile.SQProfile) string {
@@ -174,75 +177,43 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 // GetRowData - Returns a dataset with the data from table
 func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, cols ColList, conditions Condition) (*DataSet, error) {
 	var err error
-	var nrows int
+
 	t.RLock(profile)
 	defer t.RUnlock(profile)
+
 	// Verify all cols exist in table
-	if err := cols.ValidateTable(profile, t); err != nil {
+	if err = cols.ValidateTable(profile, t); err != nil {
 		return nil, err
 	}
 
+	// Setup the dataset for the results
 	ret := NewDataSet(t, cols)
-	// num rows
+	ret.usePtrs = !cols.isCount
+
+	// Get the pointers to the rows based on the conditions
+	ptrs, err := t.GetRowPtrs(profile, conditions, RowOrder)
+	if err != nil {
+		return nil, err
+	}
+
 	if cols.isCount {
-		nrows = 1
-		ret.usePtrs = false
+		ret.Vals = make([][]sqtypes.Value, 1)
+		ret.Vals[0] = make([]sqtypes.Value, cols.Len())
+		ret.Vals[0][0] = sqtypes.NewSQInt(len(ptrs))
 	} else {
-		nrows = len(t.rowm)
-		ret.usePtrs = true
-	}
+		ret.Vals = make([][]sqtypes.Value, len(ptrs))
+		ret.Ptrs = ptrs
 
-	cnt := 0
-
-	ncols := cols.Len()
-	includeRow := true
-
-	ret.Vals = make([][]sqtypes.Value, nrows)
-	if ret.usePtrs {
-		ret.Ptrs = make([]int64, nrows)
-	}
-
-	includeRow = (conditions == nil)
-
-	for i, row := range t.rowm {
-		if row == nil || row.isDeleted {
-			continue
-		}
-		if conditions != nil {
-			includeRow, err = conditions.Evaluate(profile, row)
-			if err != nil {
-				return nil, err
+		for i, ptr := range ptrs {
+			// make sure the ptr points to the correct row
+			if t.rowm[ptr].RowID != ptr {
+				panic("rowID does not match Map index")
 			}
-		}
-		if !includeRow {
-			continue
-		}
-		if ret.usePtrs {
-			if cnt > len(ret.Ptrs) {
-				log.Panic("count is larger than array")
-			}
-
-			ret.Ptrs[cnt] = i
-		}
-		if row.RowID != i {
-			panic("rowID does not match Map index")
-		}
-
-		if !cols.isCount {
-			ret.Vals[cnt] = make([]sqtypes.Value, ncols)
+			ret.Vals[i] = make([]sqtypes.Value, cols.Len())
 			for j, col := range cols.GetColDefs() {
-				ret.Vals[cnt][j] = row.Data[col.Idx]
+				ret.Vals[i][j] = t.rowm[ptr].Data[col.Idx]
 			}
 		}
-		cnt++
-
-	}
-	if !cols.isCount {
-		ret.Vals = ret.Vals[:cnt]
-		ret.Ptrs = ret.Ptrs[:cnt]
-	} else {
-		ret.Vals[0] = make([]sqtypes.Value, ncols)
-		ret.Vals[0][0] = sqtypes.NewSQInt(cnt)
 	}
 	return ret, nil
 
@@ -313,9 +284,12 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, conditions Condition
 	t.RLock(profile)
 	defer t.RUnlock(profile)
 
-	for rowID := range t.rowm {
+	for rowID, row := range t.rowm {
+		if row == nil || row.isDeleted {
+			continue
+		}
 		if conditions != nil {
-			includeRow, err = conditions.Evaluate(profile, t.rowm[rowID])
+			includeRow, err = conditions.Evaluate(profile, row)
 			if err != nil {
 				return nil, err
 			}
