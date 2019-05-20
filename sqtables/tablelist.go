@@ -61,6 +61,7 @@ func CreateTable(profile *sqprofile.SQProfile, tab *TableDef) error {
 //		protected by a mutex to be concurrency safe
 func DropTable(profile *sqprofile.SQProfile, name string) error {
 
+	name = strings.ToLower(name)
 	// Err is name begins with _
 	if isUnderScore(name) {
 		return sqerr.New(fmt.Sprintf("Invalid Name: %s - Unable to drop system tables", name))

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strings"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/redo"
 	e "github.com/wilphi/sqsrv/sqerr"
@@ -27,7 +29,7 @@ func DropTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *s
 
 	// make sure the next token is an Ident
 	if val := tkns.Test(tokens.Ident); val != "" {
-		tableName = val
+		tableName = strings.ToLower(val)
 		tkns.Remove()
 	} else {
 		return tableName, nil, e.NewSyntax("Expecting name of table to Drop")

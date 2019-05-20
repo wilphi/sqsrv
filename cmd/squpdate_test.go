@@ -21,7 +21,7 @@ type UpdateData struct {
 	TableName string
 	Cols      []string
 	ExpErr    string
-	ExpData   [][]sqtypes.Value
+	ExpData   sqtypes.RawVals
 }
 
 func TestUpdate(t *testing.T) {
@@ -46,19 +46,7 @@ func TestUpdate(t *testing.T) {
 		t.Errorf("Error setting up table for TestUpdate: %s", err)
 		return
 	}
-	n99 := sqtypes.NewSQInt(99)
-	n1 := sqtypes.NewSQInt(1)
-	n2 := sqtypes.NewSQInt(2)
-	n3 := sqtypes.NewSQInt(3)
-	//n4 := sqtypes.NewSQInt(4)
-	n5 := sqtypes.NewSQInt(5)
-	n6 := sqtypes.NewSQInt(6)
-	str1 := sqtypes.NewSQString("test row 1")
-	str2 := sqtypes.NewSQString("test row 2")
-	str3 := sqtypes.NewSQString("test row 3")
-	str4 := sqtypes.NewSQString("test row 4")
-	str5 := sqtypes.NewSQString("test row 5")
-	str6 := sqtypes.NewSQString("test row 6")
+
 	data := []UpdateData{
 		{
 			TestName: "UPDATE only",
@@ -91,7 +79,7 @@ func TestUpdate(t *testing.T) {
 			ExpErr:    "",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
-			ExpData:   [][]sqtypes.Value{{n1, str1}, {n2, str2}, {n3, str3}, {n5, str5}, {n6, str6}, {n99, str4}},
+			ExpData:   sqtypes.RawVals{{1, "test row 1"}, {2, "test row 2"}, {3, "test row 3"}, {5, "test row 5"}, {6, "test row 6"}, {99, "test row 4"}},
 		},
 		{
 			TestName:  "UPDATE No Where Clause",
@@ -99,7 +87,7 @@ func TestUpdate(t *testing.T) {
 			ExpErr:    "",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
-			ExpData:   [][]sqtypes.Value{{n99, str1}, {n99, str2}, {n99, str3}, {n99, str4}, {n99, str5}, {n99, str6}},
+			ExpData:   sqtypes.RawVals{{99, "test row 1"}, {99, "test row 2"}, {99, "test row 3"}, {99, "test row 4"}, {99, "test row 5"}, {99, "test row 6"}},
 		},
 		{
 			TestName:  "UPDATE Invalid table",
@@ -107,7 +95,7 @@ func TestUpdate(t *testing.T) {
 			ExpErr:    "Syntax Error: Invalid table name: testupdate99 does not exist",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
-			ExpData:   [][]sqtypes.Value{{n99, str1}, {n99, str2}, {n99, str3}, {n99, str4}, {n99, str5}, {n99, str6}},
+			ExpData:   sqtypes.RawVals{{99, "test row 1"}, {99, "test row 2"}, {99, "test row 3"}, {99, "test row 4"}, {99, "test row 5"}, {99, "test row 6"}},
 		},
 		{
 			TestName:  "UPDATE Invalid Col",
@@ -115,7 +103,7 @@ func TestUpdate(t *testing.T) {
 			ExpErr:    "Syntax Error: Invalid Column name: colX does not exist in Table testupdate",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
-			ExpData:   [][]sqtypes.Value{{n99, str1}, {n99, str2}, {n99, str3}, {n99, str4}, {n99, str5}, {n99, str6}},
+			ExpData:   sqtypes.RawVals{{99, "test row 1"}, {99, "test row 2"}, {99, "test row 3"}, {99, "test row 4"}, {99, "test row 5"}, {99, "test row 6"}},
 		},
 		{
 			TestName:  "UPDATE Invalid Value",
@@ -123,7 +111,7 @@ func TestUpdate(t *testing.T) {
 			ExpErr:    "Syntax Error: \"9999999999999999999999999\" is not a number",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
-			ExpData:   [][]sqtypes.Value{{n99, str1}, {n99, str2}, {n99, str3}, {n99, str4}, {n99, str5}, {n99, str6}},
+			ExpData:   sqtypes.RawVals{{99, "test row 1"}, {99, "test row 2"}, {99, "test row 3"}, {99, "test row 4"}, {99, "test row 5"}, {99, "test row 6"}},
 		},
 		{
 			TestName:  "UPDATE Invalid Value Type",
@@ -131,7 +119,7 @@ func TestUpdate(t *testing.T) {
 			ExpErr:    "Error: Type Mismatch: Column col1 in Table testupdate has a type of INT, Unable to set value of type STRING",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
-			ExpData:   [][]sqtypes.Value{{n99, str1}, {n99, str2}, {n99, str3}, {n99, str4}, {n99, str5}, {n99, str6}},
+			ExpData:   sqtypes.RawVals{{99, "test row 1"}, {99, "test row 2"}, {99, "test row 3"}, {99, "test row 4"}, {99, "test row 5"}, {99, "test row 6"}},
 		},
 		{
 			TestName:  "UPDATE with error in Where Clause",
@@ -139,7 +127,7 @@ func TestUpdate(t *testing.T) {
 			ExpErr:    "Error: Where clause expression col1 = test row 4 has a type mismatch",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
-			ExpData:   [][]sqtypes.Value{{n1, str1}, {n2, str2}, {n3, str3}, {n5, str5}, {n6, str6}, {n99, str4}},
+			ExpData:   sqtypes.RawVals{{1, "test row 1"}, {2, "test row 2"}, {3, "test row 3"}, {5, "test row 5"}, {6, "test row 6"}, {99, "test row 4"}},
 		},
 	}
 
@@ -155,7 +143,7 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 		defer func() {
 			r := recover()
 			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
+				t.Errorf("%s panicked unexpectedly", t.Name())
 			}
 		}()
 		profile := sqprofile.CreateSQProfile()
@@ -192,7 +180,8 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			v := ds.Vals
 			sort.SliceStable(v, func(i, j int) bool { return v[i][1].LessThan(v[j][1]) })
 			sort.SliceStable(v, func(i, j int) bool { return v[i][0].LessThan(v[j][0]) })
-			if !reflect.DeepEqual(v, d.ExpData) {
+
+			if !reflect.DeepEqual(v, sqtypes.CreateValuesFromRaw(d.ExpData)) {
 				t.Error("Expected data does not match actual data in table")
 				return
 			}

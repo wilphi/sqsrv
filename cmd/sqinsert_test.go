@@ -2,104 +2,291 @@ package cmd_test
 
 import (
 	"fmt"
-	"sync"
+	"reflect"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
-	sqt "github.com/wilphi/sqsrv/sqtables"
-	tk "github.com/wilphi/sqsrv/tokens"
+	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
-func testInsertIntoFunc(profile *sqprofile.SQProfile, tkns *tk.TokenList, errTxt string) func(*testing.T) {
+func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*testing.T) {
 	return func(t *testing.T) {
-		_, err := cmd.InsertIntoOld(profile, tkns)
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf("%s panicked unexpectedly", t.Name())
+			}
+		}()
+
+		var tab *sqtables.TableDef
+		var err error
+		var initPtrs []int64
+		// Snapshot of data if we need to do comparison
+		if d.TableName != "" {
+			tab = sqtables.GetTable(profile, d.TableName)
+			initPtrs, err = tab.GetRowPtrs(profile, nil, true)
+			if err != nil {
+				t.Errorf("Unable to get table data for %s", d.TableName)
+				return
+			}
+
+		}
+		tkns := tokens.Tokenize(d.Command)
+		_, _, err = cmd.InsertInto(profile, tkns)
 		if err != nil {
 			log.Println(err.Error())
-			if errTxt == "" {
+			if d.ExpErr == "" {
 				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
 				return
 			}
-			if errTxt != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", errTxt, err.Error()))
+			if d.ExpErr != err.Error() {
+				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
 				return
 			}
 			return
 		}
-		if err == nil && errTxt != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", errTxt))
+		if err == nil && d.ExpErr != "" {
+			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
 			return
+		}
+		if d.TableName != "" {
+			afterPtrs, err := tab.GetRowPtrs(profile, nil, true)
+			if err != nil {
+				t.Errorf("Unable to get table data for %s", d.TableName)
+				return
+			}
+			ptrs := NotIn(afterPtrs, initPtrs)
+
+			data, err := tab.GetRowDataFromPtrs(profile, ptrs)
+			if err != nil {
+				t.Errorf("Unable to get table data for %s", d.TableName)
+				return
+			}
+			expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
+			if !reflect.DeepEqual(expVals, data.Vals) {
+				t.Error("Expected values do not match actual values")
+				return
+			}
 		}
 	}
 }
+
+// NotIn returns all items in A that are not in B
+func NotIn(a, b []int64) []int64 {
+	var ret []int64
+	for _, x := range a {
+		if !Contain(b, x) {
+			ret = append(ret, x)
+		}
+	}
+	return ret
+}
+func Contain(arr []int64, item int64) bool {
+	for _, x := range arr {
+		if x == item {
+			return true
+		}
+	}
+	return false
+}
+
+type InsertIntoData struct {
+	TestName  string
+	Command   string
+	ExpErr    string
+	ExpVals   sqtypes.RawVals
+	TableName string
+}
+
 func TestInsertInto(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	//make sure table exists for testing
-	tab := sqt.CreateTableDef("instest",
-		sqt.CreateColDef("col1", tk.TypeInt, false),
-		sqt.CreateColDef("col2", tk.TypeString, false),
-		sqt.CreateColDef("col3", tk.TypeBool, false))
-	err := sqt.CreateTable(profile, tab)
+	tkns := tokens.Tokenize("CREATE TABLE instest (col1 int, col2 string, col3 bool)")
+	tableName, err := cmd.CreateTableFromTokens(profile, tkns)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Errorf("Error setting up table for TestInsertInto: %s", err)
+		return
 	}
 
-	var testStruct = []struct {
-		TestName    string
-		Command     string
-		ExpectedErr string
-	}{
-		{"Missing Insert", "FROM", "Error: Expecting INSERT INTO to start the statement"},
-		{"INSERT ONLY", "INSERT", "Error: Expecting INSERT INTO to start the statement"},
-		{"INSERT Missing tableName", "INSERT INTO", "Syntax Error: Expecting name of table for insert"},
-		{"INSERT missing (", "INSERT INTO instest", "Syntax Error: Expecting ( after name of table"},
-		{"INSERT missing column", "INSERT INTO instest (", "Syntax Error: Expecting name of column"},
-		{"INSERT missing comma after col", "INSERT INTO instest (col1", "Syntax Error: Comma is required to separate column definitions"},
-		{"INSERT missing second column", "INSERT INTO instest (col1,", "Syntax Error: Expecting name of column"},
-		{"INSERT missing VALUES", "INSERT INTO instest (col1,col2,col3)", "Syntax Error: Expecting keyword VALUES"},
-		{"INSERT missing ( after values", "INSERT INTO instest (col1,col2,col3) VALUES", "Syntax Error: Expecting ( after keyword VALUES"},
-		{"INSERT missing value for col1", "INSERT INTO instest (col1,col2,col3) VALUES (", "Syntax Error: Expecting a value for column col1"},
-		{"INSERT missing comma after first value", "INSERT INTO instest (col1,col2,col3) VALUES (123", "Syntax Error: Comma is required to separate values"},
-		{"INSERT missing value for col2", "INSERT INTO instest (col1,col2,col3) VALUES (123, ", "Syntax Error: Expecting a value for column col2"},
-		{"INSERT missing value for col3", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", ", "Syntax Error: Expecting a value for column col3"},
-		{"INSERT missing final )", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true", "Syntax Error: Comma is required to separate values"},
-		{"INSERT invalid after values section", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true) (", "Syntax Error: Unexpected tokens after the values section: ("},
-		{"INSERT missing ( for start of next value", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true), test", "Syntax Error: Expecting ( to start next row of VALUES"},
-		{"INSERT three values", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true)", ""},
-		{"Extra comma in Column list", "INSERT INTO instest (col1,col2,col3,) VALUES (123, \"With Cols Test\", true)", "Syntax Error: Unexpected \",\" before \")\""},
-		{"No Cols in Column list", "INSERT INTO instest () VALUES (123, \"With Cols Test\", true)", "Syntax Error: No columns defined for table"},
-		{"Extra comma in value list", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true,)", "Syntax Error: Unexpected \",\" before \")\""},
-		{"No Vals in Value list", "INSERT INTO instest (col1,col2,col3) VALUES ()", "Syntax Error: No values defined for insert"},
-		{"Cols do not match Values", "INSERT INTO instest (col1,col2) VALUES (123, \"With Cols Test\", true)", "Syntax Error: The number of values (3) must match the number of columns (2)"},
-		{"Values do not match Cols", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\")", "Syntax Error: The number of values (2) must match the number of columns (3)"},
-		{"Value Type does not match Col Type", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", 1234)", ""},
-		{"Insert target table does not exist", "INSERT INTO NotATable (col1,col2,col3) VALUES (123, \"With Cols Test\", true)", "Error: Table NotATable does not exist"},
-		{"More Cols than in table", "INSERT INTO instest (col1,col2,col3, colx) VALUES (123, \"With Cols Test\", true, \"Col does not exist\")", "Error: More columns are being set than exist in table definition"},
-		{"Col does not exist in table", "INSERT INTO instest (col1,col2, colx) VALUES (123, \"With Cols Test\", \"Col does not exist\")", "Error: Column (colx) does not exist in table (instest)"},
-		{"Integer too large - tests invalid converion", "INSERT INTO instest (col1,col2,col3) VALUES (999999999999999999999, \"With Cols Test\", true)", "Syntax Error: \"999999999999999999999\" is not a number"},
-		{"Muli row insert (3)", "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true), (456, \"Second Value Test\", true), (789, \"Third Value Test\",false)", ""},
-		{"Count in Insert", "INSERT INTO instest (col1, col2, count()) values (123, \"test count\", true)", "Syntax Error: Expecting name of column"},
-		{"Null in Insert", "INSERT INTO instest (col1, col2, col3) values (123, null, true)", ""},
+	data := []InsertIntoData{
+		{
+			TestName: "Missing Insert",
+			Command:  "FROM",
+			ExpErr:   "Error: Expecting INSERT INTO to start the statement",
+		},
+		{
+			TestName: "INSERT ONLY",
+			Command:  "INSERT",
+			ExpErr:   "Error: Expecting INSERT INTO to start the statement",
+		},
+		{
+			TestName: "INSERT Missing tableName",
+			Command:  "INSERT INTO",
+			ExpErr:   "Syntax Error: Expecting name of table for insert",
+		},
+		{
+			TestName: "INSERT missing (",
+			Command:  "INSERT INTO instest",
+			ExpErr:   "Syntax Error: Expecting ( after name of table",
+		},
+		{
+			TestName: "INSERT missing column",
+			Command:  "INSERT INTO instest (",
+			ExpErr:   "Syntax Error: Expecting name of column",
+		},
+		{
+			TestName: "INSERT missing comma after col",
+			Command:  "INSERT INTO instest (col1",
+			ExpErr:   "Syntax Error: Comma is required to separate column definitions",
+		},
+		{
+			TestName: "INSERT missing second column",
+			Command:  "INSERT INTO instest (col1,",
+			ExpErr:   "Syntax Error: Expecting name of column",
+		},
+		{
+			TestName: "INSERT missing VALUES",
+			Command:  "INSERT INTO instest (col1,col2,col3)",
+			ExpErr:   "Syntax Error: Expecting keyword VALUES",
+		},
+		{
+			TestName: "INSERT missing ( after values",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES",
+			ExpErr:   "Syntax Error: Expecting ( after keyword VALUES",
+		},
+		{
+			TestName: "INSERT missing value for col1",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (",
+			ExpErr:   "Syntax Error: Expecting a value for column col1",
+		},
+		{
+			TestName: "INSERT missing comma after first value",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123",
+			ExpErr:   "Syntax Error: Comma is required to separate values",
+		},
+		{
+			TestName: "INSERT missing value for col2",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, ",
+			ExpErr:   "Syntax Error: Expecting a value for column col2",
+		},
+		{
+			TestName: "INSERT missing value for col3",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", ",
+			ExpErr:   "Syntax Error: Expecting a value for column col3",
+		},
+		{
+			TestName: "INSERT missing final )",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true",
+			ExpErr:   "Syntax Error: Comma is required to separate values",
+		},
+		{
+			TestName: "INSERT invalid after values section",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true) (",
+			ExpErr:   "Syntax Error: Unexpected tokens after the values section: (",
+		},
+		{
+			TestName: "INSERT missing ( for start of next value",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true), test",
+			ExpErr:   "Syntax Error: Expecting ( to start next row of VALUES",
+		},
+		{
+			TestName:  "INSERT three values",
+			Command:   "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true)",
+			ExpErr:    "",
+			ExpVals:   sqtypes.RawVals{{123, "With Cols Test", true}},
+			TableName: tableName,
+		},
+		{
+			TestName: "Extra comma in Column list",
+			Command:  "INSERT INTO instest (col1,col2,col3,) VALUES (123, \"With Cols Test\", true)",
+			ExpErr:   "Syntax Error: Unexpected \",\" before \")\"",
+		},
+		{
+			TestName: "No Cols in Column list",
+			Command:  "INSERT INTO instest () VALUES (123, \"With Cols Test\", true)",
+			ExpErr:   "Syntax Error: No columns defined for table",
+		},
+		{
+			TestName: "Extra comma in value list",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true,)",
+			ExpErr:   "Syntax Error: Unexpected \",\" before \")\"",
+		},
+		{
+			TestName: "No Vals in Value list",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES ()",
+			ExpErr:   "Syntax Error: No values defined for insert",
+		},
+		{
+			TestName: "Cols do not match Values",
+			Command:  "INSERT INTO instest (col1,col2) VALUES (123, \"With Cols Test\", true)",
+			ExpErr:   "Syntax Error: The number of values (3) must match the number of columns (2)",
+		},
+		{
+			TestName: "Values do not match Cols",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\")",
+			ExpErr:   "Syntax Error: The number of values (2) must match the number of columns (3)",
+		},
+		{
+			TestName: "Value Type does not match Col Type",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", 1234)",
+			ExpErr:   "Error: Type Mismatch: Column col3 in Table instest has a type of BOOL, Unable to set value of type INT",
+		},
+		{
+			TestName: "Insert target table does not exist",
+			Command:  "INSERT INTO NotATable (col1,col2,col3) VALUES (123, \"With Cols Test\", true)",
+			ExpErr:   "Error: Table NotATable does not exist",
+		},
+		{
+			TestName: "More Cols than in table",
+			Command:  "INSERT INTO instest (col1,col2,col3, colx) VALUES (123, \"With Cols Test\", true, \"Col does not exist\")",
+			ExpErr:   "Error: More columns are being set than exist in table definition",
+		},
+		{
+			TestName: "Col does not exist in table",
+			Command:  "INSERT INTO instest (col1,col2, colx) VALUES (123, \"With Cols Test\", \"Col does not exist\")",
+			ExpErr:   "Error: Column (colx) does not exist in table (instest)",
+		},
+		{
+			TestName: "Integer too large - tests invalid converion",
+			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (999999999999999999999, \"With Cols Test\", true)",
+			ExpErr:   "Syntax Error: \"999999999999999999999\" is not a number",
+		},
+		{
+			TestName: "Muli row insert (3)",
+			Command: "INSERT INTO instest (col1,col2,col3) VALUES " +
+				fmt.Sprintf("(%d, %q, %t), ", 123, "With Cols Test", true) +
+				fmt.Sprintf("(%d, %q, %t), ", 456, "Second Value Test", true) +
+				fmt.Sprintf("(%d, %q, %t) ", 789, "Third Value Test", false),
+			ExpErr: "",
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Second Value Test", true},
+				{789, "Third Value Test", false},
+			},
+			TableName: tableName,
+		},
+		{
+			TestName: "Count in Insert",
+			Command:  "INSERT INTO instest (col1, col2, count()) values (123, \"test count\", true)",
+			ExpErr:   "Syntax Error: Expecting name of column",
+		},
+		{
+			TestName:  "Null in Insert",
+			Command:   "INSERT INTO instest (col1, col2, col3) values (123, null, true)",
+			ExpErr:    "",
+			ExpVals:   sqtypes.RawVals{{123, nil, true}},
+			TableName: tableName,
+		},
 	}
-	for i, row := range testStruct {
-		tlist := tk.Tokenize(row.Command)
+	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testInsertIntoFunc(profile, tlist, row.ExpectedErr))
+			testInsertIntoFunc(profile, row))
 
-	}
-
-}
-
-var ct sync.Once
-
-var initTable = func() {
-	txt := "CREATE TABLE insbench (id:int, col1:int, col2:string, col3:bool)"
-	tlist := tk.Tokenize(txt)
-	_, err := cmd.CreateTableFromTokens(sqprofile.CreateSQProfile(), tlist)
-	if err != nil {
-		fmt.Printf("Unexpected Error setting up test: %s", err.Error())
 	}
 
 }

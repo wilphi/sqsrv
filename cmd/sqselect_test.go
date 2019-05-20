@@ -10,9 +10,8 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
-	sqt "github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtypes"
-	tk "github.com/wilphi/sqsrv/tokens"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 type SelectData struct {
@@ -29,10 +28,10 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 		defer func() {
 			r := recover()
 			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
+				t.Errorf("%s panicked unexpectedly", t.Name())
 			}
 		}()
-		tkns := tk.Tokenize(d.Command)
+		tkns := tokens.Tokenize(d.Command)
 		_, data, err := cmd.Select(profile, tkns)
 		if err != nil {
 			log.Println(err.Error())
@@ -82,41 +81,48 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 
 func TestSelect(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
+	// Make sure datasets are by default in RowID order
+	sqtables.RowOrder = true
+
 	//make sure table exists for testing
-	tab := sqt.CreateTableDef("seltest",
-		sqt.CreateColDef("col1", tk.TypeInt, false),
-		sqt.CreateColDef("col2", tk.TypeString, false),
-		sqt.CreateColDef("col3", tk.TypeBool, false))
-	err := sqt.CreateTable(profile, tab)
+	tkns := tokens.Tokenize("CREATE TABLE seltest (col1 int, col2 string, col3 bool)")
+	_, err := cmd.CreateTableFromTokens(profile, tkns)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Errorf("Error setting up table for TestSelect: %s", err)
+		return
 	}
 
 	// Test to see what happens with empty table
-	command := "SELECT col1, col2, col3 from seltest"
-
-	t.Run("Select from empty table", testSelectFunc(profile, SelectData{
-		Command: command,
-		ExpRows: 0,
-		ExpCols: []string{"col1", "col2", "col3"},
-		ExpErr:  "",
-		ExpVals: sqtypes.RawVals{}}))
+	tkns = tokens.Tokenize("CREATE TABLE selEmpty (col1 int, col2 string, col3 bool)")
+	_, err = cmd.CreateTableFromTokens(profile, tkns)
+	if err != nil {
+		t.Errorf("Error setting up table for TestSelect: %s", err)
+		return
+	}
 
 	testData := "INSERT INTO seltest (col1, col2, col3) VALUES " +
 		"(123, \"With Cols Test\", true), " +
 		"(456, \"Seltest 2\", true), " +
 		"(789, \"Seltest 3\", false)"
-	tkns := tk.Tokenize(testData)
+	tkns = tokens.Tokenize(testData)
 	if _, err := cmd.InsertIntoOld(profile, tkns); err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
 	data := []SelectData{
 		{
+			TestName: "Select from empty table",
+			Command:  "SELECT col1, col2, col3 from selEmpty",
+			ExpErr:   "",
+			ExpRows:  0,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals:  sqtypes.RawVals{},
+		},
+		{
 			TestName: "SELECT Where invalid",
 			Command:  "SELECT col1 FROM seltest WHERE col1=9999999999999999999999",
 			ExpErr:   "Syntax Error: \"9999999999999999999999\" is not a number",
-			ExpRows:  1,
+			ExpRows:  0,
 			ExpCols:  []string{"col1"},
 			ExpVals:  nil,
 		},
@@ -158,7 +164,11 @@ func TestSelect(t *testing.T) {
 			ExpErr:   "",
 			ExpRows:  3,
 			ExpCols:  []string{"col1", "col2", "col3"},
-			ExpVals:  nil,
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+				{789, "Seltest 3", false},
+			},
 		},
 		{
 			TestName: "SELECT * from seltest",
@@ -166,7 +176,11 @@ func TestSelect(t *testing.T) {
 			ExpErr:   "",
 			ExpRows:  3,
 			ExpCols:  []string{"col1", "col2", "col3"},
-			ExpVals:  nil,
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+				{789, "Seltest 3", false},
+			},
 		},
 		{
 			TestName: "Invalid table name",
@@ -214,13 +228,13 @@ func TestSelect(t *testing.T) {
 			ExpErr:   "",
 			ExpRows:  1,
 			ExpCols:  []string{"col1"},
-			ExpVals:  nil,
+			ExpVals:  sqtypes.RawVals{{456}},
 		},
 		{
 			TestName: "SELECT COUNT",
 			Command:  "SELECT COUNT FROM seltest",
 			ExpErr:   "Syntax Error: Count must be followed by ()",
-			ExpRows:  1,
+			ExpRows:  0,
 			ExpCols:  []string{"COUNT"},
 			ExpVals:  nil,
 		},
@@ -228,7 +242,7 @@ func TestSelect(t *testing.T) {
 			TestName: "SELECT COUNT(",
 			Command:  "SELECT COUNT( FROM seltest",
 			ExpErr:   "Syntax Error: Count must be followed by ()",
-			ExpRows:  1,
+			ExpRows:  0,
 			ExpCols:  []string{"COUNT"},
 			ExpVals:  nil,
 		},
@@ -236,7 +250,7 @@ func TestSelect(t *testing.T) {
 			TestName: "SELECT COUNT)",
 			Command:  "SELECT COUNT) FROM seltest",
 			ExpErr:   "Syntax Error: Count must be followed by ()",
-			ExpRows:  1,
+			ExpRows:  0,
 			ExpCols:  []string{"COUNT"},
 			ExpVals:  nil,
 		},
@@ -246,7 +260,7 @@ func TestSelect(t *testing.T) {
 			ExpErr:   "",
 			ExpRows:  1,
 			ExpCols:  []string{"COUNT"},
-			ExpVals:  nil,
+			ExpVals:  sqtypes.RawVals{{3}},
 		},
 		{
 			TestName: "SELECT Order BY",
