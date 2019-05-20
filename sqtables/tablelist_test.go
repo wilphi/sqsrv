@@ -165,7 +165,7 @@ func TestDropTable(t *testing.T) {
 			TestName:  "Drop TABLE invalid table",
 			TableName: "ZZTable",
 			Profile:   profile,
-			ExpErr:    "Error: Invalid Name: Table ZZTable does not exist",
+			ExpErr:    "Error: Invalid Name: Table zztable does not exist",
 		},
 		{
 			TestName:  "Drop TABLE",
