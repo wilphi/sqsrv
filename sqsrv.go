@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -30,6 +31,8 @@ const (
 	cPort = "3333"
 	cType = "tcp"
 )
+
+var host, port *string
 
 const (
 	cNormal        = 0
@@ -63,6 +66,9 @@ func profilerHTTP() {
 	log.Infoln(http.ListenAndServe("localhost:6060", nil))
 }
 func main() {
+	host = flag.String("host", "localhost", "Host name of the server")
+	port = flag.String("port", "3333", "TCP port for server to listen on")
+	flag.Parse()
 
 	//	var jobs = make(chan Job, 10)
 	var Terminate = make(chan bool, 10)
@@ -105,14 +111,14 @@ func main() {
 func listenerThread(Terminate chan bool) {
 
 	// Setup Listener
-	l, err := net.Listen(cType, cHost+":"+cPort)
+	l, err := net.Listen(cType, *host+":"+*port)
 	if err != nil {
-		log.Fatalln("Error Listening: (", cHost, ":", cPort, ") -- ", err.Error())
+		log.Fatalln("Error Listening: (", *host, ":", *port, ") -- ", err.Error())
 	}
 	// Close listener when app closes
 	defer l.Close()
 
-	log.Println("Listening on ", cHost, ":", cPort)
+	log.Println("Listening on ", *host, ":", *port)
 	log.Println(SQVersion)
 
 	for {
@@ -166,6 +172,12 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *server.Config, wg 
 					Terminate <- true
 					return
 				}
+			} else {
+				err = sqerr.New("Invalid Server command")
+				log.Infoln(err)
+				resp.IsErr = true
+				resp.Msg = err.Error()
+
 			}
 		} else {
 			dispFunc := serv.GetDispatchFunc(*tkList)

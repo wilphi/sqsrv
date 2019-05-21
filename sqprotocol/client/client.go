@@ -14,9 +14,10 @@ import (
 
 // Config -
 type Config struct {
-	enc  *gob.Encoder
-	dec  *gob.Decoder
-	conn net.Conn
+	enc         *gob.Encoder
+	dec         *gob.Decoder
+	conn        net.Conn
+	isConnected bool
 }
 
 func init() {
@@ -28,11 +29,18 @@ func init() {
 
 // SetConn - set the connection for the server to communicate on
 func SetConn(conn net.Conn) *Config {
-	return &Config{enc: gob.NewEncoder(conn), dec: gob.NewDecoder(conn), conn: conn}
+	return &Config{enc: gob.NewEncoder(conn), dec: gob.NewDecoder(conn), conn: conn, isConnected: true}
 }
 
 // Close -
-func (clnt *Config) Close() error {
+func (clnt *Config) Close() (err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			err = nil
+		}
+	}()
+	clnt.isConnected = false
 	return clnt.conn.Close()
 }
 
@@ -43,6 +51,7 @@ func (clnt *Config) SendRequest(req sqprotocol.RequestToServer) error {
 	if err != nil {
 		if strings.Contains(err.Error(), "write: broken pipe") {
 			fmt.Println("Connection to Server has been lost, please try to reconnect")
+			clnt.isConnected = false
 			return err
 		}
 		log.Println("Encode Error:", err)
