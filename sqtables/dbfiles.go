@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/wilphi/sqsrv/sqbin"
@@ -42,11 +43,31 @@ type DBRow struct {
 	Data  []sqtypes.Value
 }
 
+var doDirOnce sync.Once
+
 func init() {
 	gob.Register(sqtypes.SQString{})
 	gob.Register(sqtypes.SQInt{})
 	gob.Register(sqtypes.SQBool{})
 	gob.Register(sqtypes.SQNull{})
+}
+
+// SetDBDir sets the path to the directory that contains the database files
+// It may be an absolute or relative path. This should only be set once before
+// the database is read/written to.
+func SetDBDir(path string) {
+	doDirOnce.Do(func() {
+
+		dbDirectory = path
+		stat, err := os.Stat(path)
+		if err != nil {
+			log.Fatalf("Error with dbfiles path %s", path)
+		}
+		if !stat.IsDir() {
+			log.Fatalf("dbfiles path %s is not a directory", path)
+		}
+	})
+
 }
 
 // WriteDB - writes database to files

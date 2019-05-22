@@ -32,7 +32,7 @@ const (
 	cType = "tcp"
 )
 
-var host, port *string
+var host, port, tlog, dbfiles *string
 
 const (
 	cNormal        = 0
@@ -68,6 +68,8 @@ func profilerHTTP() {
 func main() {
 	host = flag.String("host", "localhost", "Host name of the server")
 	port = flag.String("port", "3333", "TCP port for server to listen on")
+	tlog = flag.String("tlog", "./transaction.tlog", "File path/name for the transaction log")
+	dbfiles = flag.String("dbfile", "./dbfiles/", "Directory where database files are stored")
 	flag.Parse()
 
 	//	var jobs = make(chan Job, 10)
@@ -76,6 +78,11 @@ func main() {
 	//go profilerHTTP()
 
 	profile := sqprofile.CreateSQProfile()
+
+	// Set where datafile are
+	sqtables.SetDBDir(*dbfiles)
+	redo.SetTLog(*tlog)
+
 	// Load the database
 	err := sqtables.ReadDB(profile)
 	if err != nil {

@@ -414,10 +414,10 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		// Setup files
-		fileName = tmpDir + "/" + d.TransLogName
+		logFileName = tmpDir + "/" + d.TransLogName
 		recoveryFile = tmpDir + "/" + d.RecoveryLogName
 		if d.CopyToTrans {
-			err = copyFile(fileName, d.SourceFile)
+			err = copyFile(logFileName, d.SourceFile)
 			if err != nil {
 				t.Fatal(err)
 			}

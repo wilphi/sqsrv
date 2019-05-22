@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -17,13 +18,15 @@ import (
 
 // Redo Package maintains the sql transaction log for the sqsrv
 
-// fileName - for internal and testing use
-var fileName = "transaction.tlog"
+// logFileName - for internal and testing use
+var logFileName = "transaction.tlog"
 
 // recoveryFile for internal and testing use
 var recoveryFile = "recovery.tlog"
 
 var guardTransProc uint64
+
+var doDirOnce sync.Once
 
 // LogMsg is a structure to send a LogStatement across a channel and giving a reponse channel
 type LogMsg struct {
@@ -39,6 +42,15 @@ var tlog TChan
 
 // logState is for internal or testing only
 var logState State
+
+// SetTLog sets the path to the transaction log
+// It may be an absolute or relative path. This should only be set once before
+// transaction logging is started.
+func SetTLog(path string) {
+	doDirOnce.Do(func() {
+		logFileName = path
+	})
+}
 
 // Start -
 func Start() TChan {
@@ -84,7 +96,7 @@ func transProc() {
 
 	log.Info("Starting Transaction Logging")
 	// If the file doesn't exist, create it. Append to the file as write only
-	file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//	log.Fatal(err)
 		log.Panic(err)
@@ -129,7 +141,7 @@ func Recovery(profile *sqprofile.SQProfile) error {
 	log.Info("Recovering transaction log")
 	start := time.Now()
 
-	isTransLog, err := fileExists(fileName)
+	isTransLog, err := fileExists(logFileName)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -164,7 +176,7 @@ func Recovery(profile *sqprofile.SQProfile) error {
 
 	if isTransLog {
 		// Read the recovery.tlog
-		file, err := os.Open(fileName)
+		file, err := os.Open(logFileName)
 		if err != nil {
 			return err
 		}
