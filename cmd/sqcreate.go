@@ -35,13 +35,13 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (str
 		tableName = val
 		tkns.Remove()
 	} else {
-		return tableName, e.NewSyntax("Expecting name of table to create")
+		return "", e.NewSyntax("Expecting name of table to create")
 	}
 
 	if tkns.Test(t.OpenBracket) != "" {
 		tkns.Remove()
 	} else {
-		return tableName, e.NewSyntax("Expecting ( after name of table")
+		return "", e.NewSyntax("Expecting ( after name of table")
 	}
 	i := 0
 	isHangingComma := false
@@ -49,19 +49,20 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (str
 	for {
 		if tkns.Test(t.CloseBracket) != "" {
 			if isHangingComma {
-				return tableName, e.NewSyntax("Unexpected \",\" before \")\"")
+				return "", e.NewSyntax("Unexpected \",\" before \")\"")
 			}
+			tkns.Remove()
 			break
 		}
 		if i > 0 && !isHangingComma {
-			return tableName, e.NewSyntax("Comma is required to separate column definitions")
+			return "", e.NewSyntax("Comma is required to separate column definitions")
 		}
 		// Ident(colName), Ident(typeVal), opt [opt NOT, NULL],  opt comma
 		if cName := tkns.Test(t.Ident); cName != "" {
 			tkns.Remove()
 			typeVal := tkns.Test(t.TypeTKN)
 			if typeVal == "" {
-				return tableName, e.NewSyntax("Expecting column type")
+				return "", e.NewSyntax("Expecting column type")
 			}
 			tkns.Remove()
 			// Check for optional NOT NULL or NULL
@@ -77,7 +78,7 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (str
 			}
 			if isNot && !isNull {
 				// if there is a NOT there must be a NULL
-				return tableName, e.NewSyntax("Expecting a NULL after NOT in Column definition")
+				return "", e.NewSyntax("Expecting a NULL after NOT in Column definition")
 			}
 
 			col := sqtables.CreateColDef(cName, typeVal, isNot)
@@ -92,17 +93,22 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (str
 				isHangingComma = false
 			}
 		} else {
-			return tableName, e.NewSyntax("Expecting name of column")
+			return "", e.NewSyntax("Expecting name of column")
 		}
 	}
 	if len(cols) <= 0 {
-		return tableName, e.NewSyntax("No columns defined for table")
+		return "", e.NewSyntax("No columns defined for table")
 	}
+
+	if !tkns.IsEmpty() {
+		return "", e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+	}
+
 	log.Debug("Creating table ", tableName)
 	table := sqtables.CreateTableDef(tableName, cols...)
 	err := sqtables.CreateTable(profile, table)
 	if err != nil {
-		return tableName, err
+		return "", err
 	}
 
 	err = redo.Send(redo.NewCreateDDL(tableName, cols))

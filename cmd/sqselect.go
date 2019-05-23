@@ -103,6 +103,10 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 		}
 	}
 
+	if !tkns.IsEmpty() {
+		return nil, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+	}
+
 	return SelectExecute(profile, tableName, cols, whereConditions, orderBy)
 
 }

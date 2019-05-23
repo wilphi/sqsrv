@@ -56,6 +56,9 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (int, err
 			return -1, err
 		}
 	}
+	if !tkns.IsEmpty() {
+		return -1, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+	}
 
 	return DeleteFromTable(profile, tableName, whereConditions)
 }

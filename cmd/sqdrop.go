@@ -32,7 +32,11 @@ func DropTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *s
 		tableName = strings.ToLower(val)
 		tkns.Remove()
 	} else {
-		return tableName, nil, e.NewSyntax("Expecting name of table to Drop")
+		return "", nil, e.NewSyntax("Expecting name of table to Drop")
+	}
+
+	if !tkns.IsEmpty() {
+		return "", nil, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
 	}
 
 	err := sqtables.DropTable(profile, tableName)

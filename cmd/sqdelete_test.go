@@ -205,6 +205,32 @@ func TestDelete(t *testing.T) {
 			},
 			Data: ds,
 		},
+		{
+			TestName:  "Delete FROM table with where Extra stuff ",
+			Command:   "Delete FROM deltest where col1 = 456 extra stuff",
+			TableName: "deltest",
+			ExpErr:    "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{789, "Seltest 3", false},
+				{987, "Seltest 5", false},
+				{654, "Seltest 6", true},
+			},
+			Data: ds,
+		},
+		{
+			TestName:  "Delete FROM table Extra stuff ",
+			Command:   "Delete FROM deltest extra stuff",
+			TableName: "deltest",
+			ExpErr:    "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{789, "Seltest 3", false},
+				{987, "Seltest 5", false},
+				{654, "Seltest 6", true},
+			},
+			Data: ds,
+		},
 	}
 
 	for i, row := range data {

@@ -129,6 +129,8 @@ func GetWhereConditions(profile *sqprofile.SQProfile, tkns *t.TokenList, td *sqt
 				cond = sqtables.NewORCondition(lCond, rCond)
 				break
 			}
+		} else {
+			break
 		}
 	}
 

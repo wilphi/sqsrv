@@ -113,6 +113,12 @@ func TestDropTable(t *testing.T) {
 			TableName: "Droptest",
 			ExpErr:    "",
 		},
+		{
+			TestName:  "Drop Table with extra stuff",
+			Command:   "Drop TABLE droptest extra stuff",
+			TableName: "Droptest",
+			ExpErr:    "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+		},
 	}
 
 	for i, row := range data {

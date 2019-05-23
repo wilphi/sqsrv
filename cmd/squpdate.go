@@ -73,6 +73,11 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 				setCols = append(setCols, colName)
 				setVals = append(setVals, val)
 				isValidSetExpression = true
+				if tkns.Test(t.Comma) != "" {
+					tkns.Remove()
+				} else {
+					break
+				}
 			} else {
 				err = e.NewSyntax(fmt.Sprintf("Expecting a value in SET clause after %s =", colName))
 				return "", nil, err
@@ -87,6 +92,10 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 	if tkns.Len() > 0 && tkns.Test(t.Where) != "" {
 		tkns.Remove()
 		tkns, cond, err = GetWhereConditions(profile, tkns, tab)
+	}
+
+	if !tkns.IsEmpty() {
+		return "", nil, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
 	}
 
 	// get the data

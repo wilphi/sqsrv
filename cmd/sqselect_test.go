@@ -332,6 +332,39 @@ func TestSelect(t *testing.T) {
 				{456, "Seltest 2", true},
 			},
 		},
+		{
+			TestName: "SELECT Order BY & Where + Extra stuff",
+			Command:  "SELECT * FROM seltest ORDER BY col1 WHERE col3 = true extra stuff",
+			ExpErr:   "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+			ExpRows:  2,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+			},
+		},
+		{
+			TestName: "SELECT Order BY + Extra stuff",
+			Command:  "SELECT * FROM seltest ORDER BY col1 extra stuff",
+			ExpErr:   "Syntax Error: Missing comma in ORDER BY clause",
+			ExpRows:  2,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+			},
+		},
+		{
+			TestName: "SELECT + Extra stuff",
+			Command:  "SELECT * FROM seltest extra stuff",
+			ExpErr:   "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+			ExpRows:  2,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{456, "Seltest 2", true},
+			},
+		},
 	}
 
 	for i, row := range data {

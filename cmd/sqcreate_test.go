@@ -116,6 +116,12 @@ func TestCreateTable(t *testing.T) {
 			ExpErr:       "Syntax Error: Expecting a NULL after NOT in Column definition",
 			ExpTableName: "createnull",
 		},
+		{
+			TestName:     "CREATE TABLE extra tokens",
+			Command:      "CREATE TABLE createtest3 (col1 int, col2 string, col3 bool) extra stuff",
+			ExpErr:       "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+			ExpTableName: "createtest",
+		},
 	}
 
 	for i, row := range data {

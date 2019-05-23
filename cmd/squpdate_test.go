@@ -48,6 +48,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	data := []UpdateData{
+
 		{
 			TestName: "UPDATE only",
 			SQLStr:   "UPDATE",
@@ -128,6 +129,30 @@ func TestUpdate(t *testing.T) {
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
 			ExpData:   sqtypes.RawVals{{1, "test row 1"}, {2, "test row 2"}, {3, "test row 3"}, {5, "test row 5"}, {6, "test row 6"}, {99, "test row 4"}},
+		},
+		{
+			TestName:  "UPDATE with Where Clause + extra stuff",
+			SQLStr:    "UPDATE testupdate SET col1 = 99 WHERE col1 = 34 extra stuff",
+			ExpErr:    "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+			TableName: "testupdate",
+			Cols:      []string{"col1", "col2"},
+			ExpData:   sqtypes.RawVals{{1, "test row 1"}, {2, "test row 2"}, {3, "test row 3"}, {5, "test row 5"}, {6, "test row 6"}, {99, "test row 4"}},
+		},
+		{
+			TestName:  "UPDATE + extra stuff",
+			SQLStr:    "UPDATE testupdate SET col1 = 99 extra stuff",
+			ExpErr:    "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+			TableName: "testupdate",
+			Cols:      []string{"col1", "col2"},
+			ExpData:   sqtypes.RawVals{{1, "test row 1"}, {2, "test row 2"}, {3, "test row 3"}, {5, "test row 5"}, {6, "test row 6"}, {99, "test row 4"}},
+		},
+		{
+			TestName:  "UPDATE multi cols",
+			SQLStr:    "UPDATE testupdate SET col1 = 99, col2 = \"test multi\"",
+			ExpErr:    "",
+			TableName: "testupdate",
+			Cols:      []string{"col1", "col2"},
+			ExpData:   sqtypes.RawVals{{99, "test multi"}, {99, "test multi"}, {99, "test multi"}, {99, "test multi"}, {99, "test multi"}, {99, "test multi"}},
 		},
 	}
 

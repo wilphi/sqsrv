@@ -38,6 +38,11 @@ func (tl *TokenList) Len() int {
 	return len(tl.tkns)
 }
 
+// IsEmpty tests if the token list is empty or not
+func (tl *TokenList) IsEmpty() bool {
+	return tl.Len() <= 0
+}
+
 // ToString - returns a string representation of list
 func (tl *TokenList) ToString() string {
 	output := ""
