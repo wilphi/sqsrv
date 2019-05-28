@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -20,10 +21,10 @@ type Config struct {
 	dec  *gob.Decoder
 	conn net.Conn
 	cNum int //connection number
-
 }
 
 var connList []*Config
+var inShutdown bool
 
 func init() {
 	gob.Register(sqtypes.SQString{})
@@ -46,8 +47,6 @@ func (srv *Config) ReceiveRequest() (*sqprotocol.RequestToServer, error) {
 	if err != nil {
 		if err != io.EOF {
 			log.Errorf("Error Reading request from Client Connection: \"%s\"\n", err.Error())
-		} else {
-			log.Infof("Closing Client Connection #%d\n", srv.cNum)
 		}
 		return nil, err
 	}
@@ -77,6 +76,8 @@ func (srv *Config) Close() error {
 		log.Panic("Unable to find connection in connList")
 	}
 	connList = append(connList[:idx], connList[idx+1:]...)
+	log.Infof("Closing Client Connection #%d\n", srv.cNum)
+
 	return srv.conn.Close()
 }
 
@@ -104,6 +105,7 @@ func (srv *Config) SendRow(rowNum int, data []sqtypes.Value) error {
 	}
 	return nil
 }
+
 func getTypeWidth(typeName string) int {
 	var ret int
 	switch typeName {
@@ -127,4 +129,31 @@ func ShowConn() string {
 		str += fmt.Sprintf("%d\t%v\n", c.cNum, c.conn.RemoteAddr())
 	}
 	return str
+}
+
+//Shutdown terminates connections in orderly fashion
+func Shutdown() {
+	inShutdown = true
+
+	cnt := 0
+	for {
+		// All connections a have terminated
+		if len(connList) == 0 {
+			break
+		}
+
+		// if more than 10 seconds has passed continue with shutdown
+		if cnt > 200 {
+			log.Info("Connection timeout for shutdown")
+			break
+		}
+		// wait for a little bit
+		time.Sleep(100 * time.Millisecond)
+		cnt++
+	}
+}
+
+// IsShutdown is true if a shutdown is in process
+func IsShutdown() bool {
+	return inShutdown
 }

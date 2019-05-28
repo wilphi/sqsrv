@@ -67,6 +67,14 @@ func Stop() {
 	log.Info("Stopping Transaction Logging...")
 	if !logState.IsStopped() {
 		logState.Stop()
+		for {
+			if len(tlog) == 0 {
+				break
+			}
+			// wait for a little bit
+			time.Sleep(100 * time.Millisecond)
+
+		}
 		close(tlog)
 	}
 }
@@ -107,7 +115,11 @@ func transProc() {
 		// get the log message
 		sent, ok := <-tlog
 		if !ok {
+			if logState.IsStopped() {
+				return
+			}
 			log.Fatal("The Transaction log Channel has been closed")
+
 		}
 
 		// unpack the log statement and encode it
