@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/wilphi/sqsrv/files"
+
 	"github.com/wilphi/sqsrv/sqbin"
 
 	"github.com/wilphi/sqsrv/sqprofile"
@@ -153,11 +155,9 @@ func Recovery(profile *sqprofile.SQProfile) error {
 	log.Info("Recovering transaction log")
 	start := time.Now()
 
-	isTransLog, err := fileExists(logFileName)
+	isTransLog, err := files.Exists(logFileName)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
+		return err
 	}
 	/*
 		isRecoveryLog, err := fileExists(recoveryFile)
@@ -259,20 +259,4 @@ func ReadTlog(profile *sqprofile.SQProfile, f io.Reader) error {
 	}
 
 	return nil
-}
-
-// Tests to see if file exists and has a size >0
-func fileExists(fileName string) (bool, error) {
-	exists := true
-	fs, err := os.Stat(fileName)
-	if err != nil {
-		if os.IsNotExist(err) {
-			exists = false
-		} else {
-			return false, err
-		}
-	} else {
-		exists = fs.Size() != 0
-	}
-	return exists, nil
 }

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wilphi/sqsrv/files"
 	"github.com/wilphi/sqsrv/sqbin"
 
 	log "github.com/sirupsen/logrus"
@@ -42,6 +43,9 @@ type DBRow struct {
 	RowID int64
 	Data  []sqtypes.Value
 }
+
+// the number times a file can be renumbered
+const maxFiles = 100
 
 var doDirOnce sync.Once
 
@@ -80,7 +84,10 @@ func WriteDB(profile *sqprofile.SQProfile) error {
 
 	// Get the last transaction
 	id := transid.GetTransID()
+
+	// get the list of tables currently in use
 	tables := ListTables(profile)
+
 	info := DBInfo{LastTransID: id, Tables: tables}
 
 	err := writeDBInfo(profile, info)
@@ -88,6 +95,8 @@ func WriteDB(profile *sqprofile.SQProfile) error {
 		log.Error("Unable to write to info file", err)
 	}
 
+	// now get all of the tables including those that have been dropped
+	tables = ListAllTables(profile)
 	for _, tableName := range tables {
 		err = writeDBTableInfo(profile, tableName)
 		if err != nil {
@@ -108,7 +117,6 @@ func writeDBInfo(profile *sqprofile.SQProfile, d DBInfo) error {
 
 	file, err := os.OpenFile(dbDirectory+infoFile, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		//	log.Fatal(err)
 		log.Panic(err)
 	}
 	enc := gob.NewEncoder(file)
@@ -119,14 +127,19 @@ func writeDBInfo(profile *sqprofile.SQProfile, d DBInfo) error {
 }
 
 func writeDBTableInfo(profile *sqprofile.SQProfile, tName string) error {
+	fileName := dbDirectory + "/" + tName + ".sqt"
 
 	td := GetTable(profile, tName)
 	if td == nil {
-		return sqerr.NewInternal(fmt.Sprintf("Table %s is missing from tableList", tName))
+		err := files.NumberFile(fileName, maxFiles)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	tab := DBTable{TableName: tName, Cols: td.tableCols, NRows: len(td.rowm), NextRowID: *td.nextRowID}
-	file, err := os.OpenFile(dbDirectory+"/"+tName+".sqt", os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//	log.Fatal(err)
 		log.Panic(err)
@@ -149,13 +162,17 @@ func deleteBlock(file *os.File, offset, alloc int64) error {
 func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 	var err error
 	var deletePtrs []int64
-
+	fileName := dbDirectory + "/" + tName + ".sqd"
 	td := GetTable(profile, tName)
 	if td == nil {
-		return sqerr.NewInternal(fmt.Sprintf("Table %s is missing from tableList", tName))
+		err := files.NumberFile(fileName, maxFiles)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
-	datafile, err := os.OpenFile(dbDirectory+"/"+tName+".sqd", os.O_CREATE|os.O_WRONLY, 0644)
+	datafile, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//	log.Fatal(err)
 		log.Panic(err)
@@ -300,25 +317,6 @@ func readRow(dec *sqbin.Codec) *DBRow {
 	return row
 }
 
-/*
-// readAllocSize reads two int64 numbers from the given file at offset
-// 	it returns (alloc int64, size int64, error)
-func readAllocSize(file *os.File, offset int64) (int64, int64, error) {
-	var store = make([]byte, sqbin.IntSize*2)
-
-	_, err := file.ReadAt(store, offset)
-	if err != nil {
-		return -1, -1, err
-	}
-	dec := sqbin.NewCodec(store)
-	alloc := dec.ReadInt64()
-
-	size := dec.ReadInt64()
-
-	return alloc, size, nil
-
-}*/
-
 // NextLargerBlock returns the next larger block size for disk storage
 // Max block size is 1Mb (1048576 bytes)
 func NextLargerBlock(num int) int64 {
@@ -357,6 +355,9 @@ func ReadDB(profile *sqprofile.SQProfile) error {
 	transid.SetTransID(info.LastTransID)
 
 	for _, tableName := range info.Tables {
+		if tableName == "" {
+			continue
+		}
 		log.Info("Loading " + tableName)
 
 		tab, err := readDBTableInfo(profile, tableName)

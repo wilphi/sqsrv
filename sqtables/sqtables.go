@@ -26,6 +26,7 @@ type TableDef struct {
 	rowm       map[int64]*RowDef
 	nextOffset int64
 	nextRowID  *int64
+	isDropped  bool
 	sqmutex.SQMutex
 }
 
@@ -94,7 +95,6 @@ func (t *TableDef) ToString(profile *sqprofile.SQProfile) string {
 }
 
 // AddRows - add one or more rows to table
-//func (t *TableDef) AddRows(cols []string, vals [][]sqtypes.Value) (int, error) {
 func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, error) {
 
 	// Create all of the rows before locking and adding them to the table

@@ -80,7 +80,7 @@ func DropTable(profile *sqprofile.SQProfile, name string) error {
 	// Unlock when done to make sure the lock tracking is correct
 	defer tab.Unlock(profile)
 	// remove from _tables
-	delete(_tables.tables, name)
+	_tables.tables[strings.ToLower(name)] = nil
 
 	//Clear out the values
 	tab.rowm = nil
@@ -99,6 +99,25 @@ func newTableList() *tableList {
 func ListTables(profile *sqprofile.SQProfile) []string {
 	_tables.RLock(profile)
 	defer _tables.RUnlock(profile)
+	var tNames []string
+
+	for tab := range _tables.tables {
+		if tab != "" {
+			if _tables.tables[tab] != nil {
+				tNames = append(tNames, tab)
+
+			}
+		}
+	}
+	sort.Strings(tNames)
+	return tNames
+
+}
+
+// ListAllTables returns a sorted list of tablenames including dropped tables
+func ListAllTables(profile *sqprofile.SQProfile) []string {
+	_tables.RLock(profile)
+	defer _tables.RUnlock(profile)
 	tNames := make([]string, len(_tables.tables))
 	i := 0
 	for tab := range _tables.tables {
@@ -115,7 +134,9 @@ func (tl *tableList) LockAll(profile *sqprofile.SQProfile) {
 	tl.Lock(profile)
 
 	for _, tab := range tl.tables {
-		tab.Lock(profile)
+		if tab != nil {
+			tab.Lock(profile)
+		}
 	}
 
 }
@@ -123,7 +144,9 @@ func (tl *tableList) LockAll(profile *sqprofile.SQProfile) {
 //UnlockAll write unlocks the tableList and all tables in it
 func (tl *tableList) UnlockAll(profile *sqprofile.SQProfile) {
 	for _, tab := range tl.tables {
-		tab.Unlock(profile)
+		if tab != nil {
+			tab.Unlock(profile)
+		}
 	}
 	tl.Unlock(profile)
 }
