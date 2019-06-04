@@ -1,7 +1,6 @@
 package sq
 
 import (
-	"encoding/json"
 	"fmt"
 	"runtime"
 	"strings"
@@ -129,68 +128,50 @@ func GetDispatchFunc(tkns tk.TokenList) func(profile *sqprofile.SQProfile, tkns 
 
 // MemStats generates a string that contains current information of the status of the go environment Memory
 func MemStats() string {
-	var m Monitor
 	var rtm runtime.MemStats
 
 	// Read full mem stats
 	runtime.ReadMemStats(&rtm)
+	rawdata := [][]string{
+		{"Allocated Heap", format(rtm.Alloc), "Bytes"},
+		{"Total Allocations", format(rtm.TotalAlloc), "Bytes"},
+		{"Memory from System", format(rtm.Sys), "Bytes"},
+		{"Objects Allocated", format(rtm.Mallocs), ""},
+		{"Objects Freed", format(rtm.Frees), ""},
+		{"Live Objects", format(rtm.Mallocs - rtm.Frees), ""},
+		{"Number of GC runs", format(uint64(rtm.NumGC)), ""},
+		{"Number of GC pauses", format(rtm.PauseTotalNs), ""},
+		{"Number of GoRoutines", format(uint64(runtime.NumGoroutine())), ""},
+	}
 
-	// Number of goroutines
-	m.NumGoroutine = runtime.NumGoroutine()
+	str := "Memory Stats:\n"
+	for _, line := range rawdata {
+		str += fmt.Sprintf("\t%-20s = %21s %s\n", line[0], line[1], line[2])
+	}
 
-	// Misc memory stats
-	m.Alloc = rtm.Alloc
-	m.TotalAlloc = rtm.TotalAlloc
-	m.Sys = rtm.Sys
-	m.Mallocs = rtm.Mallocs
-	m.Frees = rtm.Frees
-
-	// Live objects = Mallocs - Frees
-	m.LiveObjects = m.Mallocs - m.Frees
-
-	// GC Stats
-	m.PauseTotalNs = rtm.PauseTotalNs
-	m.NumGC = rtm.NumGC
-
-	// Just encode to json and print
-	b, _ := json.Marshal(m)
-	str := string(b)
-	fmt.Println(str)
 	return str
 }
-
-// NewMonitor -
-func NewMonitor(duration int) {
-	var m Monitor
-	var rtm runtime.MemStats
-	var interval = time.Duration(duration) * time.Second
+func format(q uint64) string {
+	lookup := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+	str := ""
+	i := 0
 	for {
-		<-time.After(interval)
-
-		// Read full mem stats
-		runtime.ReadMemStats(&rtm)
-
-		// Number of goroutines
-		m.NumGoroutine = runtime.NumGoroutine()
-
-		// Misc memory stats
-		m.Alloc = rtm.Alloc
-		m.TotalAlloc = rtm.TotalAlloc
-		m.Sys = rtm.Sys
-		m.Mallocs = rtm.Mallocs
-		m.Frees = rtm.Frees
-
-		// Live objects = Mallocs - Frees
-		m.LiveObjects = m.Mallocs - m.Frees
-
-		// GC Stats
-		m.PauseTotalNs = rtm.PauseTotalNs
-		m.NumGC = rtm.NumGC
-
-		// Just encode to json and print
-		b, _ := json.Marshal(m)
-		fmt.Println(string(b))
+		r := int64(q % 10)
+		q = q / 10
+		if str != "" {
+			if i%3 == 0 {
+				str = "," + str
+			}
+			str = lookup[r] + str
+		} else {
+			str = lookup[r]
+		}
+		if q <= 0 {
+			break
+		}
+		i++
 	}
+	return str
 }
 
 func cmdShutdown(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
