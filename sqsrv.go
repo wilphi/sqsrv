@@ -46,5 +46,5 @@ func main() {
 	sqtables.SetDBDir(*dbfiles)
 	redo.SetTLog(*tlog)
 
-	sq.SQMain(*host, *port)
+	sq.Main(*host, *port)
 }

@@ -27,8 +27,8 @@ const (
 	cType = "tcp"
 )
 
-// SQMain is the main process function for the SQServer
-func SQMain(host, port string) {
+// Main is the main process function for the SQServer
+func Main(host, port string) {
 	//	var jobs = make(chan Job, 10)
 	var Terminate = make(chan bool, 10)
 	var doShutdown = false
