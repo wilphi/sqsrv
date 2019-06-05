@@ -39,9 +39,12 @@ type Value interface {
 	Write(c *sqbin.Codec)
 }
 
+//Raw is a type that can be converted into sq Values
+type Raw interface{}
+
 // RawVals raw values that can be converted to sq Values
 // 	used for testing
-type RawVals [][]interface{}
+type RawVals [][]Raw
 
 // ReadValue takes a byte array an decodes the Value from it.
 // 	Int returns the number of bytes read
@@ -321,10 +324,10 @@ func CreateValueFromToken(tkn t.Token) (Value, error) {
 	return retVal, nil
 }
 
-//Raw given any type convert it into a SQ Value
+//RawValue given any type convert it into a SQ Value
 // Currently only works for int, string, bool
 //  nil values get converted to SQNull
-func Raw(raw interface{}) Value {
+func RawValue(raw interface{}) Value {
 	var retVal Value
 
 	if raw == nil {
@@ -343,17 +346,23 @@ func Raw(raw interface{}) Value {
 	return retVal
 }
 
-// CreateValuesFromRaw converts a 2D array of raw to a 2D array of SQ Values
+// CreateValuesFromRaw converts a 2D array of raw to a 2D array of sqtypes.Value
 func CreateValuesFromRaw(raw RawVals) [][]Value {
 	nRows := len(raw)
 	retVals := make([][]Value, nRows)
 
 	for i, row := range raw {
-		retVals[i] = make([]Value, len(row))
-		for j, item := range row {
-			retVals[i][j] = Raw(item)
-		}
+		retVals[i] = CreateValueArrayFromRaw(row)
 	}
 	return retVals
 
+}
+
+// CreateValueArrayFromRaw converts an array of raw to an array of sqtypes.Value
+func CreateValueArrayFromRaw(rawArray []Raw) []Value {
+	retVals := make([]Value, len(rawArray))
+	for j, item := range rawArray {
+		retVals[j] = RawValue(item)
+	}
+	return retVals
 }

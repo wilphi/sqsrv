@@ -16,7 +16,6 @@ import (
 
 type CreateData struct {
 	TestName  string
-	Function  string
 	TableName string
 	ID        uint64
 	identstr  string
@@ -27,57 +26,7 @@ func TestCreate(t *testing.T) {
 
 	data := []CreateData{
 		{
-			TestName:  "Create new CreateDDL",
-			Function:  "NEW",
-			TableName: "testcreate",
-			Cols: []sqtables.ColDef{
-				sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-				sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
-			},
-		},
-		{
-			TestName:  "Set/Get ID",
-			Function:  "ID",
-			TableName: "testcreate",
-			Cols: []sqtables.ColDef{
-				sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-				sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
-			},
-			ID: 123,
-		},
-		{
-			TestName:  "Verify Identify String",
-			Function:  "IDSTR",
-			TableName: "testcreate",
-			Cols: []sqtables.ColDef{
-				sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-				sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
-			},
-			ID: 123,
-		},
-		{
-			TestName:  "Encode/Decode",
-			Function:  "CODEC",
-			TableName: "testcreate",
-			Cols: []sqtables.ColDef{
-				sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-				sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
-			},
-			ID: 123,
-		},
-		{
-			TestName:  "Create Decodestatement test",
-			Function:  "DECODESTATEMENT",
-			TableName: "testcreate",
-			Cols: []sqtables.ColDef{
-				sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-				sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
-			},
-			ID: 123,
-		},
-		{
 			TestName:  "Recreate table from redo",
-			Function:  "REDO",
 			TableName: "RedoCreate",
 			Cols: []sqtables.ColDef{
 				sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
@@ -103,169 +52,106 @@ func testCreateFunc(d CreateData) func(*testing.T) {
 			}
 		}()
 		s := redo.NewCreateDDL(d.TableName, d.Cols)
-		switch d.Function {
-		case "NEW":
-		case "ID":
-			s.SetID(d.ID)
-		case "IDSTR":
-			s.SetID(d.ID)
-			idstr := fmt.Sprintf("#%d - CREATE TABLE %s", d.ID, d.TableName)
-			if idstr != s.Identify() {
-				t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), idstr)
-			}
-		case "CODEC":
-			s.SetID(d.ID)
+		// Test Get/Set Id
+		s.SetID(d.ID)
+		if s.GetID() != d.ID {
+			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
+			return
+		}
 
-			cdr := s.Encode()
-			res := &redo.CreateDDL{}
-			res.Decode(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Encoding and then Decoding does not match values")
-			}
-		case "DECODESTATEMENT":
-			s.SetID(d.ID)
+		// Test identity string
+		idstr := fmt.Sprintf("#%d - CREATE TABLE %s", d.ID, d.TableName)
+		if idstr != s.Identify() {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), idstr)
+			return
+		}
 
-			cdr := s.Encode()
-			res := redo.DecodeStatement(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Decoded Statement does not match initial values")
-			}
-		case "REDO":
-			s.SetID(d.ID)
-			profile := sqprofile.CreateSQProfile()
+		// Test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.CreateDDL{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
 
-			err := s.Recreate(profile)
-			if err != nil {
-				t.Errorf("Error recreating LogStatement: %s", err)
-			}
-			tab := sqtables.GetTable(profile, d.TableName)
-			if tab == nil {
-				t.Errorf("Table %s has not been recreated", d.TableName)
-			}
-			cl := tab.GetCols(profile)
-			cd := cl.GetColDefs()
-			if !reflect.DeepEqual(d.Cols, cd) {
-				t.Errorf("Columns defintions are not the same for Recreated table")
-			}
+		// Make sure the function DecodeStatement can properly pick and decode the statement type
+		cdr = s.Encode()
+		resStmt := redo.DecodeStatement(cdr)
+		if !reflect.DeepEqual(s, resStmt) {
+			t.Error("Decoded Statement does not match initial values")
+			return
+		}
+
+		// Test Recreate
+		profile := sqprofile.CreateSQProfile()
+
+		err := s.Recreate(profile)
+		if err != nil {
+			t.Errorf("Error recreating LogStatement: %s", err)
+			return
+		}
+		tab := sqtables.GetTable(profile, d.TableName)
+		if tab == nil {
+			t.Errorf("Table %s has not been recreated", d.TableName)
+			return
+		}
+
+		// Clean up table when done
+		defer sqtables.DropTable(profile, d.TableName)
+
+		cl := tab.GetCols(profile)
+		cd := cl.GetColDefs()
+		if !reflect.DeepEqual(d.Cols, cd) {
+			t.Errorf("Columns defintions are not the same for Recreated table")
+			return
 		}
 
 		if (s.TableName != d.TableName) || !reflect.DeepEqual(s.Cols, d.Cols) {
 			t.Error("Columns do not match expected")
+			return
 		}
-
-		if s.GetID() != d.ID {
-			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-		}
-
 	}
 }
 
 type InsertData struct {
 	TestName  string
-	Function  string
 	TableName string
 	Cols      []string
-	Data      [][]sqtypes.Value
+	Data      sqtypes.RawVals
 	RowPtrs   []int64
 	ID        uint64
 	Identstr  string
 	ExpErr    string
+	ExpData   sqtypes.RawVals
 }
 
 func TestInsert(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-
-	tab := sqtables.CreateTableDef("testInsertRedo",
-		sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-		sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false})
-	err := sqtables.CreateTable(profile, tab)
+	_, err := cmd.CreateTableFromTokens(profile, tokens.Tokenize("Create table testInsertRedo (col1 int, col2 string)"))
 	if err != nil {
 		t.Errorf("Error setting up table for TestInsert: %s", err)
 	}
 	data := []InsertData{
 		{
-			TestName:  "Insert Row",
-			Function:  "NEW",
-			TableName: "testInsertRedo",
-			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs: []int64{0, 1, 2},
-			ID:      123,
-		},
-		{
-			TestName:  "Insert ID String",
-			Function:  "IDSTR",
-			TableName: "testInsertRedo",
-			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
-		},
-		{
-			TestName:  "Insert Encode/Decode",
-			Function:  "CODEC",
-			TableName: "testInsertRedo",
-			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
-		},
-		{
-			TestName:  "Insert DecodeStatement",
-			Function:  "DECODESTATEMENT",
-			TableName: "testInsertRedo",
-			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
-		},
-		{
 			TestName:  "Insert Recreate",
-			Function:  "REDO",
 			TableName: "testInsertRedo",
 			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			Data:      sqtypes.RawVals{{1, "Row 1"}, {2, "Row 2"}, {3, "Row 3"}},
+			RowPtrs:   []int64{0, 1, 2},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			ExpData:   sqtypes.RawVals{{1, "Row 1"}, {2, "Row 2"}, {3, "Row 3"}},
 		},
 		{
 			TestName:  "Insert Recreate Invalid table",
-			Function:  "REDO",
 			TableName: "testInsertRedo2",
 			Cols:      []string{"col1", "col2"},
-			Data: [][]sqtypes.Value{
-				{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row 1")},
-				{sqtypes.NewSQInt(2), sqtypes.NewSQString("Row 2")},
-				{sqtypes.NewSQInt(3), sqtypes.NewSQString("Row 3")},
-			},
-			RowPtrs:  []int64{0, 1, 2},
-			ID:       123,
-			Identstr: "#123 - INSERT INTO testInsertRedo : Rows = 3",
-			ExpErr:   "Error: Table testInsertRedo2 does not exist",
+			Data:      sqtypes.RawVals{{1, "Row 1"}, {2, "Row 2"}, {3, "Row 3"}},
+			RowPtrs:   []int64{0, 1, 2},
+			ID:        123,
+			Identstr:  "#123 - INSERT INTO testInsertRedo2 : Rows = 3",
+			ExpErr:    "Error: Table testInsertRedo2 does not exist",
 		},
 	}
 
@@ -284,196 +170,169 @@ func testInsertFunc(d InsertData) func(*testing.T) {
 				t.Errorf(d.TestName + " panicked unexpectedly")
 			}
 		}()
+		var err error
+		var initPtrs []int64
 
-		s := redo.NewInsertRows(d.TableName, d.Cols, d.Data, d.RowPtrs)
+		data := sqtypes.CreateValuesFromRaw(d.Data)
+		s := redo.NewInsertRows(d.TableName, d.Cols, data, d.RowPtrs)
+
+		// Test Get/Set ID
 		s.SetID(d.ID)
-		switch d.Function {
-		case "NEW":
-		case "ID":
-			s.SetID(d.ID)
-		case "IDSTR":
-			s.SetID(d.ID)
-			if d.Identstr != s.Identify() {
-				t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
-			}
-		case "CODEC":
-			s.SetID(d.ID)
+		if s.GetID() != d.ID {
+			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
+			return
+		}
 
-			cdr := s.Encode()
-			res := &redo.InsertRows{}
-			res.Decode(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Encoding and then Decoding does not match values")
-			}
-		case "DECODESTATEMENT":
-			s.SetID(d.ID)
+		// Test the Identifier
+		if d.Identstr != s.Identify() {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
+			return
+		}
+		// Test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.InsertRows{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
 
-			cdr := s.Encode()
-			res := redo.DecodeStatement(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Decoded Statement does not match initial values")
-			}
-		case "REDO":
-			s.SetID(d.ID)
-			initRowCount := 0
-			profile := sqprofile.CreateSQProfile()
-			tab := sqtables.GetTable(profile, d.TableName)
-			if tab != nil {
-				initRowCount = tab.RowCount(profile)
-			}
-			err := s.Recreate(profile)
+		// Make sure the function DecodeStatement can properly pick and decode the statement type
+		cdr = s.Encode()
+		resStmt := redo.DecodeStatement(cdr)
+		if !reflect.DeepEqual(s, resStmt) {
+			t.Error("Decoded Statement does not match initial values")
+			return
+		}
+		// test recreate
+		profile := sqprofile.CreateSQProfile()
+		tab := sqtables.GetTable(profile, d.TableName)
+		if tab != nil {
+			initPtrs, err = tab.GetRowPtrs(profile, nil, true)
 			if err != nil {
-				if err.Error() != d.ExpErr {
-					t.Errorf("Error recreating LogStatement: %s", err)
-				}
+				t.Errorf("Unable to get table data for %s", d.TableName)
 				return
 			}
-			if tab.RowCount(profile) != initRowCount+len(d.Data) {
-				t.Errorf("RowCount is off for recreate of InsertRows")
+		}
+		err = s.Recreate(profile)
+		if err != nil {
+			if err.Error() != d.ExpErr {
+				t.Errorf("Error recreating LogStatement: %s", err)
 			}
+			return
+		}
+		// Verify inserted data
+		afterPtrs, err := tab.GetRowPtrs(profile, nil, true)
+		if err != nil {
+			t.Errorf("Unable to get table data for %s", d.TableName)
+			return
+		}
+		ptrs := NotIn(afterPtrs, initPtrs)
+
+		actData, err := tab.GetRowDataFromPtrs(profile, ptrs)
+		if err != nil {
+			t.Errorf("Unable to get table data for %s", d.TableName)
+			return
+		}
+		expData := sqtypes.CreateValuesFromRaw(d.ExpData)
+		if !reflect.DeepEqual(expData, actData.Vals) {
+			t.Error("Expected values do not match actual values")
+			return
 		}
 
 		if (s.TableName != d.TableName) || !reflect.DeepEqual(s.Cols, d.Cols) {
 			t.Error("Columns do not match expected")
-		}
-
-		if s.GetID() != d.ID {
-			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
+			return
 		}
 
 	}
+}
+
+// NotIn returns all items in A that are not in B
+func NotIn(a, b []int64) []int64 {
+	var ret []int64
+	for _, x := range a {
+		if !Contain(b, x) {
+			ret = append(ret, x)
+		}
+	}
+	return ret
+}
+func Contain(arr []int64, item int64) bool {
+	for _, x := range arr {
+		if x == item {
+			return true
+		}
+	}
+	return false
 }
 
 type UpdateData struct {
 	TestName  string
-	Function  string
 	TableName string
 	Cols      []string
-	Vals      []sqtypes.Value
+	Vals      []sqtypes.Raw
 	RowPtrs   []int64
 	ID        uint64
 	Identstr  string
 	ExpErr    string
+	ExpVals   sqtypes.RawVals
 }
 
 func TestUpdate(t *testing.T) {
-	profile := sqprofile.CreateSQProfile()
-
-	tab := sqtables.CreateTableDef("testUpdateRedo",
-		sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: true},
-		sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false})
-	err := sqtables.CreateTable(profile, tab)
-	if err != nil {
-		t.Errorf("Error setting up table for TestUpdate: %s", err)
-		return
-	}
-	ins := "INSERT INTO testUpdateRedo (col1, col2) VALUES " +
-		"(1, \"test row 1\"), " +
-		"(2, \"test row 2\"), " +
-		"(3, \"test row 3\"), " +
-		"(4, \"test row 4\"), " +
-		"(5, \"test row 5\"), " +
-		"(6, \"test row 6\")"
-	tkns := tokens.Tokenize(ins)
-	_, _, err = cmd.InsertInto(profile, tkns)
-	if err != nil {
-		t.Errorf("Error setting up table for TestUpdate: %s", err)
-		return
-	}
 
 	data := []UpdateData{
 		{
 			TestName:  "Update Row",
-			Function:  "NEW",
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
+			Vals:      []sqtypes.Raw{1, "Row X"},
 			RowPtrs:   []int64{1, 2, 5},
 			ID:        123,
-		},
-		{
-			TestName:  "Update ID String",
-			Function:  "IDSTR",
-			TableName: "testInsertRedo",
-			Cols:      []string{"col1", "col2"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
-			RowPtrs:   []int64{1, 2, 5},
-			ID:        123,
-			Identstr:  "#123 - UPDATE  testInsertRedo : Rows = 3",
-		},
-		{
-			TestName:  "Update Encode/Decode",
-			Function:  "CODEC",
-			TableName: "testUpdateRedo",
-			Cols:      []string{"col1", "col2"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
-			RowPtrs:   []int64{1, 2, 5},
-			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
-		},
-		{
-			TestName:  "Update DecodeStatement",
-			Function:  "DECODESTATEMENT",
-			TableName: "testUpdateRedo",
-			Cols:      []string{"col1", "col2"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
-			RowPtrs:   []int64{1, 2, 5},
-			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
-		},
-		{
-			TestName:  "Update Recreate",
-			Function:  "REDO",
-			TableName: "testUpdateRedo",
-			Cols:      []string{"col2"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQString("Row X")},
-			RowPtrs:   []int64{1, 2, 5},
-			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
-			ExpErr:    "",
+			Identstr:  "#123 - UPDATE  testUpdateRedo : Rows = 3",
+			ExpVals: sqtypes.RawVals{
+				{1, "Row X"}, {1, "Row X"}, {3, "test row 3"},
+				{4, "test row 4"}, {1, "Row X"}, {6, "test row 6"},
+			},
 		},
 		{
 			TestName:  "Update Recreate Invalid table",
-			Function:  "REDO",
 			TableName: "testUpdateRedo2",
 			Cols:      []string{"col1", "col2"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQString("Row X")},
+			Vals:      []sqtypes.Raw{1, "Row X"},
 			RowPtrs:   []int64{1, 2, 5},
 			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			Identstr:  "#123 - UPDATE  testUpdateRedo2 : Rows = 3",
 			ExpErr:    "Error: Table testUpdateRedo2 does not exist",
 		},
 		{
 			TestName:  "Update Recreate Null values",
-			Function:  "REDO",
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQNull(), sqtypes.NewSQString("Row X")},
+			Vals:      []sqtypes.Raw{nil, "Row X"},
 			RowPtrs:   []int64{1, 2, 5},
 			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			Identstr:  "#123 - UPDATE  testUpdateRedo : Rows = 3",
 			ExpErr:    "Error: Column \"col1\" in Table \"testupdateredo\" can not be NULL",
 		},
 		{
 			TestName:  "Update Recreate Extra Column",
-			Function:  "REDO",
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2", "col3"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQInt(10), sqtypes.NewSQString("Row X"), sqtypes.NewSQNull()},
+			Vals:      []sqtypes.Raw{10, "Row X", nil},
 			RowPtrs:   []int64{1, 2, 5},
 			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			Identstr:  "#123 - UPDATE  testUpdateRedo : Rows = 3",
 			ExpErr:    "Error: Column (col3) does not exist in table (testupdateredo)",
 		},
 		{
 			TestName:  "Update Recreate Row does not Exist",
-			Function:  "REDO",
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2", "col3"},
-			Vals:      []sqtypes.Value{sqtypes.NewSQInt(10), sqtypes.NewSQString("Row X"), sqtypes.NewSQNull()},
+			Vals:      []sqtypes.Raw{10, "Row X", nil},
 			RowPtrs:   []int64{999, 2, 5},
 			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			Identstr:  "#123 - UPDATE  testUpdateRedo : Rows = 3",
 			ExpErr:    "Internal Error: Row 999 does not exist for update",
 		},
 	}
@@ -484,7 +343,6 @@ func TestUpdate(t *testing.T) {
 
 	}
 }
-
 func testUpdateFunc(d UpdateData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
@@ -494,62 +352,93 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			}
 		}()
 
-		s := redo.NewUpdateRows(d.TableName, d.Cols, d.Vals, d.RowPtrs)
-		s.SetID(d.ID)
-		switch d.Function {
-		case "NEW":
-		case "ID":
-			s.SetID(d.ID)
-		case "IDSTR":
-			s.SetID(d.ID)
-			if d.Identstr != s.Identify() {
-				t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
-			}
-		case "CODEC":
-			s.SetID(d.ID)
-
-			cdr := s.Encode()
-			res := &redo.UpdateRows{}
-			res.Decode(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Encoding and then Decoding does not match values")
-			}
-		case "DECODESTATEMENT":
-			s.SetID(d.ID)
-
-			cdr := s.Encode()
-			res := redo.DecodeStatement(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Decoded Statement does not match initial values")
-			}
-		case "REDO":
-			s.SetID(d.ID)
-			initRowCount := 0
-			profile := sqprofile.CreateSQProfile()
-			tab := sqtables.GetTable(profile, d.TableName)
-			if tab != nil {
-				initRowCount = tab.RowCount(profile)
-			}
-			err := s.Recreate(profile)
-			if err != nil {
-				if err.Error() != d.ExpErr {
-					t.Errorf("Error recreating LogStatement: %s", err)
-				}
-				return
-			}
-			if tab.RowCount(profile) != initRowCount {
-				t.Errorf("RowCount is off for recreate of UpdateRows")
-			}
+		// Create table & data
+		profile := sqprofile.CreateSQProfile()
+		_, err := cmd.CreateTableFromTokens(profile, tokens.Tokenize("Create table testUpdateRedo (col1 int not null, col2 string)"))
+		if err != nil {
+			t.Errorf("Error setting up table for TestUpdate: %s", err)
+			return
 		}
-
+		defer sqtables.DropTable(profile, "testUpdateRedo")
+		ins := "INSERT INTO testUpdateRedo (col1, col2) VALUES " +
+			"(1, \"test row 1\"), " +
+			"(2, \"test row 2\"), " +
+			"(3, \"test row 3\"), " +
+			"(4, \"test row 4\"), " +
+			"(5, \"test row 5\"), " +
+			"(6, \"test row 6\")"
+		_, _, err = cmd.InsertInto(profile, tokens.Tokenize(ins))
+		if err != nil {
+			t.Errorf("Error setting up table for TestUpdate: %s", err)
+			return
+		}
+		// Make sure the create for Update works
+		valArray := sqtypes.CreateValueArrayFromRaw(d.Vals)
+		s := redo.NewUpdateRows(d.TableName, d.Cols, valArray, d.RowPtrs)
 		if (s.TableName != d.TableName) || !reflect.DeepEqual(s.Cols, d.Cols) {
 			t.Error("Columns do not match expected")
 		}
 
+		// verify Get/Set for ID
+		s.SetID(d.ID)
 		if s.GetID() != d.ID {
 			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
 		}
+		// Test the identstr
+		if d.Identstr != s.Identify() {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
+		}
+		// test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.UpdateRows{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+		}
+		// Make sure the function DecodeStatement can properly pick and decode the statement type
+		cdr = s.Encode()
+		resStmt := redo.DecodeStatement(cdr)
+		if !reflect.DeepEqual(s, resStmt) {
+			t.Error("Decoded Statement does not match initial values")
+		}
 
+		// Recreate the statement
+		initRowCount := 0
+
+		tab := sqtables.GetTable(profile, d.TableName)
+		if tab != nil {
+			initRowCount = tab.RowCount(profile)
+
+		}
+		err = s.Recreate(profile)
+		if err != nil {
+			if err.Error() != d.ExpErr {
+				t.Errorf("Error recreating LogStatement: %s", err)
+			}
+			// error matches expected err so return
+			return
+		}
+		if tab.RowCount(profile) != initRowCount {
+			t.Errorf("RowCount is off for recreate of UpdateRows")
+			return
+		}
+		expData := sqtypes.CreateValuesFromRaw(d.ExpVals)
+		ptrs, err := tab.GetRowPtrs(profile, nil, true)
+		if err != nil {
+			t.Errorf("Error fetching data before recreate: %s", err)
+			return
+		}
+		actData, err := tab.GetRowDataFromPtrs(profile, ptrs)
+		if err != nil {
+			t.Errorf("Error fetching data before recreate: %s", err)
+			return
+		}
+		if !reflect.DeepEqual(actData.Vals, expData) {
+			fmt.Println("Act:", actData.Vals)
+			fmt.Println("expDAta:", expData)
+			t.Errorf("Update expected data does not match initial data")
+			return
+		}
 	}
 }
 
@@ -591,53 +480,23 @@ func TestDelete(t *testing.T) {
 
 	// Test Cases
 	data := []DeleteData{
-		{
-			TestName:  "Delete Row",
-			Function:  "NEW",
-			TableName: "testDeleteRedo",
-			RowPtrs:   []int64{1, 5, 10},
-			ID:        123,
-		},
-		{
-			TestName:  "Delete ID String",
-			Function:  "IDSTR",
-			TableName: "testDeleteRedo",
-			RowPtrs:   []int64{1, 5, 10},
-			ID:        123,
-			Identstr:  "#123 - DELETE FROM  testDeleteRedo : Rows = 3",
-		},
-		{
-			TestName:  "Delete Encode/Decode",
-			Function:  "CODEC",
-			TableName: "testDeleteRedo",
-			RowPtrs:   []int64{1, 5, 10},
-			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
-		},
-		{
-			TestName:  "Delete DecodeStatement",
-			Function:  "DECODESTATEMENT",
-			TableName: "testDeleteRedo",
-			RowPtrs:   []int64{1, 5, 10},
-			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
-		},
+
 		{
 			TestName:  "Delete Recreate",
 			Function:  "REDO",
 			TableName: "testDeleteRedo",
 			RowPtrs:   []int64{1, 5, 10},
 			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
+			Identstr:  "#123 - DELETE FROM  testDeleteRedo : Rows = 3",
 		},
 		{
 			TestName:  "Delete Recreate Invalid table",
 			Function:  "REDO",
-			TableName: "testUpdateRedo2",
+			TableName: "testDeleteRedo2",
 			RowPtrs:   []int64{1, 5, 10},
 			ID:        123,
-			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
-			ExpErr:    "Error: Table testUpdateRedo2 does not exist",
+			Identstr:  "#123 - DELETE FROM  testDeleteRedo2 : Rows = 3",
+			ExpErr:    "Error: Table testDeleteRedo2 does not exist",
 		},
 	}
 
@@ -658,67 +517,64 @@ func testDeleteFunc(d DeleteData) func(*testing.T) {
 		}()
 
 		s := redo.NewDeleteRows(d.TableName, d.RowPtrs)
+		// Test Set/Get ID
 		s.SetID(d.ID)
-		switch d.Function {
-		case "NEW":
-		case "ID":
-			s.SetID(d.ID)
-		case "IDSTR":
-			s.SetID(d.ID)
-			if d.Identstr != s.Identify() {
-				t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
-			}
-		case "CODEC":
-			s.SetID(d.ID)
-
-			cdr := s.Encode()
-			res := &redo.DeleteRows{}
-			res.Decode(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Encoding and then Decoding does not match values")
-			}
-		case "DECODESTATEMENT":
-			s.SetID(d.ID)
-
-			cdr := s.Encode()
-			res := redo.DecodeStatement(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Decoded Statement does not match initial values")
-			}
-		case "REDO":
-			s.SetID(d.ID)
-			initRowCount := 0
-			profile := sqprofile.CreateSQProfile()
-			tab := sqtables.GetTable(profile, d.TableName)
-			if tab != nil {
-				initRowCount = tab.RowCount(profile)
-			}
-			err := s.Recreate(profile)
-			if err != nil {
-				if err.Error() != d.ExpErr {
-					t.Errorf("Error recreating LogStatement: %s", err)
-				}
-				return
-			}
-
-			if tab.RowCount(profile) != initRowCount-len(d.RowPtrs) {
-				t.Errorf("RowCount is off for recreate of DeleteRows")
-			}
-		}
-
 		if s.GetID() != d.ID {
 			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
+			return
 		}
 
+		// Test Identify string
+		if d.Identstr != s.Identify() {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
+			return
+		}
+
+		// Test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.DeleteRows{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
+
+		// Make sure the function DecodeStatement can properly pick and decode the statement type
+		cdr = s.Encode()
+		resStmt := redo.DecodeStatement(cdr)
+		if !reflect.DeepEqual(s, resStmt) {
+			t.Error("Decoded Statement does not match initial values")
+			return
+		}
+
+		// test recreate
+		initRowCount := 0
+		profile := sqprofile.CreateSQProfile()
+		tab := sqtables.GetTable(profile, d.TableName)
+		if tab != nil {
+			initRowCount = tab.RowCount(profile)
+		}
+		err := s.Recreate(profile)
+		if err != nil {
+			if err.Error() != d.ExpErr {
+				t.Errorf("Error recreating LogStatement: %s", err)
+			}
+			return
+		}
+
+		if tab.RowCount(profile) != initRowCount-len(d.RowPtrs) {
+			t.Errorf("RowCount is off for recreate of DeleteRows")
+			return
+		}
 	}
 }
 
 type DropTableData struct {
 	TestName  string
-	Function  string
 	TableName string
 	ID        uint64
-	identstr  string
+	Identstr  string
+	ExpErr    string
 }
 
 func TestDropTable(t *testing.T) {
@@ -734,40 +590,19 @@ func TestDropTable(t *testing.T) {
 	}
 	data := []DropTableData{
 		{
-			TestName:  "Create new DropDDL",
-			Function:  "NEW",
-			TableName: "testredodrop",
-		},
-		{
-			TestName:  "Set/Get ID",
-			Function:  "ID",
-			TableName: "testredodrop",
-			ID:        123,
-		},
-		{
-			TestName:  "Verify Identify String",
-			Function:  "IDSTR",
-			TableName: "testredodrop",
-			ID:        123,
-		},
-		{
-			TestName:  "Encode/Decode",
-			Function:  "CODEC",
-			TableName: "testredodrop",
-			ID:        123,
-		},
-		{
-			TestName:  "Drop Table DecodeStatement",
-			Function:  "DECODESTATEMENT",
-			TableName: "testredodrop",
-			ID:        123,
-		},
-		{
 			TestName:  "Recreate DROP TABLE from redo",
-			Function:  "REDO",
 			TableName: "testredodrop",
 			ID:        123,
-		}}
+			Identstr:  "#123 - DROP TABLE testredodrop",
+		},
+		{
+			TestName:  "Recreate DROP TABLE from redo invalid table",
+			TableName: "testredodrop2",
+			ID:        123,
+			Identstr:  "#123 - DROP TABLE testredodrop2",
+			ExpErr:    "Error: Invalid Name: Table testredodrop2 does not exist",
+		},
+	}
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
@@ -785,57 +620,149 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 			}
 		}()
 		s := redo.NewDropDDL(d.TableName)
-		switch d.Function {
-		case "NEW":
-		case "ID":
-			s.SetID(d.ID)
-		case "IDSTR":
-			s.SetID(d.ID)
-			idstr := fmt.Sprintf("#%d - DROP TABLE %s", d.ID, d.TableName)
-			if idstr != s.Identify() {
-				t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), idstr)
-			}
-		case "CODEC":
-			s.SetID(d.ID)
 
-			cdr := s.Encode()
-			res := &redo.DropDDL{}
-			res.Decode(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Encoding and then Decoding does not match values")
-			}
-		case "DECODESTATEMENT":
-			s.SetID(d.ID)
-
-			cdr := s.Encode()
-			res := redo.DecodeStatement(cdr)
-			if !reflect.DeepEqual(s, res) {
-				t.Error("Decoded Statement does not match initial values")
-			}
-		case "REDO":
-			s.SetID(d.ID)
-			profile := sqprofile.CreateSQProfile()
-			originalList := sqtables.ListTables(profile)
-			err := s.Recreate(profile)
-			if err != nil {
-				t.Errorf("Error recreating LogStatement: %s", err)
-			}
-			tab := sqtables.GetTable(profile, d.TableName)
-			if tab != nil {
-				t.Errorf("Table %s has not been Dropped", d.TableName)
-			}
-			afterList := sqtables.ListTables(profile)
-			afterList = append(afterList, d.TableName)
-			sort.Strings(afterList)
-
-			if !reflect.DeepEqual(originalList, afterList) {
-				t.Errorf("TableList after recreating DROP TABLE is not correct")
-			}
-		}
-
+		// Test Set/Get ID
+		s.SetID(d.ID)
 		if s.GetID() != d.ID {
 			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
+			return
+		}
+
+		// Test Identify
+		if d.Identstr != s.Identify() {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
+			return
+		}
+
+		// Test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.DropDDL{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
+		// test DecodeStatment
+
+		cdr = s.Encode()
+		resStmt := redo.DecodeStatement(cdr)
+		if !reflect.DeepEqual(s, resStmt) {
+			t.Error("Decoded Statement does not match initial values")
+			return
+		}
+
+		// Test recreate
+		profile := sqprofile.CreateSQProfile()
+		originalList := sqtables.ListTables(profile)
+		err := s.Recreate(profile)
+		if err != nil {
+			if err.Error() != d.ExpErr {
+				t.Errorf("Error recreating LogStatement: %s", err)
+			}
+			return
+		}
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+			return
+		}
+
+		tab := sqtables.GetTable(profile, d.TableName)
+		if tab != nil {
+			t.Errorf("Table %s has not been Dropped", d.TableName)
+			return
+		}
+		afterList := sqtables.ListTables(profile)
+		afterList = append(afterList, d.TableName)
+		sort.Strings(afterList)
+
+		if !reflect.DeepEqual(originalList, afterList) {
+			t.Errorf("TableList after recreating DROP TABLE is not correct")
+			return
 		}
 
 	}
+}
+
+func TestDecodeErr(t *testing.T) {
+	s := redo.NewDropDDL("ErrTest")
+	s2 := redo.NewDeleteRows("test", []int64{1, 2, 3})
+
+	t.Run("Create", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("%s did not panic", t.Name())
+			}
+		}() // Test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.CreateDDL{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
+
+	})
+	t.Run("Insert", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("%s did not panic", t.Name())
+			}
+		}() // Test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.InsertRows{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
+
+	})
+	t.Run("Update", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("%s did not panic", t.Name())
+			}
+		}() // Test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.UpdateRows{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
+	})
+	t.Run("Delete", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("%s did not panic", t.Name())
+			}
+		}() // Test Encode/Decode
+		cdr := s.Encode()
+		res := &redo.DeleteRows{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
+	})
+	t.Run("Drop", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("%s did not panic", t.Name())
+			}
+		}() // Test Encode/Decode
+		cdr := s2.Encode()
+		res := &redo.DropDDL{}
+		res.Decode(cdr)
+		if !reflect.DeepEqual(s, res) {
+			t.Error("Encoding and then Decoding does not match values")
+			return
+		}
+	})
+
 }
