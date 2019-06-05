@@ -20,7 +20,7 @@ type SelectData struct {
 	ExpErr   string
 	ExpRows  int
 	ExpCols  []string
-	ExpVals  [][]interface{}
+	ExpVals  sqtypes.RawVals
 }
 
 func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T) {
