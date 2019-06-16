@@ -100,16 +100,19 @@ func transProc() {
 
 	// There must be only one transProc running at a time.
 	if !atomic.CompareAndSwapUint64(&guardTransProc, 0, 1) {
-		log.Error("transProc is already running")
-		return
+		panic("transProc is already running")
+		//return
 	}
+
+	// When function exists remove guard
+	defer atomic.StoreUint64(&guardTransProc, 0)
 
 	log.Info("Starting Transaction Logging")
 	// If the file doesn't exist, create it. Append to the file as write only
 	file, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//	log.Fatal(err)
-		log.Panic(err)
+		panic(err.Error())
 	}
 
 	defer file.Close()
@@ -159,32 +162,6 @@ func Recovery(profile *sqprofile.SQProfile) error {
 	if err != nil {
 		return err
 	}
-	/*
-		isRecoveryLog, err := fileExists(recoveryFile)
-		if err != nil {
-			return err
-		}
-
-		if isTransLog && isRecoveryLog {
-			errstr := "Both the transaction log and recovery log exist"
-			log.Error(errstr)
-			return sqerr.New(errstr)
-		}
-		if isTransLog {
-			// Move transaction log to recovery log
-			if err := os.Rename(fileName, recoveryFile); err != nil {
-				log.Error(fmt.Sprintf("Unable to rename %q to recovery.tlog Error:%s \n", fileName, err))
-				return err
-			}
-			isRecoveryLog = true
-
-		}
-		//Get the last backup
-		//return sqerr.NewInternal("Backup does not exist")
-		//
-	*/
-
-	//	if isRecoveryLog {
 
 	if isTransLog {
 		// Read the recovery.tlog
@@ -202,13 +179,6 @@ func Recovery(profile *sqprofile.SQProfile) error {
 		length := time.Since(start)
 		log.Info(fmt.Sprintf("Time spend in recovery: %v", length))
 		file.Close()
-		// delete file
-		/*
-			err = os.Remove(recoveryFile)
-			if err != nil {
-				return nil
-			}
-		*/
 	}
 	return nil
 }

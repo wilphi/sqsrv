@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 	"github.com/wilphi/sqsrv/transid"
 
 	"github.com/wilphi/sqsrv/sqtables"
@@ -228,6 +232,14 @@ func TestReadTlog(t *testing.T) {
 			ExpErr:   "",
 			ExpItems: []string{"Recreated Test0", "Recreated Test1"},
 		},
+		{
+			TestName: "Recreate with skip",
+			Stmts:    []LogStatement{&TestStmt{"Test0", 1}, &TestStmt{"Test1", 2}, &TestStmt{"Test2", 3}, &TestStmt{"Test3", 4}, &TestStmt{"Test4", 5}},
+			ErrAfter: -1,
+			ExpErr:   "",
+			ExpItems: []string{"Recreated Test2", "Recreated Test3", "Recreated Test4"},
+			IDStart:  2,
+		},
 	}
 
 	for i, row := range data {
@@ -244,6 +256,7 @@ type TestData struct {
 	ExpErr   string
 	ErrAfter int
 	ExpPanic bool
+	IDStart  uint64
 }
 
 func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T) {
@@ -258,7 +271,7 @@ func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T)
 			}
 		}()
 		var err error
-		transid.SetTransID(0)
+		transid.SetTransID(d.IDStart)
 		Items = []string{}
 		enc := sqbin.NewCodec(nil)
 		for i, stmt := range d.Stmts {
@@ -286,7 +299,7 @@ func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T)
 				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
 				return
 			}
-			//return
+			return
 		}
 		if err == nil && d.ExpErr != "" {
 			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
@@ -305,22 +318,23 @@ func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T)
 
 func TestRecovery(t *testing.T) {
 	var data = []RecoveryData{
-		/*	{
-			TestName:        "Logging started",
-			TransLogName:    "transaction.tlog",
-			RecoveryLogName: "recovery.tlog",
-			Started:         true,
-			ExpPanic:        true,
-			ExpErr:          "",
-		},*/
 		{
-			TestName:        "No Logs",
-			TransLogName:    "transaction.tlog",
-			RecoveryLogName: "recovery.tlog",
-			Started:         false,
-			ExpPanic:        false,
-			ExpErr:          "",
-			Profile:         sqprofile.CreateSQProfile(),
+			TestName:     "Logging started",
+			TransLogName: "transaction.tlog",
+			Started:      true,
+			ExpPanic:     true,
+			ExpErr:       "",
+			CreateTrans:  false,
+			Profile:      sqprofile.CreateSQProfile(),
+		},
+		{
+			TestName:     "No Logs",
+			TransLogName: "transaction.tlog",
+			Started:      false,
+			ExpPanic:     false,
+			ExpErr:       "",
+			CreateTrans:  false,
+			Profile:      sqprofile.CreateSQProfile(),
 		},
 		/*		{
 					TestName:        "Both Logs",
@@ -346,18 +360,15 @@ func TestRecovery(t *testing.T) {
 					ExpErr:          "",
 					Profile:         sqprofile.CreateSQProfile(),
 				},*/
-		/*		{
-				TestName:        "Trans only Log",
-				TransLogName:    "transaction.tlog",
-				RecoveryLogName: "recovery.tlog",
-				Started:         false,
-				SourceFile:      "./test_files/transaction.tlog",
-				CopyToTrans:     true,
-				CopyToRecovery:  false,
-				ExpPanic:        false,
-				ExpErr:          "",
-				Profile:         sqprofile.CreateSQProfile(),
-			},*/
+		{
+			TestName:     "Trans only Log",
+			TransLogName: "transaction.tlog",
+			Started:      false,
+			CreateTrans:  true,
+			ExpPanic:     false,
+			ExpErr:       "",
+			Profile:      sqprofile.CreateSQProfile(),
+		},
 	}
 
 	for i, row := range data {
@@ -369,16 +380,14 @@ func TestRecovery(t *testing.T) {
 }
 
 type RecoveryData struct {
-	TestName        string
-	TransLogName    string
-	RecoveryLogName string
-	SourceFile      string
-	CopyToTrans     bool
-	CopyToRecovery  bool
-	Started         bool
-	ExpPanic        bool
-	ExpErr          string
-	Profile         *sqprofile.SQProfile
+	TestName     string
+	TransLogName string
+	SourceFile   string
+	CreateTrans  bool
+	Started      bool
+	ExpPanic     bool
+	ExpErr       string
+	Profile      *sqprofile.SQProfile
 }
 
 func copyFile(destFile, srcFile string) error {
@@ -397,13 +406,12 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 		defer func() {
 			r := recover()
 			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
+				t.Error(t.Name() + " did not panic")
 			}
 			if !d.ExpPanic && r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
+				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		log.Warn(">>>" + d.TestName)
 		var err error
 
 		// Setup Files
@@ -415,26 +423,20 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 
 		// Setup files
 		logFileName = tmpDir + "/" + d.TransLogName
-		recoveryFile = tmpDir + "/" + d.RecoveryLogName
-		if d.CopyToTrans {
-			err = copyFile(logFileName, d.SourceFile)
+		tableName := "tlogtest"
+		if d.CreateTrans {
+			err = createTransLog(logFileName, tableName)
 			if err != nil {
-				t.Fatal(err)
+				t.Error("Unable to create transaction log file")
 			}
 		}
-		if d.CopyToRecovery {
-			err = copyFile(recoveryFile, d.SourceFile)
-			if err != nil {
-				t.Fatal(err)
-			}
 
-		}
 		// clean up db
-		tab := sqtables.GetTable(d.Profile, "names")
+		tab := sqtables.GetTable(d.Profile, tableName)
 		if tab != nil {
-			err = sqtables.DropTable(d.Profile, "names")
+			err = sqtables.DropTable(d.Profile, tableName)
 			if err != nil && err.Error() != "Invalid Name: Table names does not exist" {
-				t.Fatal(err)
+				t.Error(err)
 			}
 			d.Profile.VerifyNoLocks()
 		}
@@ -443,7 +445,7 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 		} else {
 			logState.Stop()
 		}
-
+		transid.SetTransID(0)
 		err = Recovery(d.Profile)
 		if err != nil {
 			log.Println(err.Error())
@@ -463,4 +465,130 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 		}
 		d.Profile.VerifyNoLocks()
 	}
+}
+
+func createTransLog(testFileName string, tableName string) error {
+
+	data := []LogStatement{
+		NewCreateDDL(tableName, []sqtables.ColDef{sqtables.CreateColDef("col1", tokens.TypeInt, false)}),
+		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1}, {2}, {3}}), []int64{1, 2, 3}),
+		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{4}, {5}, {6}}), []int64{4, 5, 6}),
+		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{7}, {8}, {9}}), []int64{7, 8, 9}),
+		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{10}, {11}, {12}}), []int64{10, 11, 12}),
+	}
+
+	// If the file doesn't exist, create it. Append to the file as write only
+	file, err := os.OpenFile(testFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		//	log.Fatal(err)
+		log.Panic(err)
+	}
+
+	defer file.Close()
+	for id, stmt := range data {
+		// set the transaction log ID
+		stmt.SetID(uint64(id + 10))
+
+		encStmt := stmt.Encode()
+		encStmt.InsertInt64(int64(encStmt.Len()))
+
+		_, err := file.Write(encStmt.Bytes())
+		// If there was an error put it on the respond channel from the sender
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+
+}
+
+func TestTransProc(t *testing.T) {
+	t.Run("File Error", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("%s did not panic", t.Name())
+				return
+			}
+			s, ok := r.(string)
+			expErr := "no such file or directory"
+			if !(ok && strings.Contains(s, expErr)) {
+				t.Errorf("%s: Actual Error %q does not match expected %q", t.Name(), s, expErr)
+				return
+			}
+		}()
+		transProc()
+
+	})
+	// Setup Files
+	tmpDir, err := ioutil.TempDir("", "sqsrvtest")
+	if err != nil {
+		log.Fatal("Unable to setup tmp directory: ", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	t.Run("Verify Tlog file", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf("%s panicked unexpectedly", t.Name())
+			}
+		}()
+		expTlog := tmpDir + "/" + "transaction.tlog"
+		SetTLog(expTlog)
+
+		if logFileName != expTlog {
+			t.Errorf("%s: Actual transaction log file name %q does not match expected %q", t.Name(), logFileName, expTlog)
+		}
+	})
+
+	t.Run("Double set Tlog file", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf("%s panicked unexpectedly", t.Name())
+			}
+		}()
+		expTlog := tmpDir + "/" + "transaction2.tlog"
+		SetTLog(expTlog)
+
+		if logFileName == expTlog {
+			t.Errorf("%s: Actual transaction log file name %q must not match %q", t.Name(), logFileName, expTlog)
+		}
+	})
+	tlog = make(TChan, 10)
+	logState.Start()
+
+	t.Run("Double Start", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("%s did not panic", t.Name())
+			}
+		}()
+		Start()
+		runtime.Gosched()
+		transProc()
+	})
+	t.Run("Send", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf("%s panicked unexpectedly", t.Name())
+			}
+		}()
+		stmt := &TestStmt{"Test0", 1}
+		Send(stmt)
+	})
+	t.Run("Stop", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf("%s panicked unexpectedly", t.Name())
+			}
+		}()
+
+		Stop()
+	})
 }
