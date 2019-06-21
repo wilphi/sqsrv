@@ -1,4 +1,4 @@
-package server
+package sqprotocol
 
 import (
 	"encoding/gob"
@@ -9,40 +9,36 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/wilphi/sqsrv/sqprotocol"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtypes"
-	t "github.com/wilphi/sqsrv/tokens"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
-// Config -
-type Config struct {
-	enc  *gob.Encoder
-	dec  *gob.Decoder
-	conn net.Conn
-	cNum int //connection number
-}
-
-var connList []*Config
+var connList []*SvrConfig
 var inShutdown bool
+
+// ShutdownCount Controls how long a shutdown will wait for connections to terminate on their own
+// once the time is up shutdown will continue
+var ShutdownCount = 200
 
 func init() {
 	gob.Register(sqtypes.SQString{})
 	gob.Register(sqtypes.SQInt{})
 	gob.Register(sqtypes.SQBool{})
 	gob.Register(sqtypes.SQNull{})
+	gob.Register(sqtypes.SQFloat{})
 }
 
-// SetConn - set the connection for the server to communicate on
-func SetConn(conn net.Conn, cNum int) *Config {
-	c := &Config{enc: gob.NewEncoder(conn), dec: gob.NewDecoder(conn), conn: conn, cNum: cNum}
+// SetSvrConn - set the connection for the server to communicate on
+func SetSvrConn(conn net.Conn, cNum int) *SvrConfig {
+	c := &SvrConfig{enc: gob.NewEncoder(conn), dec: gob.NewDecoder(conn), conn: conn, cNum: cNum}
 	connList = append(connList, c)
 	return c
 }
 
 // ReceiveRequest -
-func (srv *Config) ReceiveRequest() (*sqprotocol.RequestToServer, error) {
-	req := &sqprotocol.RequestToServer{}
+func (srv *SvrConfig) ReceiveRequest() (*RequestToServer, error) {
+	req := &RequestToServer{}
 	err := srv.dec.Decode(req)
 	if err != nil {
 		if err != io.EOF {
@@ -54,7 +50,7 @@ func (srv *Config) ReceiveRequest() (*sqprotocol.RequestToServer, error) {
 }
 
 // SendResponse -
-func (srv *Config) SendResponse(resp *sqprotocol.ResponseToClient) error {
+func (srv *SvrConfig) SendResponse(resp *ResponseToClient) error {
 	err := srv.enc.Encode(resp)
 	if err != nil {
 		log.Errorln("Error Writing to client connection", err)
@@ -64,7 +60,7 @@ func (srv *Config) SendResponse(resp *sqprotocol.ResponseToClient) error {
 }
 
 // Close -
-func (srv *Config) Close() error {
+func (srv *SvrConfig) Close() error {
 	idx := -1
 	for i, c := range connList {
 		if c.cNum == srv.cNum {
@@ -82,9 +78,9 @@ func (srv *Config) Close() error {
 }
 
 // SendColumns -
-func (srv *Config) SendColumns(cols []sqtables.ColDef) error {
+func (srv *SvrConfig) SendColumns(cols []sqtables.ColDef) error {
 	for _, c := range cols {
-		cInfo := sqprotocol.ColInfo{ColName: c.ColName, Width: getTypeWidth(c.ColType)}
+		cInfo := ColInfo{ColName: c.ColName, Width: getTypeWidth(c.ColType)}
 		err := srv.enc.Encode(cInfo)
 		if err != nil {
 			log.Errorln("Error Writing to client connection", err)
@@ -96,8 +92,8 @@ func (srv *Config) SendColumns(cols []sqtables.ColDef) error {
 }
 
 // SendRow -
-func (srv *Config) SendRow(rowNum int, data []sqtypes.Value) error {
-	rw := sqprotocol.RowData{RowNum: rowNum, Data: data}
+func (srv *SvrConfig) SendRow(rowNum int, data []sqtypes.Value) error {
+	rw := RowData{RowNum: rowNum, Data: data}
 	err := srv.enc.Encode(rw)
 	if err != nil {
 		log.Errorln("Error Writing to client connection", err)
@@ -109,14 +105,17 @@ func (srv *Config) SendRow(rowNum int, data []sqtypes.Value) error {
 func getTypeWidth(typeName string) int {
 	var ret int
 	switch typeName {
-	case t.TypeInt:
+	case tokens.TypeInt:
 		ret = sqtypes.SQIntWidth
-	case t.TypeString:
+	case tokens.TypeString:
 		ret = -sqtypes.SQStringWidth
-	case t.TypeBool:
+	case tokens.TypeBool:
 		ret = sqtypes.SQBoolWidth
+	case tokens.TypeFloat:
+		ret = sqtypes.SQFloatWidth
 	default:
-		ret = 0
+		// This should never happen
+		log.Panicf("Invalid type: %s", typeName)
 	}
 	return ret
 }
@@ -143,7 +142,7 @@ func Shutdown() {
 		}
 
 		// if more than 10 seconds has passed continue with shutdown
-		if cnt > 200 {
+		if cnt > ShutdownCount {
 			log.Info("Connection timeout for shutdown")
 			break
 		}
@@ -156,4 +155,9 @@ func Shutdown() {
 // IsShutdown is true if a shutdown is in process
 func IsShutdown() bool {
 	return inShutdown
+}
+
+// CancelShutdown will stop an inprocess shutdown
+func CancelShutdown() {
+	inShutdown = false
 }

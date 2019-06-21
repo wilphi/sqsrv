@@ -16,6 +16,7 @@ const (
 	SQIntWidth    = 10
 	SQStringWidth = 30
 	SQBoolWidth   = 6
+	SQFloatWidth  = 24
 )
 
 // Value TypeIDs
@@ -25,6 +26,7 @@ const (
 	SQStringType    = 2
 	SQBoolTrueType  = 3
 	SQBoolFalseType = 4
+	SQFloatType     = 5
 )
 
 // Value interface
@@ -64,6 +66,9 @@ func ReadValue(c *sqbin.Codec) Value {
 	case SQStringType:
 		str := c.ReadString()
 		ret = NewSQString(str)
+	case SQFloatType:
+		fp := c.ReadFloat()
+		ret = NewSQFloat(fp)
 	default:
 		log.Panicf("Unknown Value TypeID %d", b)
 	}
@@ -87,6 +92,11 @@ type SQBool struct {
 
 // SQNull - Null value for SQ
 type SQNull struct {
+}
+
+// SQFloat - Floating point type for SQ
+type SQFloat struct {
+	Val float64
 }
 
 // SQInt Methods & Functions  =========================================
@@ -299,17 +309,81 @@ func NewSQNull() Value {
 	return SQNull{}
 }
 
+// SQInt Methods & Functions  =========================================
+
+// ToString - return string representation of type
+func (fp SQFloat) ToString() string {
+	return strconv.FormatFloat(fp.Val, 'G', -1, 64)
+}
+
+// GetType - returns the type
+func (fp SQFloat) GetType() string {
+	return t.TypeFloat
+}
+
+// GetLen -
+func (fp SQFloat) GetLen() int {
+	return SQFloatWidth
+}
+
+// Equal - true if values are the same. type mismatch will return false
+func (fp SQFloat) Equal(v Value) bool {
+	vfp, ok := v.(SQFloat)
+	return ok && (fp.Val == vfp.Val)
+}
+
+// LessThan -
+func (fp SQFloat) LessThan(v Value) bool {
+	vfp, ok := v.(SQFloat)
+	ret1 := (fp.Val < vfp.Val)
+	ret2 := ok && ret1
+	return ret2
+
+}
+
+// GreaterThan -
+func (fp SQFloat) GreaterThan(v Value) bool {
+	vfp, ok := v.(SQFloat)
+	return ok && (fp.Val > vfp.Val)
+
+}
+
+// IsNull - Is the value Null or not
+func (fp SQFloat) IsNull() bool {
+	return false
+}
+
+// Write returns a binary representation of the value
+func (fp SQFloat) Write(c *sqbin.Codec) {
+	c.Writebyte(SQFloatType)
+	c.WriteFloat(fp.Val)
+}
+
+// NewSQFloat - creates a new SQInt value
+func NewSQFloat(fp float64) Value {
+	return SQFloat{fp}
+}
+
+//====================================================================
+
 // CreateValueFromToken - given a token, convert it into a proper Value
 func CreateValueFromToken(tkn t.Token) (Value, error) {
 	var retVal Value
 
 	switch tkn.GetName() {
 	case t.Num:
+		// try to convert to int
 		i, err := strconv.Atoi(tkn.GetValue())
 		if err != nil {
-			return nil, e.NewSyntax("\"" + tkn.GetValue() + "\" is not a number")
+			//If not Int try to convert to float64
+			fp, err := strconv.ParseFloat(tkn.GetValue(), 64)
+			if err != nil {
+				return nil, e.NewSyntax("\"" + tkn.GetValue() + "\" is not a number")
+			}
+			retVal = NewSQFloat(fp)
+		} else {
+			retVal = NewSQInt(i)
 		}
-		retVal = NewSQInt(i)
 	case t.Quote:
 		retVal = NewSQString(tkn.GetValue())
 	case t.RWTrue:
@@ -340,6 +414,10 @@ func RawValue(raw interface{}) Value {
 		retVal = NewSQString(raw.(string))
 	case reflect.Bool:
 		retVal = NewSQBool(raw.(bool))
+	case reflect.Float32:
+		retVal = NewSQFloat(float64(raw.(float32)))
+	case reflect.Float64:
+		retVal = NewSQFloat(raw.(float64))
 	default:
 		panic(fmt.Sprintf("%T is not a valid Raw SQ type", raw))
 	}

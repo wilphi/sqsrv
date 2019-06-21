@@ -198,7 +198,7 @@ func TestGetRowPtrs(t *testing.T) {
 		{TestName: "First Row", Tab: testT, Cond: condFirst, ExpErr: "", ExpRows: []int64{1}, Sort: true},
 		{TestName: "Last Row", Tab: testT, Cond: condLast, ExpErr: "", ExpRows: []int64{6}, Sort: true},
 		{TestName: "Half the Rows", Tab: testT, Cond: condHalf, ExpErr: "", ExpRows: []int64{1, 3, 6}, Sort: true},
-		{TestName: "Condition type mismatch", Tab: testT, Cond: condMis, ExpErr: "Error: Where clause expression rowid = TEST has a type mismatch", ExpRows: []int64{}, Sort: true},
+		{TestName: "Condition type mismatch", Tab: testT, Cond: condMis, ExpErr: "Error: Type Mismatch in Where clause expression: rowid(INT) = TEST(STRING)", ExpRows: []int64{}, Sort: true},
 	}
 
 	for i, row := range data {

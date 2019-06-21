@@ -31,6 +31,7 @@ const (
 	SemiColon    = "SemiColon"
 	LessThan     = "LessThan"
 	GreaterThan  = "GreaterThan"
+	Minus        = "Minus"
 )
 
 // SYMBOLS - tokens that are individual runes
@@ -46,6 +47,7 @@ var SYMBOLS = map[rune]*Token{
 	';': &Token{tokenID: SemiColon, tokenValue: ";"},
 	'<': &Token{tokenID: LessThan, tokenValue: "<"},
 	'>': &Token{tokenID: GreaterThan, tokenValue: ">"},
+	'-': &Token{tokenID: Minus, tokenValue: "-"},
 }
 
 // Reserved Words
@@ -81,19 +83,21 @@ const (
 	TypeInt    = "INT"
 	TypeString = "STRING"
 	TypeBool   = "BOOL"
+	TypeFloat  = "FLOAT"
 )
 
 //Type Lengths
 const (
-	LenInt  = 10
-	LenStr  = 20
-	LenBool = 5
+	LenInt   = 10
+	LenStr   = 20
+	LenBool  = 5
+	LenFloat = 20
 )
 
-var reservedTypes = []string{TypeInt, TypeString, TypeBool}
+var reservedTypes = []string{TypeInt, TypeString, TypeBool, TypeFloat}
 
-// AllWordTokens - All Reserved Workds and Types as tokens
-var AllWordTokens = map[string]*Token{
+// Words - All Reserved Workds and Types as tokens
+var Words = map[string]*Token{
 	Create:     &Token{tokenID: Create, tokenValue: Create},
 	Table:      &Token{tokenID: Table, tokenValue: Table},
 	Select:     &Token{tokenID: Select, tokenValue: Select},
@@ -108,6 +112,7 @@ var AllWordTokens = map[string]*Token{
 	TypeInt:    &Token{tokenID: TypeTKN, tokenValue: TypeInt},
 	TypeString: &Token{tokenID: TypeTKN, tokenValue: TypeString},
 	TypeBool:   &Token{tokenID: TypeTKN, tokenValue: TypeBool},
+	TypeFloat:  &Token{tokenID: TypeTKN, tokenValue: TypeFloat},
 	Not:        &Token{tokenID: Not, tokenValue: Not},
 	Or:         &Token{tokenID: Or, tokenValue: Or},
 	Delete:     &Token{tokenID: Delete, tokenValue: Delete},
@@ -133,7 +138,8 @@ func (tkn Token) GetString() string {
 		tknStr = tkn.tokenID
 	case TypeTKN:
 		tknStr = tkn.tokenValue
-	case Asterix, Period, Equal, OpenBracket, CloseBracket, Comma, Colon, UnderScore, SemiColon, LessThan, GreaterThan:
+	case Asterix, Period, Equal, OpenBracket, CloseBracket, Comma, Colon, UnderScore,
+		SemiColon, LessThan, GreaterThan, Minus:
 		tknStr = tkn.tokenValue
 	case Ident:
 		tknStr = "[" + Ident + "=" + tkn.tokenValue + "]"
@@ -184,7 +190,7 @@ func getWhiteSpace(r []rune) ([]rune, *Token) {
 }
 
 func checkKeyWords(word string) *Token {
-	tkn, ok := AllWordTokens[strings.ToUpper(word)]
+	tkn, ok := Words[strings.ToUpper(word)]
 	if !ok {
 		tkn = CreateToken(Ident, word)
 	}
@@ -248,17 +254,19 @@ func isDigit(ch rune) bool {
 }
 func getNumber(r []rune) ([]rune, *Token) {
 	tkn := CreateToken(Num, "")
-
+	hasDecimal := false
 	// loop until no more digits
 	for {
+		char := string(r[0])
+		tkn.tokenValue += char
+		r = r[1:]
 		//make sure that there is a rune to process
-		if len(r) <= 0 || !isDigit(r[0]) {
+		if len(r) <= 0 || !(isDigit(r[0]) || r[0] == '.' && !hasDecimal) {
 			return r, tkn
 		}
 
-		tkn.tokenValue = tkn.tokenValue + string(r[0])
-		r = r[1:]
-
+		// Allow only one decimal point
+		hasDecimal = hasDecimal || char == "."
 	}
 }
 
@@ -295,7 +303,7 @@ func Tokenize(str string) *TokenList {
 
 		}
 
-		if isDigit(r[0]) {
+		if isDigit(r[0]) || r[0] == '-' {
 			r, tkn = getNumber(r)
 			tl.Add(tkn)
 			continue

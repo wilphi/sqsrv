@@ -1,6 +1,11 @@
 package sqprotocol
 
-import "github.com/wilphi/sqsrv/sqtypes"
+import (
+	"encoding/gob"
+	"net"
+
+	"github.com/wilphi/sqsrv/sqtypes"
+)
 
 // RequestToServer -
 type RequestToServer struct {
@@ -21,11 +26,27 @@ type ResponseToClient struct {
 type ColInfo struct {
 	ColName string
 	Width   int
-	Align   int // 1 for right, -1 for left
 }
 
 //RowData -
 type RowData struct {
 	RowNum int
 	Data   []sqtypes.Value
+}
+
+// SvrConfig -
+type SvrConfig struct {
+	enc         *gob.Encoder
+	dec         *gob.Decoder
+	conn        net.Conn
+	cNum        int //connection number
+	isConnected bool
+}
+
+// ClientConfig -
+type ClientConfig struct {
+	enc         *gob.Encoder
+	dec         *gob.Decoder
+	conn        net.Conn
+	isConnected bool
 }

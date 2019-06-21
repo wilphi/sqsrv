@@ -21,6 +21,45 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 
 }
+
+type InterfaceData struct {
+	TestName string
+	i        interface{}
+}
+
+func TestInterfaces(t *testing.T) {
+
+	data := []InterfaceData{
+		{"SQInt is a Value", sqtypes.SQInt{}},
+		{"SQString is a Value", sqtypes.SQString{}},
+		{"SQBool is a Value", sqtypes.SQBool{}},
+		{"SQNull is a Value", sqtypes.SQNull{}},
+		{"SQFloat is a Value", sqtypes.SQFloat{}},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testInterfacesFunc(row))
+
+	}
+}
+
+func testInterfacesFunc(d InterfaceData) func(*testing.T) {
+	return func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(d.TestName + " panicked unexpectedly")
+			}
+		}()
+		_, ok := d.i.(sqtypes.Value)
+		if !ok {
+			t.Error("Object is not a Value")
+		}
+
+	}
+}
+
 func testValueType(v sqtypes.Value, expType string) func(*testing.T) {
 	return func(t *testing.T) {
 		if v.GetType() != expType {
@@ -152,6 +191,26 @@ func TestSQNull(t *testing.T) {
 
 }
 
+func TestSQFloat(t *testing.T) {
+	v := sqtypes.NewSQFloat(9876543210987654321.0123456789)
+	a := sqtypes.NewSQFloat(1234.9876)
+	equalA := sqtypes.NewSQFloat(1234.9876)
+	notEqualA := sqtypes.NewSQFloat(4321.0)
+	t.Run("Type Test", testValueType(v, tokens.TypeFloat))
+	t.Run("To String Test", testValueToString(v, "9.876543210987655E+18"))
+	t.Run("To String Test", testValueToString(a, "1234.9876"))
+	t.Run("GetLen Test", testGetLen(v, sqtypes.SQFloatWidth))
+	t.Run("Equal Test:equal", testEqual(a, equalA, true))
+	t.Run("Equal Test:not equal", testEqual(a, notEqualA, false))
+	t.Run("LessThan Test:true", testLessThan(a, notEqualA, true))
+	t.Run("LessThan Test:false", testLessThan(notEqualA, a, false))
+	t.Run("LessThan Test:equal", testLessThan(a, equalA, false))
+	t.Run("GreaterThan Test:true", testGreaterThan(notEqualA, a, true))
+	t.Run("GreaterThan Test:false", testGreaterThan(a, notEqualA, false))
+	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
+
+}
+
 type tokenValTest struct {
 	Name    string
 	Tkn     tokens.Token
@@ -163,7 +222,9 @@ func TestCreateValueFromToken(t *testing.T) {
 	//Tokentype,
 	data := []tokenValTest{
 		{"Int test", *tokens.CreateToken(tokens.Num, "1234"), "", tokens.TypeInt},
+		{"Negative Int test", *tokens.CreateToken(tokens.Num, "-1234"), "", tokens.TypeInt},
 		{"Int test invalid number", *tokens.CreateToken(tokens.Num, "1234AS"), "Syntax Error: \"1234AS\" is not a number", tokens.TypeInt},
+		{"Float test", *tokens.CreateToken(tokens.Num, "123.456789"), "", tokens.TypeFloat},
 		{"String Test", *tokens.CreateToken(tokens.Quote, "This Is a test"), "", tokens.TypeString},
 		{"Bool TRUE Test", *tokens.CreateToken(tokens.RWTrue, "TRUE"), "", tokens.TypeBool},
 		{"Bool FALSE Test", *tokens.CreateToken(tokens.RWFalse, "FALSE"), "", tokens.TypeBool},

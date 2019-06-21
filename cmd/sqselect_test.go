@@ -121,7 +121,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT Where invalid",
 			Command:  "SELECT col1 FROM seltest WHERE col1=9999999999999999999999",
-			ExpErr:   "Syntax Error: \"9999999999999999999999\" is not a number",
+			ExpErr:   "Error: Type Mismatch in Where clause expression: col1(INT) = 1E+22(FLOAT)",
 			ExpRows:  0,
 			ExpCols:  []string{"col1"},
 			ExpVals:  nil,

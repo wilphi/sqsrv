@@ -52,7 +52,7 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 		tkns.Remove()
 	} else {
 		// get the column list
-		tkns, colNames, err = GetIdentList(tkns, tokens.AllWordTokens[tokens.From], true)
+		tkns, colNames, err = GetIdentList(tkns, tokens.Words[tokens.From], true)
 		if err != nil {
 			return nil, err
 		}

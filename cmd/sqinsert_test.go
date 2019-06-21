@@ -254,7 +254,7 @@ func TestInsertInto(t *testing.T) {
 		{
 			TestName: "Integer too large - tests invalid converion",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (999999999999999999999, \"With Cols Test\", true)",
-			ExpErr:   "Syntax Error: \"999999999999999999999\" is not a number",
+			ExpErr:   "Error: Type Mismatch: Column col1 in Table instest has a type of INT, Unable to set value of type FLOAT",
 		},
 		{
 			TestName: "Muli row insert (3)",

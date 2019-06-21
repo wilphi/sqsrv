@@ -162,7 +162,7 @@ func TestCompareValCond(t *testing.T) {
 		{"Evaluate() 5 Greaterthan 7", cond3, row, "", false},
 		{"Evaluate() 9 Greaterthan 7", cond3, row2, "", true},
 		{"Evaluate() invalid col", sqtables.NewCVCond(sqtables.CreateColDef("testCol2", tokens.TypeInt, false), "=", sqtypes.NewSQInt(5)), row, "Error: testCol2 not found in table test", true},
-		{"Evaluate() Type Mismatch", sqtables.NewCVCond(colInt, "=", sqtypes.NewSQString("57")), row, "Error: Where clause expression testCol = 57 has a type mismatch", true},
+		{"Evaluate() Type Mismatch", sqtables.NewCVCond(colInt, "=", sqtypes.NewSQString("57")), row, "Error: Type Mismatch in Where clause expression: testCol(INT) = 57(STRING)", true},
 		{"Evaluate() Operator not implemented", sqtables.NewCVCond(colInt, "~", sqtypes.NewSQInt(5)), row, "Internal Error: Operator ~ is not implemented", true},
 	}
 

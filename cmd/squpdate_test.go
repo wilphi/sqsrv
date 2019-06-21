@@ -109,7 +109,7 @@ func TestUpdate(t *testing.T) {
 		{
 			TestName:  "UPDATE Invalid Value",
 			SQLStr:    "UPDATE testupdate SET col1 = 9999999999999999999999999",
-			ExpErr:    "Syntax Error: \"9999999999999999999999999\" is not a number",
+			ExpErr:    "Error: Type Mismatch: Column col1 in Table testupdate has a type of INT, Unable to set value of type FLOAT",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
 			ExpData:   sqtypes.RawVals{{99, "test row 1"}, {99, "test row 2"}, {99, "test row 3"}, {99, "test row 4"}, {99, "test row 5"}, {99, "test row 6"}},
@@ -125,7 +125,7 @@ func TestUpdate(t *testing.T) {
 		{
 			TestName:  "UPDATE with error in Where Clause",
 			SQLStr:    "UPDATE testupdate SET col1 = 99 WHERE col1 = \"test row 4\"",
-			ExpErr:    "Error: Where clause expression col1 = test row 4 has a type mismatch",
+			ExpErr:    "Error: Type Mismatch in Where clause expression: col1(INT) = test row 4(STRING)",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
 			ExpData:   sqtypes.RawVals{{1, "test row 1"}, {2, "test row 2"}, {3, "test row 3"}, {5, "test row 5"}, {6, "test row 6"}, {99, "test row 4"}},

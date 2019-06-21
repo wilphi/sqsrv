@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 // IntSize is the number of bytes in an Int including it's marker
@@ -23,6 +24,7 @@ const (
 	BoolMarker
 	ArrayStringMarker
 	ArrayInt64Marker
+	FloatMarker
 )
 
 // TypeMarkerStrings translates the marker to a string
@@ -35,6 +37,7 @@ var TypeMarkerStrings = map[byte]string{
 	BoolMarker:        "BoolMarker",
 	ArrayStringMarker: "ArrayStringMarker",
 	ArrayInt64Marker:  "ArrayInt64Marker",
+	FloatMarker:       "FloatMarker",
 }
 
 // Codec - binary encoding and decoding. All encodings are LittleEndian
@@ -85,6 +88,20 @@ func (c *Codec) WriteInt(i int) {
 func (c *Codec) ReadInt() int {
 	c.getTypeMarker(IntMarker)
 	return int(c.getIntType())
+}
+
+//WriteFloat write a float64  to the codec buffer
+func (c *Codec) WriteFloat(fp float64) {
+	c.setTypeMarker(FloatMarker)
+	c.storeIntType(math.Float64bits(fp))
+}
+
+//ReadFloat reads a float64 from the codec buffer
+func (c *Codec) ReadFloat() float64 {
+	var fp float64
+	c.getTypeMarker(FloatMarker)
+	fp = math.Float64frombits(c.getIntType())
+	return fp
 }
 
 //WriteString writes a string to the codec buffer

@@ -8,13 +8,13 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/wilphi/sqsrv/sqprotocol"
 	protocol "github.com/wilphi/sqsrv/sqprotocol"
 	"github.com/wilphi/sqsrv/tokens"
 
 	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
-	"github.com/wilphi/sqsrv/sqprotocol/server"
 	"github.com/wilphi/sqsrv/sqtables"
 )
 
@@ -65,7 +65,7 @@ func Main(host, port string) {
 		log.Info("Shutting down Server")
 		log.Info("Stop Accepting new connections")
 		log.Info("Terminating all connections")
-		server.Shutdown()
+		sqprotocol.Shutdown()
 		// wait for a little bit
 		for i := 0; i < 5; i++ {
 			time.Sleep(time.Second)
@@ -97,14 +97,14 @@ func listenerThread(host, port string, Terminate chan bool) {
 	log.Println(SQVersion)
 
 	for {
-		if server.IsShutdown() {
+		if sqprotocol.IsShutdown() {
 			break
 		}
 
 		//Listen for connections
 		conn, err := l.Accept()
 
-		if server.IsShutdown() {
+		if sqprotocol.IsShutdown() {
 			break
 		}
 
@@ -113,7 +113,7 @@ func listenerThread(host, port string, Terminate chan bool) {
 		}
 
 		profile := sqprofile.CreateSQProfile()
-		srv := server.SetConn(conn, int(profile.GetID()))
+		srv := sqprotocol.SetSvrConn(conn, int(profile.GetID()))
 		var wg *sync.WaitGroup
 		wg = &sync.WaitGroup{}
 
@@ -122,7 +122,7 @@ func listenerThread(host, port string, Terminate chan bool) {
 	log.Info("Listening for new connections terminated")
 }
 
-func processConnectionFunc(profile *sqprofile.SQProfile, srv *server.Config, wg *sync.WaitGroup, Terminate chan bool) {
+func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConfig, wg *sync.WaitGroup, Terminate chan bool) {
 
 	defer srv.Close()
 
@@ -130,7 +130,7 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *server.Config, wg 
 
 	for {
 		wg.Wait()
-		if server.IsShutdown() {
+		if sqprotocol.IsShutdown() {
 			return
 		}
 		profile.VerifyNoLocks()

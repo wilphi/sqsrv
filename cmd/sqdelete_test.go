@@ -183,7 +183,7 @@ func TestDelete(t *testing.T) {
 			TestName:  "Delete FROM table where invalid ",
 			Command:   "Delete FROM deltest where col1 = \"invalid\"",
 			TableName: "deltest",
-			ExpErr:    "Error: Where clause expression col1 = invalid has a type mismatch",
+			ExpErr:    "Error: Type Mismatch in Where clause expression: col1(INT) = invalid(STRING)",
 			ExpVals: sqtypes.RawVals{
 				{123, "With Cols Test", true},
 				{789, "Seltest 3", false},

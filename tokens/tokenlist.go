@@ -78,3 +78,10 @@ func NewTokenList() *TokenList {
 	tl.tkns = make([]*Token, 0, 100)
 	return &tl
 }
+
+// CreateList - Creates a new token list from an array of tokens
+func CreateList(tkns []*Token) *TokenList {
+	tl := TokenList{}
+	tl.tkns = tkns
+	return &tl
+}

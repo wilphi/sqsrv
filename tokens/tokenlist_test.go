@@ -43,7 +43,7 @@ func TestTokenList(t *testing.T) {
 	})
 
 	t.Run("Add a Token", func(t *testing.T) {
-		tl.Add(tokens.AllWordTokens[tokens.Create])
+		tl.Add(tokens.Words[tokens.Create])
 		if tl.Len() != 1 {
 			t.Errorf("Token not added, len=%d", tl.Len())
 		}

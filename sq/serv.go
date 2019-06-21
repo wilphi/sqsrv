@@ -10,7 +10,6 @@ import (
 	"github.com/wilphi/sqsrv/sqmutex"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqprotocol"
-	"github.com/wilphi/sqsrv/sqprotocol/server"
 	"github.com/wilphi/sqsrv/sqtables"
 	tk "github.com/wilphi/sqsrv/tokens"
 )
@@ -343,7 +342,7 @@ func help(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Response
 func cmdShowConns(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 
 	resp := sqprotocol.ResponseToClient{
-		Msg:         server.ShowConn(),
+		Msg:         sqprotocol.ShowConn(),
 		IsErr:       false,
 		HasData:     false,
 		NRows:       0,

@@ -77,7 +77,7 @@ func (cv *CompareValCond) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (b
 	}
 
 	if cv.Val.GetType() != rowValue.GetType() {
-		err = sqerr.New(fmt.Sprintf("Where clause expression %s %s %s has a type mismatch", cv.Col.ColName, cv.Operator, cv.Val.ToString()))
+		err = sqerr.New(fmt.Sprintf("Type Mismatch in Where clause expression: %s(%s) %s %s(%s)", cv.Col.ColName, cv.Col.ColType, cv.Operator, cv.Val.ToString(), cv.Val.GetType()))
 		log.Error(err)
 		return false, err
 	}

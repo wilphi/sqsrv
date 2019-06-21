@@ -2,13 +2,17 @@ package sqbin_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"reflect"
 	"testing"
 
 	"github.com/wilphi/sqsrv/sqbin"
 )
 
+//////////////////////////////////////////////////////////////////////////////////////
+// Int tests
 type dataInt struct {
 	TestName   string
 	Codec      *sqbin.Codec
@@ -100,6 +104,79 @@ func testIntTypesFunc(d dataInt) func(*testing.T) {
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////
+// Float tests
+type dataFloat struct {
+	TestName   string
+	Codec      *sqbin.Codec
+	CodecReset bool
+	Val        float64
+	ExpPanic   bool
+	ReadOp     bool
+	Buffer     []byte
+}
+
+func TestFloats(t *testing.T) {
+	encdec := sqbin.NewCodec(nil)
+	bits := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bits, math.Float64bits(1234.56789))
+	binit := append([]byte{sqbin.FloatMarker}, bits...)
+	shortInit := []byte{sqbin.FloatMarker, 1, 2, 3, 4}
+	data := []dataFloat{
+		{TestName: "Init Codec", Codec: sqbin.NewCodec(binit), Val: 1234.56789, ExpPanic: false, ReadOp: true, Buffer: binit},
+		{TestName: "ReadEmpty Float", Codec: encdec, CodecReset: true, ExpPanic: true, ReadOp: true},
+		{TestName: "Write Float", Codec: encdec, CodecReset: true, Val: 12345, ExpPanic: false, ReadOp: false},
+		{TestName: "Read Float", Codec: encdec, CodecReset: false, Val: 12345, ExpPanic: false, ReadOp: true},
+		{TestName: "Mismatched Type Marker", Codec: encdec, CodecReset: false, Val: 12345, ExpPanic: true, ReadOp: true, Buffer: []byte{sqbin.Uint64Marker, 1, 2, 3, 4, 5, 6, 7, 8}},
+		{TestName: "Buffer Too Short", Codec: sqbin.NewCodec(shortInit), Val: 1234, ExpPanic: true, ReadOp: true, Buffer: shortInit},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testFloatFunc(row))
+
+	}
+}
+
+func testFloatFunc(d dataFloat) func(*testing.T) {
+	return func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if d.ExpPanic && r == nil {
+				t.Error(d.TestName + " did not panic")
+			}
+			if !d.ExpPanic && r != nil {
+				t.Error(d.TestName + " panicked unexpectedly")
+			}
+		}()
+		//log.Warn(">>>" + d.TestName)
+		if d.CodecReset {
+			d.Codec.Reset()
+		}
+		if d.ReadOp && d.Buffer != nil {
+			d.Codec.Reset()
+			d.Codec.Write(d.Buffer)
+		}
+		var ret float64
+		if d.ReadOp {
+			ret = d.Codec.ReadFloat()
+		} else {
+			d.Codec.WriteFloat(d.Val)
+		}
+
+		if d.ReadOp && ret != d.Val {
+			t.Errorf("Actual Value %f does not match expected value %f", ret, d.Val)
+		}
+		if !d.ReadOp && d.Buffer != nil {
+			if !bytes.Equal(d.Buffer, d.Codec.Bytes()) {
+				t.Errorf("Expect state of buffer does not match current buffer")
+			}
+		}
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+// String tests
 type dataString struct {
 	TestName   string
 	Codec      *sqbin.Codec
@@ -177,6 +254,9 @@ func testStrTypeFunc(d dataString) func(*testing.T) {
 		}
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////
+// Byte tests
 
 type dataByte struct {
 	TestName   string
@@ -259,6 +339,9 @@ func testByteTypeFunc(d dataByte) func(*testing.T) {
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Bool tests
+
 type dataBool struct {
 	TestName   string
 	Codec      *sqbin.Codec
@@ -330,6 +413,9 @@ func testBoolTypeFunc(d dataBool) func(*testing.T) {
 		}
 	}
 }
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Array tests
 
 func TestStringArray(t *testing.T) {
 	encdec := sqbin.NewCodec(nil)

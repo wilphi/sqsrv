@@ -1,4 +1,4 @@
-package client
+package sqprotocol
 
 import (
 	"encoding/gob"
@@ -8,32 +8,24 @@ import (
 	"net"
 	"strings"
 
-	"github.com/wilphi/sqsrv/sqprotocol"
 	"github.com/wilphi/sqsrv/sqtypes"
 )
-
-// Config -
-type Config struct {
-	enc         *gob.Encoder
-	dec         *gob.Decoder
-	conn        net.Conn
-	isConnected bool
-}
 
 func init() {
 	gob.Register(sqtypes.SQString{})
 	gob.Register(sqtypes.SQInt{})
 	gob.Register(sqtypes.SQBool{})
 	gob.Register(sqtypes.SQNull{})
+	gob.Register(sqtypes.SQFloat{})
 }
 
-// SetConn - set the connection for the server to communicate on
-func SetConn(conn net.Conn) *Config {
-	return &Config{enc: gob.NewEncoder(conn), dec: gob.NewDecoder(conn), conn: conn, isConnected: true}
+// SetClientConn - set the connection for the server to communicate on
+func SetClientConn(conn net.Conn) *ClientConfig {
+	return &ClientConfig{enc: gob.NewEncoder(conn), dec: gob.NewDecoder(conn), conn: conn, isConnected: true}
 }
 
 // Close -
-func (clnt *Config) Close() (err error) {
+func (clnt *ClientConfig) Close() (err error) {
 	defer func() {
 		r := recover()
 		if r != nil {
@@ -45,7 +37,7 @@ func (clnt *Config) Close() (err error) {
 }
 
 // SendRequest -
-func (clnt *Config) SendRequest(req sqprotocol.RequestToServer) error {
+func (clnt *ClientConfig) SendRequest(req RequestToServer) error {
 
 	err := clnt.enc.Encode(req)
 	if err != nil {
@@ -61,8 +53,8 @@ func (clnt *Config) SendRequest(req sqprotocol.RequestToServer) error {
 }
 
 // ReceiveResponse -
-func (clnt *Config) ReceiveResponse() (*sqprotocol.ResponseToClient, error) {
-	resp := &sqprotocol.ResponseToClient{}
+func (clnt *ClientConfig) ReceiveResponse() (*ResponseToClient, error) {
+	resp := &ResponseToClient{}
 	err := clnt.dec.Decode(resp)
 	if err != nil {
 		log.Println("Error receiving request reponse: ", err.Error())
@@ -72,12 +64,12 @@ func (clnt *Config) ReceiveResponse() (*sqprotocol.ResponseToClient, error) {
 }
 
 // ReceiveColumns -
-func (clnt *Config) ReceiveColumns(nCols int) ([]sqprotocol.ColInfo, error) {
-	var cols []sqprotocol.ColInfo
+func (clnt *ClientConfig) ReceiveColumns(nCols int) ([]ColInfo, error) {
+	var cols []ColInfo
 
-	cols = make([]sqprotocol.ColInfo, nCols)
+	cols = make([]ColInfo, nCols)
 	for i := 0; i < nCols; i++ {
-		cInfo := &sqprotocol.ColInfo{}
+		cInfo := &ColInfo{}
 		err := clnt.dec.Decode(cInfo)
 		if err != nil {
 			log.Println("Error reading Column Info from server: ", err)
@@ -89,8 +81,8 @@ func (clnt *Config) ReceiveColumns(nCols int) ([]sqprotocol.ColInfo, error) {
 }
 
 // ReceiveRow -
-func (clnt *Config) ReceiveRow() (*sqprotocol.RowData, error) {
-	rw := &sqprotocol.RowData{}
+func (clnt *ClientConfig) ReceiveRow() (*RowData, error) {
+	rw := &RowData{}
 	err := clnt.dec.Decode(rw)
 	if err != nil {
 		if err == io.EOF {
