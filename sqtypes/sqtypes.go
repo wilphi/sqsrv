@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/wilphi/sqsrv/sqbin"
+	"github.com/wilphi/sqsrv/sqerr"
 	e "github.com/wilphi/sqsrv/sqerr"
 	t "github.com/wilphi/sqsrv/tokens"
 )
@@ -39,6 +40,7 @@ type Value interface {
 	GreaterThan(v Value) bool
 	IsNull() bool
 	Write(c *sqbin.Codec)
+	MathOp(op string, v Value) (Value, error)
 }
 
 //Raw is a type that can be converted into sq Values
@@ -150,6 +152,34 @@ func (i SQInt) Write(c *sqbin.Codec) {
 
 }
 
+// MathOp performs math on two SQInt values based on given operator
+func (i SQInt) MathOp(op string, v Value) (Value, error) {
+	var res int
+	vint, ok := v.(SQInt)
+	if !ok {
+		if v.IsNull() {
+			return v, nil
+		}
+		return nil, sqerr.New("Type Mismatch: " + v.ToString() + " is not an Int")
+	}
+	switch op {
+	case "+":
+		res = i.Val + vint.Val
+	case "-":
+		res = i.Val - vint.Val
+	case "*":
+		res = i.Val * vint.Val
+	case "/":
+		res = i.Val / vint.Val
+	case "%":
+		res = i.Val % vint.Val
+	default:
+		return nil, sqerr.NewSyntax("Invalid Operator " + op)
+	}
+	return NewSQInt(res), nil
+
+}
+
 // NewSQInt - creates a new SQInt value
 func NewSQInt(i int) Value {
 	return SQInt{i}
@@ -199,6 +229,26 @@ func (s SQString) IsNull() bool {
 func (s SQString) Write(c *sqbin.Codec) {
 	c.Writebyte(SQStringType)
 	c.WriteString(s.Val)
+}
+
+// MathOp performs math on two SQString values based on given operator
+func (s SQString) MathOp(op string, v Value) (Value, error) {
+	var res string
+	vint, ok := v.(SQString)
+	if !ok {
+		if v.IsNull() {
+			return v, nil
+		}
+		return nil, sqerr.New("Type Mismatch: " + v.ToString() + " is not a String")
+	}
+	switch op {
+	case "+":
+		res = s.Val + vint.Val
+	default:
+		return nil, sqerr.NewSyntax("Invalid Operator " + op)
+	}
+	return NewSQString(res), nil
+
 }
 
 // NewSQString - creates a new SQInt value
@@ -255,6 +305,11 @@ func (b SQBool) Write(c *sqbin.Codec) {
 	}
 }
 
+// MathOp is not valid for booleans
+func (b SQBool) MathOp(op string, v Value) (Value, error) {
+	return nil, sqerr.NewSyntax("Invalid Operation on type Bool")
+}
+
 // NewSQBool - creates a new SQBool value
 func NewSQBool(b bool) Value {
 	return SQBool{b}
@@ -304,12 +359,17 @@ func (n SQNull) Write(c *sqbin.Codec) {
 	c.Writebyte(SQNullType)
 }
 
+// MathOp is always NULL for Null values
+func (n SQNull) MathOp(op string, v Value) (Value, error) {
+	return SQNull{}, nil
+}
+
 // NewSQNull - creates a new SQNull value
 func NewSQNull() Value {
 	return SQNull{}
 }
 
-// SQInt Methods & Functions  =========================================
+// SQFloat Methods & Functions  =========================================
 
 // ToString - return string representation of type
 func (fp SQFloat) ToString() string {
@@ -359,6 +419,35 @@ func (fp SQFloat) Write(c *sqbin.Codec) {
 	c.WriteFloat(fp.Val)
 }
 
+// MathOp performs math on two SQFloat values based on given operator
+func (fp SQFloat) MathOp(op string, v Value) (Value, error) {
+	var res float64
+
+	// if v is null then the result is null
+	if v.IsNull() {
+		return v, nil
+	}
+
+	vfp, ok := v.(SQFloat)
+	if !ok {
+		return nil, sqerr.New("Type Mismatch: " + v.ToString() + " is not a Float")
+	}
+	switch op {
+	case "+":
+		res = fp.Val + vfp.Val
+	case "-":
+		res = fp.Val - vfp.Val
+	case "*":
+		res = fp.Val * vfp.Val
+	case "/":
+		res = fp.Val / vfp.Val
+	default:
+		return nil, sqerr.NewSyntax("Invalid Operator " + op + " on type Float")
+	}
+	return NewSQFloat(res), nil
+
+}
+
 // NewSQFloat - creates a new SQInt value
 func NewSQFloat(fp float64) Value {
 	return SQFloat{fp}
@@ -401,7 +490,7 @@ func CreateValueFromToken(tkn t.Token) (Value, error) {
 //RawValue given any type convert it into a SQ Value
 // Currently only works for int, string, bool
 //  nil values get converted to SQNull
-func RawValue(raw interface{}) Value {
+func RawValue(raw Raw) Value {
 	var retVal Value
 
 	if raw == nil {
