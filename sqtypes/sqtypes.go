@@ -174,7 +174,7 @@ func (i SQInt) MathOp(op string, v Value) (Value, error) {
 	case "%":
 		res = i.Val % vint.Val
 	default:
-		return nil, sqerr.NewSyntax("Invalid Operator " + op)
+		return nil, sqerr.NewSyntax("Invalid Int Operator " + op)
 	}
 	return NewSQInt(res), nil
 
@@ -245,7 +245,7 @@ func (s SQString) MathOp(op string, v Value) (Value, error) {
 	case "+":
 		res = s.Val + vint.Val
 	default:
-		return nil, sqerr.NewSyntax("Invalid Operator " + op)
+		return nil, sqerr.NewSyntax("Invalid String Operator " + op)
 	}
 	return NewSQString(res), nil
 
@@ -442,7 +442,7 @@ func (fp SQFloat) MathOp(op string, v Value) (Value, error) {
 	case "/":
 		res = fp.Val / vfp.Val
 	default:
-		return nil, sqerr.NewSyntax("Invalid Operator " + op + " on type Float")
+		return nil, sqerr.NewSyntax("Invalid Float Operator " + op)
 	}
 	return NewSQFloat(res), nil
 

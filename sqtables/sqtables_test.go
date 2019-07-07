@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 type RowDataTest struct {
 	TName   string
 	Tab     *sqtables.TableDef
-	Cols    sqtables.ColList
+	Cols    *sqtables.ExprList
 	Cond    sqtables.Condition
 	ExpErr  string
 	ExpRows []int
@@ -86,7 +86,7 @@ func TestGetRowData(t *testing.T) {
 	}
 
 	testT := sqtables.GetTable(profile, tableName)
-	cols := testT.GetCols(profile)
+	cols := sqtables.ColsToExpr(testT.GetCols(profile))
 	stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES (1,5,\"d test string\", 10, true), (2,7,\"f test string\", 100, false) "
 	tkList = tokens.Tokenize(stmt)
 	_, _, err = cmd.InsertInto(profile, tkList)
