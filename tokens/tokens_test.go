@@ -68,7 +68,7 @@ func TestTokenize(t *testing.T) {
 		{
 			TestName: "Negative Number",
 			testStr:  "SElect * from Tablea whEre a=-1234567890 \n",
-			Tokens:   CreateList([]*Token{Words[Select], SYMBOLS['*'], Words[From], CreateToken(Ident, "Tablea"), Words[Where], CreateToken(Ident, "a"), SYMBOLS['='], CreateToken(Num, "-1234567890")}),
+			Tokens:   CreateList([]*Token{Words[Select], SYMBOLS['*'], Words[From], CreateToken(Ident, "Tablea"), Words[Where], CreateToken(Ident, "a"), SYMBOLS['='], SYMBOLS['-'], CreateToken(Num, "1234567890")}),
 		},
 		{
 			TestName: "Decimal Number",
@@ -141,11 +141,49 @@ func TestMiscFunctions(t *testing.T) {
 			t.Error(fmt.Sprintf("tkn.SetValue Failed! Expected %s != tkn.GetValue() -> %s", expected, tkn.GetValue()))
 		}
 	})
+	t.Run("GetSymbolFromTokenID", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		for s, tkn := range SYMBOLS {
+			sym := GetSymbolFromTokenID(tkn.tokenID)
+			if sym != tkn.tokenValue {
+				t.Errorf("TokenID: %s Expected value %q does not match actual value: %q", tkn.tokenID, tkn.tokenValue, sym)
+				return
+			}
+			if sym != string(s) {
+				t.Errorf("TokenID: %s index %q does not match expected %q", tkn.tokenID, string(s), sym)
+			}
+		}
+	})
+	t.Run("GetSymbolFromTokenID Non Symbol", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
 
+		sym := GetSymbolFromTokenID(Where)
+		if sym != Where {
+			t.Errorf("TokenID: %s Expected value %q does not match actual value: %q", Where, Where, sym)
+			return
+		}
+
+	})
 }
 
 func testTokenizeFunc(d TokenData) func(t *testing.T) {
 	return func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
 		tkns := Tokenize(d.testStr)
 		if tkns.ToString() != d.Tokens.ToString() {
 			t.Errorf("Token list %q does not match expected list %q", tkns.ToString(), d.Tokens.ToString())

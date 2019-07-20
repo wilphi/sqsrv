@@ -24,11 +24,12 @@ func Select(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 //   error - if !nil an error has occurred
 func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtables.DataSet, error) {
 	var err error
-	var colNames []string
-	var cols sqtables.ColList
+	//var colNames []string
+	var eList *sqtables.ExprList
+	var tableCols sqtables.ColList
 	var isAsterix = false
 	var tableName string
-	var td *sqtables.TableDef
+	var tab *sqtables.TableDef
 	var whereConditions sqtables.Condition
 	var orderBy []sqtables.OrderItem
 
@@ -52,7 +53,7 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 		tkns.Remove()
 	} else {
 		// get the column list
-		tkns, colNames, err = GetIdentList(tkns, tokens.Words[tokens.From], true)
+		eList, err = GetExprList(tkns, tokens.From, false)
 		if err != nil {
 			return nil, err
 		}
@@ -65,18 +66,19 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 	tkns.Remove()
 
 	// get the TableDef
-	td = sqtables.GetTable(profile, tableName)
-	if td == nil {
+	tab = sqtables.GetTable(profile, tableName)
+	if tab == nil {
 		return nil, e.New("Table " + tableName + " does not exist for select statement")
 	}
 
+	// get the cols in the table
 	// Once we have the table name we can generate the column list
 	if isAsterix {
-		cols = td.GetCols(profile)
+		tableCols = tab.GetCols(profile)
+		eList = sqtables.ColsToExpr(tableCols)
 	} else {
 		//convert into column defs
-		cols = sqtables.NewColListNames(colNames)
-		err = cols.ValidateTable(profile, td)
+		err = eList.ValidateCols(profile, tab)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +89,7 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 		// Optional Where clause processing goes here
 		if tkns.Test(tokens.Where) != "" {
 			tkns.Remove()
-			tkns, whereConditions, err = GetWhereConditions(profile, tkns, td)
+			whereConditions, err = GetWhereConditions(profile, tkns, tab)
 			if err != nil {
 				return nil, err
 			}
@@ -107,7 +109,7 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 		return nil, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
 	}
 
-	return SelectExecute(profile, tableName, cols, whereConditions, orderBy)
+	return SelectExecute(profile, tableName, eList, whereConditions, orderBy)
 
 }
 
@@ -115,7 +117,7 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 func SelectExecute(
 	profile *sqprofile.SQProfile,
 	tableName string,
-	cols sqtables.ColList,
+	eList *sqtables.ExprList,
 	whereConditions sqtables.Condition,
 	orderBy []sqtables.OrderItem) (*sqtables.DataSet, error) {
 
@@ -123,7 +125,7 @@ func SelectExecute(
 	if tab == nil {
 		return nil, e.New("Table " + tableName + " does not exist for select statement")
 	}
-	data, err := tab.GetRowData(profile, cols, whereConditions)
+	data, err := tab.GetRowData(profile, eList, whereConditions)
 	if err != nil {
 		return nil, err
 	}

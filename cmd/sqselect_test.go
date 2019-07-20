@@ -105,11 +105,12 @@ func TestSelect(t *testing.T) {
 		"(456, \"Seltest 2\", true), " +
 		"(789, \"Seltest 3\", false)"
 	tkns = tokens.Tokenize(testData)
-	if _, err := cmd.InsertIntoOld(profile, tkns); err != nil {
+	if _, _, err := cmd.InsertInto(profile, tkns); err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
 	data := []SelectData{
+
 		{
 			TestName: "Select from empty table",
 			Command:  "SELECT col1, col2, col3 from selEmpty",
@@ -129,7 +130,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT only",
 			Command:  "SELECT",
-			ExpErr:   "Syntax Error: Expecting name of column",
+			ExpErr:   "Syntax Error: No columns defined for query",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -137,7 +138,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT missing comma",
 			Command:  "SELECT col1",
-			ExpErr:   "Syntax Error: Comma is required to separate column definitions",
+			ExpErr:   "Syntax Error: Comma is required to separate columns",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -145,13 +146,13 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT missing FROM",
 			Command:  "SELECT col1, col2, col3",
-			ExpErr:   "Syntax Error: Comma is required to separate column definitions",
+			ExpErr:   "Syntax Error: Comma is required to separate columns",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
 		},
 		{
-			TestName: "SELECT missing FROM",
+			TestName: "SELECT missing Table Name",
 			Command:  "SELECT col1, col2, col3 FROM",
 			ExpErr:   "Syntax Error: Expecting table name in select statement",
 			ExpRows:  0,
@@ -259,7 +260,15 @@ func TestSelect(t *testing.T) {
 			Command:  "SELECT COUNT() FROM seltest",
 			ExpErr:   "",
 			ExpRows:  1,
-			ExpCols:  []string{"COUNT"},
+			ExpCols:  []string{"count()"},
+			ExpVals:  sqtypes.RawVals{{3}},
+		},
+		{
+			TestName: "SELECT COUNT(), Extra Col",
+			Command:  "SELECT COUNT(), id FROM seltest",
+			ExpErr:   "Syntax Error: Select Statements with Count() must not have other expressions",
+			ExpRows:  1,
+			ExpCols:  []string{"count()"},
 			ExpVals:  sqtypes.RawVals{{3}},
 		},
 		{
@@ -365,6 +374,18 @@ func TestSelect(t *testing.T) {
 				{456, "Seltest 2", true},
 			},
 		},
+		{
+			TestName: "SELECT col1*10 ",
+			Command:  "SELECT col1*10, col2, col3 FROM seltest",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"(col1*10)", "col2", "col3"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
 	}
 
 	for i, row := range data {
@@ -384,7 +405,7 @@ func TestSelectExecute(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		data, err := cmd.SelectExecute(profile, "NotATable", sqtables.ColList{}, nil, nil)
+		data, err := cmd.SelectExecute(profile, "NotATable", &sqtables.ExprList{}, nil, nil)
 		if err != nil && err.Error() != "Error: Table NotATable does not exist for select statement" {
 			t.Errorf("Unexpected Error: %s", err)
 			return

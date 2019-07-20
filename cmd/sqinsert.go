@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/wilphi/sqsrv/redo"
+	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 
 	log "github.com/sirupsen/logrus"
@@ -22,6 +23,7 @@ type InsertStmt struct {
 	data *sqtables.DataSet
 }
 
+/*
 // InsertIntoOld -
 func InsertIntoOld(profile *sqprofile.SQProfile, tl *t.TokenList) (int, error) {
 	ins, err := CreateInsertStmt(tl)
@@ -35,6 +37,7 @@ func InsertIntoOld(profile *sqprofile.SQProfile, tl *t.TokenList) (int, error) {
 	i, err := ins.insertIntoTables(profile)
 	return i, err
 }
+*/
 
 // InsertInto -
 func InsertInto(profile *sqprofile.SQProfile, tl *t.TokenList) (string, *sqtables.DataSet, error) {
@@ -86,11 +89,19 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 		return e.NewSyntax("Expecting ( after name of table")
 	}
 
-	ins.tkns, colNames, err = GetIdentList(ins.tkns, t.SYMBOLS[')'], false)
+	colNames, err = GetIdentList(ins.tkns, t.CloseBracket)
 	if err != nil {
 		return err
 	}
-	ins.data = sqtables.NewDataSet(sqtables.GetTable(profile, ins.tableName), sqtables.NewColListNames(colNames))
+	tab := sqtables.GetTable(profile, ins.tableName)
+	if tab == nil {
+		return sqerr.New("Table " + ins.tableName + " does not exist")
+	}
+
+	ins.data, err = sqtables.NewDataSet(profile, tab, sqtables.NewColListNames(colNames))
+	if err != nil {
+		return err
+	}
 
 	//Values section
 	err = ins.getInsertValues()
@@ -142,57 +153,12 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 	} else {
 		return nil, e.NewSyntax("Expecting ( to start next row of VALUES")
 	}
-
-	isHangingComma := false
-	// loop to get the values section of the INSERT
-	i := 0
-	for {
-		if ins.tkns.Test(t.CloseBracket) != "" {
-			if isHangingComma {
-				return nil, e.NewSyntax("Unexpected \",\" before \")\"")
-			}
-			break
-		}
-		if i > 0 && !isHangingComma {
-			return nil, e.NewSyntax("Comma is required to separate values")
-		}
-		// NUM || QUOTE || TRUE || FALSE,  opt comma
-		if ins.tkns.Test(t.Num, t.Quote, t.RWTrue, t.RWFalse, t.Null) != "" {
-			if i >= ins.data.NumCols() {
-				return nil, e.NewSyntax(fmt.Sprintf("The number of values (%d) must match the number of columns (%d)", i+1, ins.data.NumCols()))
-			}
-			v, err := sqtypes.CreateValueFromToken(*ins.tkns.Peek())
-			if err != nil {
-				return nil, err
-			}
-			vals[i] = v
-			ins.tkns.Remove()
-			i++
-
-			// check for optional comma
-			if ins.tkns.Test(t.Comma) != "" {
-				isHangingComma = true
-				ins.tkns.Remove()
-			} else {
-				isHangingComma = false
-			}
-		} else {
-
-			log.Tracef("Col len = %d, vals len=%d", ins.data.NumCols(), i)
-			return nil, e.NewSyntax("Expecting a value for column " + ins.data.GetColNames()[i])
-		}
+	eList, err := GetExprList(ins.tkns, t.CloseBracket, true)
+	if err != nil {
+		return nil, err
 	}
-	if i <= 0 {
-		return nil, e.NewSyntax("No values defined for insert")
-	}
-	if i != ins.data.NumCols() {
-		return nil, e.NewSyntax(fmt.Sprintf("The number of values (%d) must match the number of columns (%d)", i, ins.data.NumCols()))
-	}
-
-	// eat closebracket
-	ins.tkns.Remove()
-	return vals, nil
-
+	vals, err = eList.GetValues()
+	return vals, err
 }
 
 func (ins *InsertStmt) insertIntoTables(profile *sqprofile.SQProfile) (int, error) {

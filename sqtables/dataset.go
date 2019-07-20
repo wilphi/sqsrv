@@ -5,19 +5,21 @@ import (
 	"sort"
 
 	"github.com/wilphi/sqsrv/sqerr"
+	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
 // DataSet - structure that contains a row/column set including column definitions
 type DataSet struct {
-	cols       ColList
+	//cols       ColList
 	Vals       [][]sqtypes.Value
 	usePtrs    bool
 	Ptrs       []int64
 	table      *TableDef
 	order      []OrderItem
 	validOrder bool
+	eList      *ExprList
 }
 
 // OrderItem stores information for ORDER BY clause
@@ -29,20 +31,34 @@ type OrderItem struct {
 
 // GetColNames - returns a string array of column names
 func (d *DataSet) GetColNames() []string {
-	return d.cols.GetColNames()
+
+	return d.eList.GetNames()
 }
 
 // NewDataSet -
-func NewDataSet(tab *TableDef, cols ColList) *DataSet {
+func NewDataSet(profile *sqprofile.SQProfile, tab *TableDef, cols ColList) (*DataSet, error) {
 	if cols.Len() == 0 {
+		return nil, nil
+	}
+	err := cols.ValidateTable(profile, tab)
+	if err != nil {
+		return nil, err
+	}
+	eList := ColsToExpr(cols)
+	return &DataSet{eList: eList, table: tab}, nil
+}
+
+// NewExprDataSet creates a dataset based on expressions
+func NewExprDataSet(tab *TableDef, eList *ExprList) *DataSet {
+	if eList.Len() == 0 {
 		return nil
 	}
-	return &DataSet{cols: cols, table: tab}
+	return &DataSet{eList: eList, table: tab}
 }
 
 // NumCols -
 func (d *DataSet) NumCols() int {
-	return d.cols.Len()
+	return d.eList.Len()
 }
 
 // NumRows -
@@ -55,7 +71,11 @@ func (d *DataSet) NumRows() int {
 
 // GetColList -
 func (d *DataSet) GetColList() ColList {
-	return d.cols
+	cols := make([]ColDef, d.eList.Len())
+	for i, ex := range d.eList.exprlist {
+		cols[i] = ex.GetColDef()
+	}
+	return NewColListDefs(cols)
 }
 
 // GetTable -
@@ -69,7 +89,7 @@ func (d *DataSet) SetOrder(order []OrderItem) error {
 	d.order = order
 	for x, col := range d.order {
 		//set the index
-		d.order[x].idx = d.cols.FindColIdx(col.ColName)
+		d.order[x].idx = d.eList.FindName(col.ColName)
 		if d.order[x].idx < 0 {
 			// Col not found
 			return sqerr.New(fmt.Sprintf("Column %s not found in dataset", col.ColName))

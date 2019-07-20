@@ -374,7 +374,8 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 		}
 		// Make sure the create for Update works
 		valArray := sqtypes.CreateValueArrayFromRaw(d.Vals)
-		s := redo.NewUpdateRows(d.TableName, d.Cols, valArray, d.RowPtrs)
+		eList := sqtables.NewExprListFromValues(valArray)
+		s := redo.NewUpdateRows(d.TableName, d.Cols, eList, d.RowPtrs)
 		if (s.TableName != d.TableName) || !reflect.DeepEqual(s.Cols, d.Cols) {
 			t.Error("Columns do not match expected")
 		}
@@ -465,7 +466,10 @@ func TestDelete(t *testing.T) {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}
 	cl := sqtables.NewColListDefs(cols)
-	ds := sqtables.NewDataSet(tab, cl)
+	ds, err := sqtables.NewDataSet(profile, tab, cl)
+	if err != nil {
+		t.Errorf("Error setting up table for TestDelete: %s", err)
+	}
 	numVals := 10
 	ds.Vals = make([][]sqtypes.Value, numVals)
 	for i := 0; i < numVals; i++ {

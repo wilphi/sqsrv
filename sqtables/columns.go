@@ -3,6 +3,7 @@ package sqtables
 import (
 	"fmt"
 
+	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/tokens"
@@ -34,6 +35,27 @@ func (c *ColDef) toString() string {
 	return "{" + c.ColName + ", " + c.ColType + "}"
 }
 
+//Encode outputs a binary encoded version of the coldef to the codec
+func (c *ColDef) Encode(enc *sqbin.Codec) {
+
+	enc.WriteString(c.ColName)
+	enc.WriteString(c.ColType)
+	enc.WriteInt(c.Idx)
+	enc.WriteBool(c.IsNotNull)
+}
+
+//Decode a binary encoded version of a coldef from the codec
+func (c *ColDef) Decode(dec *sqbin.Codec) {
+
+	c.ColName = dec.ReadString()
+	c.ColType = dec.ReadString()
+	c.Idx = dec.ReadInt()
+	c.IsNotNull = dec.ReadBool()
+
+}
+
+//////////////////////////////////////////////////////////////////
+
 // NewColListDefs - Create a list of columns based on ColDefs
 func NewColListDefs(colD []ColDef) ColList {
 	colNames := make([]string, len(colD))
@@ -45,7 +67,11 @@ func NewColListDefs(colD []ColDef) ColList {
 
 // NewColListNames - Create a list of columns based on name strings
 func NewColListNames(colNames []string) ColList {
-	return ColList{defsValid: false, colNames: colNames}
+	colD := make([]ColDef, len(colNames))
+	for i, name := range colNames {
+		colD[i].ColName = name
+	}
+	return ColList{colD: colD, defsValid: false, colNames: colNames}
 }
 
 //ValidateTable -

@@ -106,7 +106,7 @@ type InsertIntoData struct {
 func TestInsertInto(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	//make sure table exists for testing
-	tkns := tokens.Tokenize("CREATE TABLE instest (col1 int, col2 string, col3 bool)")
+	tkns := tokens.Tokenize("CREATE TABLE instest (col1 int, col2 string, col3 bool, col4 float)")
 	tableName, err := cmd.CreateTableFromTokens(profile, tkns)
 	if err != nil {
 		t.Errorf("Error setting up table for TestInsertInto: %s", err)
@@ -142,7 +142,7 @@ func TestInsertInto(t *testing.T) {
 		{
 			TestName: "INSERT missing comma after col",
 			Command:  "INSERT INTO instest (col1",
-			ExpErr:   "Syntax Error: Comma is required to separate column definitions",
+			ExpErr:   "Syntax Error: Comma is required to separate columns",
 		},
 		{
 			TestName: "INSERT missing second column",
@@ -162,7 +162,7 @@ func TestInsertInto(t *testing.T) {
 		{
 			TestName: "INSERT missing value for col1",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (",
-			ExpErr:   "Syntax Error: Expecting a value for column col1",
+			ExpErr:   "Syntax Error: No values defined",
 		},
 		{
 			TestName: "INSERT missing comma after first value",
@@ -172,12 +172,12 @@ func TestInsertInto(t *testing.T) {
 		{
 			TestName: "INSERT missing value for col2",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, ",
-			ExpErr:   "Syntax Error: Expecting a value for column col2",
+			ExpErr:   "Syntax Error: Expecting value or a valid expression",
 		},
 		{
 			TestName: "INSERT missing value for col3",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", ",
-			ExpErr:   "Syntax Error: Expecting a value for column col3",
+			ExpErr:   "Syntax Error: Expecting value or a valid expression",
 		},
 		{
 			TestName: "INSERT missing final )",
@@ -198,7 +198,7 @@ func TestInsertInto(t *testing.T) {
 			TestName:  "INSERT three values",
 			Command:   "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true)",
 			ExpErr:    "",
-			ExpVals:   sqtypes.RawVals{{123, "With Cols Test", true}},
+			ExpVals:   sqtypes.RawVals{{123, "With Cols Test", true, nil}},
 			TableName: tableName,
 		},
 		{
@@ -219,17 +219,17 @@ func TestInsertInto(t *testing.T) {
 		{
 			TestName: "No Vals in Value list",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES ()",
-			ExpErr:   "Syntax Error: No values defined for insert",
+			ExpErr:   "Syntax Error: No values defined",
 		},
 		{
 			TestName: "Cols do not match Values",
 			Command:  "INSERT INTO instest (col1,col2) VALUES (123, \"With Cols Test\", true)",
-			ExpErr:   "Syntax Error: The number of values (3) must match the number of columns (2)",
+			ExpErr:   "Error: The Number of Columns (2) does not match the number of Values (3)",
 		},
 		{
 			TestName: "Values do not match Cols",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\")",
-			ExpErr:   "Syntax Error: The number of values (2) must match the number of columns (3)",
+			ExpErr:   "Error: The Number of Columns (3) does not match the number of Values (2)",
 		},
 		{
 			TestName: "Value Type does not match Col Type",
@@ -244,12 +244,12 @@ func TestInsertInto(t *testing.T) {
 		{
 			TestName: "More Cols than in table",
 			Command:  "INSERT INTO instest (col1,col2,col3, colx) VALUES (123, \"With Cols Test\", true, \"Col does not exist\")",
-			ExpErr:   "Error: More columns are being set than exist in table definition",
+			ExpErr:   "Error: Table instest does not have a column named colx",
 		},
 		{
 			TestName: "Col does not exist in table",
 			Command:  "INSERT INTO instest (col1,col2, colx) VALUES (123, \"With Cols Test\", \"Col does not exist\")",
-			ExpErr:   "Error: Column (colx) does not exist in table (instest)",
+			ExpErr:   "Error: Table instest does not have a column named colx",
 		},
 		{
 			TestName: "Integer too large - tests invalid converion",
@@ -264,9 +264,9 @@ func TestInsertInto(t *testing.T) {
 				fmt.Sprintf("(%d, %q, %t) ", 789, "Third Value Test", false),
 			ExpErr: "",
 			ExpVals: sqtypes.RawVals{
-				{123, "With Cols Test", true},
-				{456, "Second Value Test", true},
-				{789, "Third Value Test", false},
+				{123, "With Cols Test", true, nil},
+				{456, "Second Value Test", true, nil},
+				{789, "Third Value Test", false, nil},
 			},
 			TableName: tableName,
 		},
@@ -279,7 +279,21 @@ func TestInsertInto(t *testing.T) {
 			TestName:  "Null in Insert",
 			Command:   "INSERT INTO instest (col1, col2, col3) values (123, null, true)",
 			ExpErr:    "",
-			ExpVals:   sqtypes.RawVals{{123, nil, true}},
+			ExpVals:   sqtypes.RawVals{{123, nil, true, nil}},
+			TableName: tableName,
+		},
+		{
+			TestName:  "INSERT Negative Number",
+			Command:   "INSERT INTO instest (col1,col2,col3,col4) VALUES (123, \"With Cols Test\", true, -3.145)",
+			ExpErr:    "",
+			ExpVals:   sqtypes.RawVals{{123, "With Cols Test", true, -3.145}},
+			TableName: tableName,
+		},
+		{
+			TestName:  "INSERT More Values than cols",
+			Command:   "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true, -3.145)",
+			ExpErr:    "Error: The Number of Columns (3) does not match the number of Values (4)",
+			ExpVals:   sqtypes.RawVals{{123, "With Cols Test", true, -3.145}},
 			TableName: tableName,
 		},
 	}

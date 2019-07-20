@@ -55,7 +55,7 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (str
 			break
 		}
 		if i > 0 && !isHangingComma {
-			return "", e.NewSyntax("Comma is required to separate column definitions")
+			return "", e.NewSyntax("Comma is required to separate columns")
 		}
 		// Ident(colName), Ident(typeVal), opt [opt NOT, NULL],  opt comma
 		if cName := tkns.Test(t.Ident); cName != "" {

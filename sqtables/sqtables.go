@@ -160,7 +160,10 @@ func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 
 // GetRowDataFromPtrs returns data based on the rowIDs passed
 func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64) (*DataSet, error) {
-	ds := NewDataSet(t, t.GetCols(profile))
+	ds, err := NewDataSet(profile, t, t.GetCols(profile))
+	if err != nil {
+		return nil, err
+	}
 	ds.Vals = make([][]sqtypes.Value, len(ptrs))
 	t.RLock(profile)
 	defer t.RUnlock(profile)
@@ -175,20 +178,20 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 }
 
 // GetRowData - Returns a dataset with the data from table
-func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, cols ColList, conditions Condition) (*DataSet, error) {
+func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, conditions Condition) (*DataSet, error) {
 	var err error
 
 	t.RLock(profile)
 	defer t.RUnlock(profile)
 
 	// Verify all cols exist in table
-	if err = cols.ValidateTable(profile, t); err != nil {
+	if err = eList.ValidateCols(profile, t); err != nil {
 		return nil, err
 	}
 
 	// Setup the dataset for the results
-	ret := NewDataSet(t, cols)
-	ret.usePtrs = !cols.isCount
+	ret := NewExprDataSet(t, eList)
+	ret.usePtrs = !eList.HasCount()
 
 	// Get the pointers to the rows based on the conditions
 	ptrs, err := t.GetRowPtrs(profile, conditions, RowOrder)
@@ -196,9 +199,9 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, cols ColList, condit
 		return nil, err
 	}
 
-	if cols.isCount {
+	if eList.HasCount() {
 		ret.Vals = make([][]sqtypes.Value, 1)
-		ret.Vals[0] = make([]sqtypes.Value, cols.Len())
+		ret.Vals[0] = make([]sqtypes.Value, eList.Len())
 		ret.Vals[0][0] = sqtypes.NewSQInt(len(ptrs))
 	} else {
 		ret.Vals = make([][]sqtypes.Value, len(ptrs))
@@ -207,11 +210,12 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, cols ColList, condit
 		for i, ptr := range ptrs {
 			// make sure the ptr points to the correct row
 			if t.rowm[ptr].RowID != ptr {
-				panic("rowID does not match Map index")
+				log.Panic("rowID does not match Map index")
 			}
-			ret.Vals[i] = make([]sqtypes.Value, cols.Len())
-			for j, col := range cols.GetColDefs() {
-				ret.Vals[i][j] = t.rowm[ptr].Data[col.Idx]
+
+			ret.Vals[i], err = eList.Evaluate(profile, t.rowm[ptr])
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -307,7 +311,7 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, conditions Condition
 }
 
 //UpdateRowsFromPtrs updates rows in the table based on the given list of pointers, columns to be changed and values to be set
-func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64, cols []string, vals []sqtypes.Value) error {
+func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64, cols []string, eList *ExprList) error {
 	t.Lock(profile)
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
@@ -315,13 +319,26 @@ func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 		if row == nil || !ok {
 			return sqerr.NewInternal(fmt.Sprintf("Row %d does not exist for update", idx))
 		}
-		err := row.UpdateRow(profile, cols, vals)
+		vals, err := eList.Evaluate(profile, row)
+		if err != nil {
+			return err
+		}
+		err = row.UpdateRow(profile, cols, vals)
 		if err != nil {
 			return err
 		}
 
 	}
 	return nil
+}
+
+// GetRow -
+func (t *TableDef) GetRow(profile *sqprofile.SQProfile, RowID int64) *RowDef {
+	row, ok := t.rowm[RowID]
+	if !ok || row == nil || row.isDeleted {
+		return nil
+	}
+	return row
 }
 
 // isUnderScore - Checks to see if first char in string is an underscore

@@ -51,7 +51,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (int, err
 	// Optional Where clause processing goes here
 	if tkns.Test(t.Where) != "" {
 		tkns.Remove()
-		tkns, whereConditions, err = GetWhereConditions(profile, tkns, td)
+		whereConditions, err = GetWhereConditions(profile, tkns, td)
 		if err != nil {
 			return -1, err
 		}

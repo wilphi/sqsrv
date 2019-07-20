@@ -84,7 +84,7 @@ func TestCreateTable(t *testing.T) {
 		{
 			TestName:     "CREATE TABLE missing comma",
 			Command:      "CREATE TABLE createtest (col1 int, col2 string col3 bool )",
-			ExpErr:       "Syntax Error: Comma is required to separate column definitions",
+			ExpErr:       "Syntax Error: Comma is required to separate columns",
 			ExpTableName: "createtest"},
 		{
 			TestName:     "CREATE TABLE missing type",
@@ -102,6 +102,12 @@ func TestCreateTable(t *testing.T) {
 			TestName:     "CREATE TABLE success",
 			Command:      "CREATE TABLE createtest (col1 int, col2 string, col3 bool)",
 			ExpErr:       "",
+			ExpTableName: "createtest",
+		},
+		{
+			TestName:     "CREATE TABLE success Duplicate",
+			Command:      "CREATE TABLE createtest (col1 int, col2 string, col3 bool)",
+			ExpErr:       "Error: Invalid Name: Table createtest already exists",
 			ExpTableName: "createtest",
 		},
 		{

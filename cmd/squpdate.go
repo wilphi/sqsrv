@@ -5,10 +5,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/redo"
+	"github.com/wilphi/sqsrv/sqerr"
 	e "github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
-	"github.com/wilphi/sqsrv/sqtypes"
 	t "github.com/wilphi/sqsrv/tokens"
 )
 
@@ -17,8 +17,10 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 	var err error
 	var tableName, colName string
 	var setCols []string
-	var setVals []sqtypes.Value
+	var setExprs sqtables.ExprList
 	var cond sqtables.Condition
+
+	colCheck := make(map[string]bool)
 
 	log.Info("Update statement...")
 
@@ -63,25 +65,31 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 			}
 			tkns.Remove()
 
-			// Get a value
-			if tkns.Test(t.Num, t.Quote, t.RWTrue, t.RWFalse) != "" {
-				val, err := sqtypes.CreateValueFromToken(*tkns.Peek())
-				if err != nil {
-					return "", nil, err
-				}
-				tkns.Remove()
-				setCols = append(setCols, colName)
-				setVals = append(setVals, val)
-				isValidSetExpression = true
-				if tkns.Test(t.Comma) != "" {
-					tkns.Remove()
-				} else {
-					break
-				}
-			} else {
-				err = e.NewSyntax(fmt.Sprintf("Expecting a value in SET clause after %s =", colName))
+			// Get a value/expression
+			ex, err := getExpr(tkns, nil, 0, t.Where, t.Comma)
+			if err != nil {
 				return "", nil, err
 			}
+			if ex == nil {
+				return "", nil, sqerr.NewSyntax(fmt.Sprintf("Expecting an expression in SET clause after %s =", colName))
+			}
+			if _, ok := colCheck[colName]; ok {
+				return "", nil, sqerr.NewSyntax(fmt.Sprintf("%s is set more than once", colName))
+			}
+			colCheck[colName] = true
+			setCols = append(setCols, colName)
+			setExprs.Add(ex)
+			isValidSetExpression = true
+			if tkns.Test(t.Comma) != "" {
+				tkns.Remove()
+			} else {
+				break
+			}
+			/*
+				} else {
+					err = e.NewSyntax(fmt.Sprintf("Expecting a value in SET clause after %s =", colName))
+					return "", nil, err
+				} */
 		}
 
 	}
@@ -91,27 +99,31 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 	// Optional Where Clause
 	if tkns.Len() > 0 && tkns.Test(t.Where) != "" {
 		tkns.Remove()
-		tkns, cond, err = GetWhereConditions(profile, tkns, tab)
+		cond, err = GetWhereConditions(profile, tkns, tab)
 	}
 
 	if !tkns.IsEmpty() {
 		return "", nil, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
 	}
 
+	err = setExprs.ValidateCols(profile, tab)
+	if err != nil {
+		return "", nil, err
+	}
 	// get the data
-	//	colList := sqtables.NewColListNames(setCols)
 	tab.Lock(profile)
 	defer tab.Unlock(profile)
 	ptrs, err := tab.GetRowPtrs(profile, cond, false)
 	if err != nil {
 		return "", nil, err
 	}
+
 	//Update the rows
-	err = tab.UpdateRowsFromPtrs(profile, ptrs, setCols, setVals)
+	err = tab.UpdateRowsFromPtrs(profile, ptrs, setCols, &setExprs)
 	if err != nil {
 		return "", nil, err
 	}
-	err = redo.Send(redo.NewUpdateRows(tableName, setCols, setVals, ptrs))
+	err = redo.Send(redo.NewUpdateRows(tableName, setCols, &setExprs, ptrs))
 
 	return fmt.Sprintf("Updated %d rows from table", len(ptrs)), nil, err
 }

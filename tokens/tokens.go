@@ -32,6 +32,9 @@ const (
 	LessThan     = "LessThan"
 	GreaterThan  = "GreaterThan"
 	Minus        = "Minus"
+	Plus         = "Plus"
+	Divide       = "Divide"
+	Modulus      = "Modulus"
 )
 
 // SYMBOLS - tokens that are individual runes
@@ -47,7 +50,10 @@ var SYMBOLS = map[rune]*Token{
 	';': &Token{tokenID: SemiColon, tokenValue: ";"},
 	'<': &Token{tokenID: LessThan, tokenValue: "<"},
 	'>': &Token{tokenID: GreaterThan, tokenValue: ">"},
+	'+': &Token{tokenID: Plus, tokenValue: "+"},
 	'-': &Token{tokenID: Minus, tokenValue: "-"},
+	'/': &Token{tokenID: Divide, tokenValue: "/"},
+	'%': &Token{tokenID: Modulus, tokenValue: "%"},
 }
 
 // Reserved Words
@@ -139,7 +145,7 @@ func (tkn Token) GetString() string {
 	case TypeTKN:
 		tknStr = tkn.tokenValue
 	case Asterix, Period, Equal, OpenBracket, CloseBracket, Comma, Colon, UnderScore,
-		SemiColon, LessThan, GreaterThan, Minus:
+		SemiColon, LessThan, GreaterThan, Minus, Plus, Modulus, Divide:
 		tknStr = tkn.tokenValue
 	case Ident:
 		tknStr = "[" + Ident + "=" + tkn.tokenValue + "]"
@@ -303,7 +309,7 @@ func Tokenize(str string) *TokenList {
 
 		}
 
-		if isDigit(r[0]) || r[0] == '-' {
+		if isDigit(r[0]) {
 			r, tkn = getNumber(r)
 			tl.Add(tkn)
 			continue
@@ -324,4 +330,14 @@ func Tokenize(str string) *TokenList {
 	log.Trace("Finished Parsing...", tl.ToString())
 	return tl
 
+}
+
+//GetSymbolFromTokenID returns the symbol from the tokenid
+func GetSymbolFromTokenID(tokenID string) string {
+	for _, tkn := range SYMBOLS {
+		if tkn.tokenID == tokenID {
+			return tkn.tokenValue
+		}
+	}
+	return tokenID
 }

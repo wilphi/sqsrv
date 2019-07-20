@@ -22,6 +22,7 @@ type UpdateData struct {
 	Cols      []string
 	ExpErr    string
 	ExpData   sqtypes.RawVals
+	ResetData bool
 }
 
 func TestUpdate(t *testing.T) {
@@ -33,15 +34,8 @@ func TestUpdate(t *testing.T) {
 		t.Errorf("Error setting up table for TestUpdate: %s", err)
 		return
 	}
-	ins := "INSERT INTO testupdate (col1, col2) VALUES " +
-		"(1, \"test row 1\"), " +
-		"(2, \"test row 2\"), " +
-		"(3, \"test row 3\"), " +
-		"(4, \"test row 4\"), " +
-		"(5, \"test row 5\"), " +
-		"(6, \"test row 6\")"
-	tkns = tokens.Tokenize(ins)
-	_, _, err = cmd.InsertInto(profile, tkns)
+
+	err = resetUpdateData()
 	if err != nil {
 		t.Errorf("Error setting up table for TestUpdate: %s", err)
 		return
@@ -72,7 +66,7 @@ func TestUpdate(t *testing.T) {
 		{
 			TestName: "UPDATE Missing Value ",
 			SQLStr:   "UPDATE testupdate SET col1 =",
-			ExpErr:   "Syntax Error: Expecting a value in SET clause after col1 =",
+			ExpErr:   "Syntax Error: Expecting an expression in SET clause after col1 =",
 		},
 		{
 			TestName:  "UPDATE with Where Clause",
@@ -154,6 +148,42 @@ func TestUpdate(t *testing.T) {
 			Cols:      []string{"col1", "col2"},
 			ExpData:   sqtypes.RawVals{{99, "test multi"}, {99, "test multi"}, {99, "test multi"}, {99, "test multi"}, {99, "test multi"}, {99, "test multi"}},
 		},
+		{
+			TestName:  "UPDATE Expressions",
+			SQLStr:    "UPDATE testupdate SET col1 = col1+1, col2 = \"test \"+\"Expression\"",
+			ExpErr:    "",
+			TableName: "testupdate",
+			Cols:      []string{"col1", "col2"},
+			ExpData:   sqtypes.RawVals{{2, "test Expression"}, {3, "test Expression"}, {4, "test Expression"}, {5, "test Expression"}, {6, "test Expression"}, {7, "test Expression"}},
+			ResetData: true,
+		},
+		{
+			TestName:  "UPDATE Expressions Invalid col",
+			SQLStr:    "UPDATE testupdate SET col1 = colX+1, col2 = \"test \"+\"Expression\"",
+			ExpErr:    "Error: Table testupdate does not have a column named colX",
+			TableName: "testupdate",
+			Cols:      []string{"col1", "col2"},
+			ExpData:   sqtypes.RawVals{{2, "test Expression"}, {3, "test Expression"}, {4, "test Expression"}, {5, "test Expression"}, {6, "test Expression"}, {7, "test Expression"}},
+			ResetData: true,
+		},
+		{
+			TestName:  "UPDATE Expressions Double Set Col",
+			SQLStr:    "UPDATE testupdate SET col1 = col1+1, col2 = \"test \"+\"Expression\", col1=999",
+			ExpErr:    "Syntax Error: col1 is set more than once",
+			TableName: "testupdate",
+			Cols:      []string{"col1", "col2"},
+			ExpData:   sqtypes.RawVals{{2, "test Expression"}, {3, "test Expression"}, {4, "test Expression"}, {5, "test Expression"}, {6, "test Expression"}, {7, "test Expression"}},
+			ResetData: true,
+		},
+		{
+			TestName:  "UPDATE Negate int",
+			SQLStr:    "UPDATE testupdate SET col1 = -col1",
+			ExpErr:    "",
+			TableName: "testupdate",
+			Cols:      []string{"col1", "col2"},
+			ExpData:   sqtypes.RawVals{{-6, "test row 6"}, {-5, "test row 5"}, {-4, "test row 4"}, {-3, "test row 3"}, {-2, "test row 2"}, {-1, "test row 1"}},
+			ResetData: true,
+		},
 	}
 
 	for i, row := range data {
@@ -171,6 +201,13 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 				t.Errorf("%s panicked unexpectedly", t.Name())
 			}
 		}()
+		if d.ResetData {
+			err := resetUpdateData()
+			if err != nil {
+				t.Errorf("Reset Update Data failed: %s", err)
+				return
+			}
+		}
 		profile := sqprofile.CreateSQProfile()
 		tkns := tokens.Tokenize(d.SQLStr)
 		_, data, err := cmd.Update(profile, tkns)
@@ -195,7 +232,7 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			return
 		}
 		if d.ExpData != nil {
-			cList := sqtables.NewColListNames(d.Cols)
+			cList := sqtables.ColsToExpr(sqtables.NewColListNames(d.Cols))
 			tab := sqtables.GetTable(profile, d.TableName)
 			ds, err := tab.GetRowData(profile, cList, nil)
 			if err != nil {
@@ -212,4 +249,25 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			}
 		}
 	}
+}
+
+func resetUpdateData() error {
+	profile := sqprofile.CreateSQProfile()
+
+	str := "delete from testupdate"
+	tkns := tokens.Tokenize(str)
+	_, _, err := cmd.Delete(profile, tkns)
+	if err != nil {
+		return err
+	}
+	str = "INSERT INTO testupdate (col1, col2) VALUES " +
+		"(1, \"test row 1\"), " +
+		"(2, \"test row 2\"), " +
+		"(3, \"test row 3\"), " +
+		"(4, \"test row 4\"), " +
+		"(5, \"test row 5\"), " +
+		"(6, \"test row 6\")"
+	tkns = tokens.Tokenize(str)
+	_, _, err = cmd.InsertInto(profile, tkns)
+	return err
 }

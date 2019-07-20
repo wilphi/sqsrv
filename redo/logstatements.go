@@ -156,11 +156,14 @@ func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 	if err := colList.ValidateTable(profile, tab); err != nil {
 		return err
 	}
-	dataSet := sqtables.NewDataSet(tab, colList)
+	dataSet, err := sqtables.NewDataSet(profile, tab, colList)
+	if err != nil {
+		return err
+	}
 	dataSet.Vals = i.Data
 	dataSet.Ptrs = i.RowPtrs
 
-	_, err := tab.AddRows(profile, dataSet)
+	_, err = tab.AddRows(profile, dataSet)
 
 	profile.VerifyNoLocks()
 	return err
@@ -192,7 +195,7 @@ func NewInsertRows(TableName string, cols []string, data [][]sqtypes.Value, ptrs
 type UpdateRows struct {
 	TableName string
 	Cols      []string
-	Vals      []sqtypes.Value
+	EList     *sqtables.ExprList
 	RowPtrs   []int64
 	ID        uint64
 }
@@ -210,8 +213,10 @@ func (u *UpdateRows) Encode() *sqbin.Codec {
 	// encode the Cols
 	enc.WriteArrayString(u.Cols)
 	enc.WriteArrayInt64(u.RowPtrs)
-	data := [][]sqtypes.Value{u.Vals}
-	encodeData(enc, data)
+	tmp := u.EList.Encode()
+	enc.Write(tmp.Bytes())
+	//	data := [][]sqtypes.Value{u.Vals}
+	//	encodeData(enc, data)
 	return enc
 }
 
@@ -230,8 +235,9 @@ func (u *UpdateRows) Decode(dec *sqbin.Codec) {
 	// encode the Cols
 	u.Cols = dec.ReadArrayString()
 	u.RowPtrs = dec.ReadArrayInt64()
-	data := decodeData(dec)
-	u.Vals = data[0]
+	u.EList = sqtables.DecodeExprList(dec)
+	//	data := decodeData(dec)
+	//	u.Vals = data[0]
 }
 
 // Recreate - reprocess the recorded transaction log SQL statement to restore the database
@@ -242,7 +248,7 @@ func (u *UpdateRows) Recreate(profile *sqprofile.SQProfile) error {
 		return sqerr.New("Table " + u.TableName + " does not exist")
 	}
 
-	return tab.UpdateRowsFromPtrs(profile, u.RowPtrs, u.Cols, u.Vals)
+	return tab.UpdateRowsFromPtrs(profile, u.RowPtrs, u.Cols, u.EList)
 }
 
 // Identify - returns a short string to identify the transaction log statement
@@ -262,8 +268,8 @@ func (u *UpdateRows) GetID() uint64 {
 }
 
 // NewUpdateRows -  returns a logstatement that is a UPDATE statement
-func NewUpdateRows(TableName string, cols []string, vals []sqtypes.Value, ptrs []int64) *UpdateRows {
-	val := &UpdateRows{TableName: TableName, Cols: cols, Vals: vals, RowPtrs: ptrs}
+func NewUpdateRows(TableName string, cols []string, eList *sqtables.ExprList, ptrs []int64) *UpdateRows {
+	val := &UpdateRows{TableName: TableName, Cols: cols, EList: eList, RowPtrs: ptrs}
 	return val
 
 }
@@ -385,10 +391,7 @@ func encColDef(enc *sqbin.Codec, cols []sqtables.ColDef) {
 	enc.WriteInt(len(cols))
 
 	for _, col := range cols {
-		enc.WriteString(col.ColName)
-		enc.WriteString(col.ColType)
-		enc.WriteInt(col.Idx)
-		enc.WriteBool(col.IsNotNull)
+		col.Encode(enc)
 	}
 }
 func decColDef(dec *sqbin.Codec) []sqtables.ColDef {
@@ -397,10 +400,7 @@ func decColDef(dec *sqbin.Codec) []sqtables.ColDef {
 	cols := make([]sqtables.ColDef, lCols)
 
 	for i := 0; i < lCols; i++ {
-		cols[i].ColName = dec.ReadString()
-		cols[i].ColType = dec.ReadString()
-		cols[i].Idx = dec.ReadInt()
-		cols[i].IsNotNull = dec.ReadBool()
+		cols[i].Decode(dec)
 	}
 	return cols
 }

@@ -19,7 +19,7 @@ import (
 )
 
 // SQVersion  - version of software
-const SQVersion = "SQSRV v0.6.20"
+const SQVersion = "SQSRV v0.7.0"
 
 const (
 	cHost = "localhost"

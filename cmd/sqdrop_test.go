@@ -84,7 +84,7 @@ func TestDropTable(t *testing.T) {
 		fmt.Sprintf("(%d, %q, %t)", 654, "Seltest 6", true)
 
 	tkns = tokens.Tokenize(testData)
-	if _, err := cmd.InsertIntoOld(profile, tkns); err != nil {
+	if _, _, err := cmd.InsertInto(profile, tkns); err != nil {
 		t.Fatalf("Unexpected Error setting up test for %s: %s", t.Name(), err.Error())
 	}
 
