@@ -88,7 +88,7 @@ func (t *TableDef) ToString(profile *sqprofile.SQProfile) string {
 	cs := ""
 	tabName := t.tableName
 	for _, col := range t.tableCols {
-		cs += col.toString()
+		cs += col.ToString()
 	}
 	return fmt.Sprintf("{%s Cols:%s}\n", tabName, cs)
 

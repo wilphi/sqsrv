@@ -31,8 +31,13 @@ func CreateColDef(colName string, colType string, isNotNull bool) ColDef {
 	return ColDef{colName, colType, -1, isNotNull}
 }
 
-func (c *ColDef) toString() string {
-	return "{" + c.ColName + ", " + c.ColType + "}"
+// ToString returns a string representation of the ColDef
+func (c *ColDef) ToString() string {
+	var ntype string
+	if c.IsNotNull {
+		ntype = ", NOT NULL"
+	}
+	return "{" + c.ColName + ", " + c.ColType + ntype + "}"
 }
 
 //Encode outputs a binary encoded version of the coldef to the codec
@@ -59,10 +64,14 @@ func (c *ColDef) Decode(dec *sqbin.Codec) {
 // NewColListDefs - Create a list of columns based on ColDefs
 func NewColListDefs(colD []ColDef) ColList {
 	colNames := make([]string, len(colD))
+	valid := true
 	for i, col := range colD {
 		colNames[i] = col.ColName
+		if col.Idx == -1 {
+			valid = false
+		}
 	}
-	return ColList{colD: colD, defsValid: true, colNames: colNames}
+	return ColList{colD: colD, defsValid: valid, colNames: colNames}
 }
 
 // NewColListNames - Create a list of columns based on name strings
@@ -112,16 +121,6 @@ func (cl *ColList) GetColNames() []string {
 // GetColDefs -
 func (cl *ColList) GetColDefs() []ColDef {
 	return cl.colD
-}
-
-// FindColIdx -
-func (cl *ColList) FindColIdx(name string) int {
-	for i, col := range cl.colNames {
-		if col == name {
-			return i
-		}
-	}
-	return -1
 }
 
 // Len - get the number of columns in list
