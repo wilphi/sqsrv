@@ -104,8 +104,13 @@ func testGetCmdFunc(profile *sqprofile.SQProfile, d GetCmdData) func(*testing.T)
 			t.Errorf("Actual shutdown type %d does not match expected %d", shutdowntype, d.ExpShutDown)
 			return
 		}
-		if !strings.Contains(response.Msg, d.ExpMsg) {
+		if d.ExpMsg != "" && !strings.Contains(response.Msg, d.ExpMsg) {
 			t.Errorf("Response Msg (%s) does not contain %s", response.Msg, d.ExpMsg)
+			return
+		}
+		if d.ExpMsg == "" && response.Msg != "" {
+			t.Errorf("response.Msg should be empty: %s", response.Msg)
+			return
 		}
 	}
 }
@@ -260,6 +265,31 @@ func TestGetCmdFunction(t *testing.T) {
 			Command:     "show tables",
 			NilFunc:     false,
 			ExpMsg:      "Table List\n----------------------\n",
+			ExpShutDown: NoAction,
+			ExpErr:      "",
+		},
+		{
+			TestName:    "Show Table " + tableName,
+			Command:     "show table " + tableName,
+			NilFunc:     false,
+			ExpMsg:      "getcmdtest",
+			ExpShutDown: NoAction,
+			ExpErr:      "",
+		},
+		{
+			TestName:    "Show Table NotATable",
+			Command:     "show table NotATable",
+			NilFunc:     false,
+			ExpMsg:      "Table \"NotATable\" not found",
+			ExpShutDown: NoAction,
+			ExpErr:      "",
+		},
+
+		{
+			TestName:    "Show Table",
+			Command:     "show table",
+			NilFunc:     false,
+			ExpMsg:      "show table command must be followed by tablename",
 			ExpShutDown: NoAction,
 			ExpErr:      "",
 		},

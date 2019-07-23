@@ -85,12 +85,12 @@ func (t *TableDef) RowCount(profile *sqprofile.SQProfile) int {
 func (t *TableDef) ToString(profile *sqprofile.SQProfile) string {
 	t.RLock(profile)
 	defer t.RUnlock(profile)
-	cs := ""
-	tabName := t.tableName
+	cs := t.tableName + "\n--------------------------------------\n"
+
 	for _, col := range t.tableCols {
-		cs += col.ToString()
+		cs += fmt.Sprintf("\t%s\n", col.ToString())
 	}
-	return fmt.Sprintf("{%s Cols:%s}\n", tabName, cs)
+	return cs
 
 }
 

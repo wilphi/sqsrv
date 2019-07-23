@@ -75,6 +75,7 @@ func init() {
 		{Exec: cmdUnLock, First: "unlock", Second: "", HelpTxt: "Removes Write lock on the given table"},
 		{Exec: help, First: "help", Second: "", HelpTxt: "\nSQSRV is an in-memory SQL server with persistance to disk.\n   SQL commands are a subset of SQL-92 and must be entered as a \n   single line of text. Valid SQL commands include:\n%s\n   Other commands are:"},
 		{Exec: cmdShowTables, First: "show", Second: "tables", HelpTxt: "Displays the list of tables in the database"},
+		{Exec: cmdShowTable, First: "show", Second: "table", HelpTxt: "Displays the structure of a given table"},
 		{Exec: cmdShowConns, First: "show", Second: "conn", HelpTxt: "Displays the list of connections to the server"},
 		{Exec: cmdHelp, First: "show", Second: "help", HelpTxt: "Displays information about the structure of the database"},
 		{Exec: cmdHelper, First: "show", Second: "", HelpTxt: ""},
@@ -252,6 +253,27 @@ func cmdShowTables(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol
 		str += fmt.Sprintf("  %-20s\n", tab)
 	}
 	resp := sqprotocol.ResponseToClient{Msg: str, IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
+	return resp, NoAction, nil
+}
+
+func cmdShowTable(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+	resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
+	tkns.Remove()
+	tkns.Remove()
+	if tkns.Test(tk.Ident) != "" {
+		tableName := tkns.Peek().GetValue()
+		td := sqtables.GetTable(profile, tableName)
+		if td == nil {
+			resp.IsErr = true
+			resp.Msg = "Table \"" + tableName + "\" not found"
+		} else {
+			resp.Msg = td.ToString(profile)
+		}
+
+	} else {
+		resp.IsErr = true
+		resp.Msg = "show table command must be followed by tablename"
+	}
 	return resp, NoAction, nil
 }
 
