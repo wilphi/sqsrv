@@ -33,8 +33,8 @@ const (
 // Value interface
 type Value interface {
 	ToString() string
-	GetType() string
-	GetLen() int
+	Type() string
+	Len() int
 	Equal(v Value) bool
 	LessThan(v Value) bool
 	GreaterThan(v Value) bool
@@ -109,13 +109,13 @@ func (i SQInt) ToString() string {
 	return strconv.Itoa(i.Val)
 }
 
-// GetType - returns the type
-func (i SQInt) GetType() string {
+// Type - returns the type
+func (i SQInt) Type() string {
 	return tokens.TypeInt
 }
 
-// GetLen -
-func (i SQInt) GetLen() int {
+// Len -
+func (i SQInt) Len() int {
 	return SQIntWidth
 }
 
@@ -193,7 +193,7 @@ func (i SQInt) Convert(newtype string) (retVal Value, err error) {
 	case tokens.TypeString:
 		retVal = NewSQString(strconv.Itoa(i.Val))
 	default:
-		err = sqerr.Newf("A value of type %s can not be converted to type %s", i.GetType(), newtype)
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", i.Type(), newtype)
 	}
 	return
 }
@@ -210,13 +210,13 @@ func (s SQString) ToString() string {
 	return s.Val
 }
 
-// GetType - returns the type
-func (s SQString) GetType() string {
+// Type - returns the type
+func (s SQString) Type() string {
 	return tokens.TypeString
 }
 
-// GetLen -
-func (s SQString) GetLen() int {
+// Len -
+func (s SQString) Len() int {
 	return -SQStringWidth
 }
 
@@ -299,7 +299,7 @@ func (s SQString) Convert(newtype string) (retVal Value, err error) {
 	case tokens.TypeString:
 		retVal = s
 	default:
-		err = sqerr.Newf("A value of type %s can not be converted to type %s", s.GetType(), newtype)
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", s.Type(), newtype)
 	}
 	return
 }
@@ -316,13 +316,13 @@ func (b SQBool) ToString() string {
 	return strconv.FormatBool(b.Val)
 }
 
-// GetType - returns the type
-func (b SQBool) GetType() string {
+// Type - returns the type
+func (b SQBool) Type() string {
 	return tokens.TypeBool
 }
 
-// GetLen -
-func (b SQBool) GetLen() int {
+// Len -
+func (b SQBool) Len() int {
 	return SQBoolWidth
 }
 
@@ -387,7 +387,7 @@ func (b SQBool) Convert(newtype string) (retVal Value, err error) {
 			retVal = NewSQString("false")
 		}
 	default:
-		err = sqerr.Newf("A value of type %s can not be converted to type %s", b.GetType(), newtype)
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", b.Type(), newtype)
 	}
 	return
 }
@@ -404,13 +404,13 @@ func (n SQNull) ToString() string {
 	return tokens.Null
 }
 
-// GetType - returns the type
-func (n SQNull) GetType() string {
+// Type - returns the type
+func (n SQNull) Type() string {
 	return tokens.Null
 }
 
-// GetLen -
-func (n SQNull) GetLen() int {
+// Len -
+func (n SQNull) Len() int {
 	return 7
 }
 
@@ -464,13 +464,13 @@ func (fp SQFloat) ToString() string {
 	return strconv.FormatFloat(fp.Val, 'G', -1, 64)
 }
 
-// GetType - returns the type
-func (fp SQFloat) GetType() string {
+// Type - returns the type
+func (fp SQFloat) Type() string {
 	return tokens.TypeFloat
 }
 
-// GetLen -
-func (fp SQFloat) GetLen() int {
+// Len -
+func (fp SQFloat) Len() int {
 	return SQFloatWidth
 }
 
@@ -548,7 +548,7 @@ func (fp SQFloat) Convert(newtype string) (retVal Value, err error) {
 	case tokens.TypeString:
 		retVal = NewSQString(strconv.FormatFloat(fp.Val, 'G', -1, 64))
 	default:
-		err = sqerr.Newf("A value of type %s can not be converted to type %s", fp.GetType(), newtype)
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", fp.Type(), newtype)
 	}
 	return
 }

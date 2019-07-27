@@ -61,7 +61,7 @@ func (cv *CompareValCond) SetRight(cond Condition) {
 // ToString - string representation of Condition. Will traverse to child conditions to form full string
 func (cv *CompareValCond) ToString() string {
 	fmtString := "%s %s %s"
-	if cv.Val.GetType() == t.TypeString {
+	if cv.Val.Type() == t.TypeString {
 		fmtString = "%s %s %q"
 	}
 	return fmt.Sprintf(fmtString, cv.Col.ColName, cv.Operator, cv.Val.ToString())
@@ -76,8 +76,8 @@ func (cv *CompareValCond) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (b
 		return false, err
 	}
 
-	if cv.Val.GetType() != rowValue.GetType() {
-		err = sqerr.Newf("Type Mismatch in Where clause expression: %s(%s) %s %s(%s)", cv.Col.ColName, cv.Col.ColType, cv.Operator, cv.Val.ToString(), cv.Val.GetType())
+	if cv.Val.Type() != rowValue.Type() {
+		err = sqerr.Newf("Type Mismatch in Where clause expression: %s(%s) %s %s(%s)", cv.Col.ColName, cv.Col.ColType, cv.Operator, cv.Val.ToString(), cv.Val.Type())
 		log.Error(err)
 		return false, err
 	}

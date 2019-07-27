@@ -69,7 +69,7 @@ func (idx *Index) AddElement(d *DataSet) error {
 	for i := range d.Vals {
 		// values type must match index
 		for j := range idx.col {
-			if idx.col[j].ColType != d.Vals[i][j].GetType() {
+			if idx.col[j].ColType != d.Vals[i][j].Type() {
 				return sqerr.New("Values added to index must match Column type")
 			}
 		}
@@ -139,7 +139,7 @@ func NewIndex(profile *sqprofile.SQProfile, name string, dataSet *DataSet) (*Ind
 
 	for i, row := range dataSet.Vals {
 		for _, val := range row {
-			if val.GetType() == "(Null)" {
+			if val.Type() == "(Null)" {
 				// Null values cannot be indexed
 				idx.colHasNulls = true
 				break

@@ -70,8 +70,8 @@ func testValueType(v sqtypes.Value, expType string) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		if v.GetType() != expType {
-			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", expType, v.GetType()))
+		if v.Type() != expType {
+			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", expType, v.Type()))
 		}
 	}
 }
@@ -84,7 +84,7 @@ func testValueToString(v sqtypes.Value, expStr string) func(*testing.T) {
 			}
 		}()
 		if v.ToString() != expStr {
-			t.Error(fmt.Sprintf("ToString for type %s produced unexpected results: Actual %q, Expected %q", v.GetType(), v.ToString(), expStr))
+			t.Error(fmt.Sprintf("ToString for type %s produced unexpected results: Actual %q, Expected %q", v.Type(), v.ToString(), expStr))
 		}
 	}
 }
@@ -96,8 +96,8 @@ func testGetLen(v sqtypes.Value, expLen int) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		if v.GetLen() != expLen {
-			t.Error(fmt.Sprintf("The expected Lenght of %d does not match actual value of %d for type %s", expLen, v.GetLen(), v.GetType()))
+		if v.Len() != expLen {
+			t.Error(fmt.Sprintf("The expected Lenght of %d does not match actual value of %d for type %s", expLen, v.Len(), v.Type()))
 		}
 	}
 }
@@ -675,8 +675,8 @@ func testCreateValueFromToken(tkn tokens.Token, errTxt string, expType string) f
 			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", errTxt))
 			return
 		}
-		if v.GetType() != expType {
-			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", expType, v.GetType()))
+		if v.Type() != expType {
+			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", expType, v.Type()))
 		}
 	}
 }

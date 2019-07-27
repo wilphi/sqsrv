@@ -13,8 +13,8 @@ import (
 
 func testValueType(v sqtypes.Value, expType string) func(*testing.T) {
 	return func(t *testing.T) {
-		if v.GetType() != expType {
-			t.Errorf("The expected type of %s does not match actual value of %s", expType, v.GetType())
+		if v.Type() != expType {
+			t.Errorf("The expected type of %s does not match actual value of %s", expType, v.Type())
 		}
 	}
 }

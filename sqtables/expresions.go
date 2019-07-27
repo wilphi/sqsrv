@@ -75,7 +75,7 @@ func (e *ValueExpr) GetName() string {
 
 // GetColDef returns a column definition for the expression
 func (e *ValueExpr) GetColDef() ColDef {
-	return ColDef{ColName: e.GetName(), ColType: e.v.GetType()}
+	return ColDef{ColName: e.GetName(), ColType: e.v.Type()}
 }
 
 // Evaluate -
