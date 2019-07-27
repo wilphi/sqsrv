@@ -5,11 +5,11 @@ import (
 	"log"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
-	e "github.com/wilphi/sqsrv/sqerr"
-	t "github.com/wilphi/sqsrv/tokens"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 // standard Widths for value types
@@ -41,6 +41,7 @@ type Value interface {
 	IsNull() bool
 	Write(c *sqbin.Codec)
 	MathOp(op string, v Value) (Value, error)
+	Convert(newtype string) (Value, error)
 }
 
 //Raw is a type that can be converted into sq Values
@@ -110,7 +111,7 @@ func (i SQInt) ToString() string {
 
 // GetType - returns the type
 func (i SQInt) GetType() string {
-	return t.TypeInt
+	return tokens.TypeInt
 }
 
 // GetLen -
@@ -180,6 +181,23 @@ func (i SQInt) MathOp(op string, v Value) (Value, error) {
 
 }
 
+// Convert returns the value converted to the given type
+func (i SQInt) Convert(newtype string) (retVal Value, err error) {
+	switch newtype {
+	case tokens.TypeInt:
+		retVal = i
+	case tokens.TypeBool:
+		retVal = NewSQBool(i.Val > 0)
+	case tokens.TypeFloat:
+		retVal = NewSQFloat(float64(i.Val))
+	case tokens.TypeString:
+		retVal = NewSQString(strconv.Itoa(i.Val))
+	default:
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", i.GetType(), newtype)
+	}
+	return
+}
+
 // NewSQInt - creates a new SQInt value
 func NewSQInt(i int) Value {
 	return SQInt{i}
@@ -194,7 +212,7 @@ func (s SQString) ToString() string {
 
 // GetType - returns the type
 func (s SQString) GetType() string {
-	return t.TypeString
+	return tokens.TypeString
 }
 
 // GetLen -
@@ -251,6 +269,41 @@ func (s SQString) MathOp(op string, v Value) (Value, error) {
 
 }
 
+// Convert returns the value converted to the given type
+func (s SQString) Convert(newtype string) (retVal Value, err error) {
+	var i int
+	var f float64
+
+	switch newtype {
+	case tokens.TypeInt:
+		i, err = strconv.Atoi(s.Val)
+		if err == nil {
+			retVal = NewSQInt(i)
+		} else {
+			err = sqerr.Newf("Unable to Convert %q to an INT", s.Val)
+		}
+	case tokens.TypeBool:
+		switch strings.ToUpper(strings.TrimSpace(s.Val)) {
+		case "TRUE":
+			retVal = NewSQBool(true)
+		case "FALSE":
+			retVal = NewSQBool(false)
+		default:
+			err = sqerr.Newf("Unable to convert string to bool")
+		}
+	case tokens.TypeFloat:
+		f, err = strconv.ParseFloat(s.Val, 64)
+		if err == nil {
+			retVal = NewSQFloat(f)
+		}
+	case tokens.TypeString:
+		retVal = s
+	default:
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", s.GetType(), newtype)
+	}
+	return
+}
+
 // NewSQString - creates a new SQInt value
 func NewSQString(s string) Value {
 	return SQString{s}
@@ -265,7 +318,7 @@ func (b SQBool) ToString() string {
 
 // GetType - returns the type
 func (b SQBool) GetType() string {
-	return t.TypeBool
+	return tokens.TypeBool
 }
 
 // GetLen -
@@ -310,6 +363,35 @@ func (b SQBool) MathOp(op string, v Value) (Value, error) {
 	return nil, sqerr.NewSyntax("Invalid Operation on type Bool")
 }
 
+// Convert returns the value converted to the given type
+func (b SQBool) Convert(newtype string) (retVal Value, err error) {
+	switch newtype {
+	case tokens.TypeInt:
+		if b.Val {
+			retVal = NewSQInt(1)
+		} else {
+			retVal = NewSQInt(0)
+		}
+	case tokens.TypeBool:
+		retVal = b
+	case tokens.TypeFloat:
+		if b.Val {
+			retVal = NewSQFloat(1)
+		} else {
+			retVal = NewSQFloat(0)
+		}
+	case tokens.TypeString:
+		if b.Val {
+			retVal = NewSQString("true")
+		} else {
+			retVal = NewSQString("false")
+		}
+	default:
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", b.GetType(), newtype)
+	}
+	return
+}
+
 // NewSQBool - creates a new SQBool value
 func NewSQBool(b bool) Value {
 	return SQBool{b}
@@ -319,12 +401,12 @@ func NewSQBool(b bool) Value {
 
 // ToString - return string representation of type
 func (n SQNull) ToString() string {
-	return t.Null
+	return tokens.Null
 }
 
 // GetType - returns the type
 func (n SQNull) GetType() string {
-	return t.Null
+	return tokens.Null
 }
 
 // GetLen -
@@ -364,6 +446,12 @@ func (n SQNull) MathOp(op string, v Value) (Value, error) {
 	return SQNull{}, nil
 }
 
+// Convert returns the value converted to the given type
+func (n SQNull) Convert(newtype string) (retVal Value, err error) {
+	retVal = n
+	return
+}
+
 // NewSQNull - creates a new SQNull value
 func NewSQNull() Value {
 	return SQNull{}
@@ -378,7 +466,7 @@ func (fp SQFloat) ToString() string {
 
 // GetType - returns the type
 func (fp SQFloat) GetType() string {
-	return t.TypeFloat
+	return tokens.TypeFloat
 }
 
 // GetLen -
@@ -448,6 +536,23 @@ func (fp SQFloat) MathOp(op string, v Value) (Value, error) {
 
 }
 
+// Convert returns the value converted to the given type
+func (fp SQFloat) Convert(newtype string) (retVal Value, err error) {
+	switch newtype {
+	case tokens.TypeInt:
+		retVal = NewSQInt(int(fp.Val))
+	case tokens.TypeBool:
+		retVal = NewSQBool(fp.Val > 0)
+	case tokens.TypeFloat:
+		retVal = fp
+	case tokens.TypeString:
+		retVal = NewSQString(strconv.FormatFloat(fp.Val, 'G', -1, 64))
+	default:
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", fp.GetType(), newtype)
+	}
+	return
+}
+
 // NewSQFloat - creates a new SQInt value
 func NewSQFloat(fp float64) Value {
 	return SQFloat{fp}
@@ -456,33 +561,33 @@ func NewSQFloat(fp float64) Value {
 //====================================================================
 
 // CreateValueFromToken - given a token, convert it into a proper Value
-func CreateValueFromToken(tkn t.Token) (Value, error) {
+func CreateValueFromToken(tkn tokens.Token) (Value, error) {
 	var retVal Value
 
 	switch tkn.GetName() {
-	case t.Num:
+	case tokens.Num:
 		// try to convert to int
 		i, err := strconv.Atoi(tkn.GetValue())
 		if err != nil {
 			//If not Int try to convert to float64
 			fp, err := strconv.ParseFloat(tkn.GetValue(), 64)
 			if err != nil {
-				return nil, e.NewSyntax("\"" + tkn.GetValue() + "\" is not a number")
+				return nil, sqerr.NewSyntaxf("%q is not a number", tkn.GetValue())
 			}
 			retVal = NewSQFloat(fp)
 		} else {
 			retVal = NewSQInt(i)
 		}
-	case t.Quote:
+	case tokens.Quote:
 		retVal = NewSQString(tkn.GetValue())
-	case t.RWTrue:
+	case tokens.RWTrue:
 		retVal = NewSQBool(true)
-	case t.RWFalse:
+	case tokens.RWFalse:
 		retVal = NewSQBool(false)
-	case t.Null:
+	case tokens.Null:
 		retVal = NewSQNull()
 	default:
-		return nil, e.NewInternal(tkn.GetString() + " is not a valid Value")
+		return nil, sqerr.NewInternalf("%q is not a valid Value", tkn.GetString())
 	}
 	return retVal, nil
 }

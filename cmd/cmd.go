@@ -203,7 +203,7 @@ func getValCol(tkns *t.TokenList) (sqtables.Expr, error) {
 			}
 			return exp, nil
 		}
-		// Is it a function
+		// Is it a function without args
 		if fName := tkns.Test(t.Count); fName != "" {
 			tkns.Remove()
 			if !(tkns.Peek().GetName() == t.OpenBracket && tkns.Peekx(1).GetName() == t.CloseBracket) {
@@ -214,6 +214,25 @@ func getValCol(tkns *t.TokenList) (sqtables.Expr, error) {
 			exp = sqtables.NewCountExpr()
 			return exp, nil
 
+		}
+
+		// Function with a single expression argument
+		if fName := tkns.Test(t.TypeTKN); fName != "" {
+			tkns.Remove()
+			if tkns.Peek().GetName() != t.OpenBracket {
+				return nil, e.NewSyntaxf("Function %s must be followed by (", fName)
+			}
+			tkns.Remove()
+			exp, err = getExpr(tkns, nil, 0, t.CloseBracket)
+			if err != nil {
+				return nil, err
+			}
+			if tkns.Peek().GetName() != t.CloseBracket {
+				return nil, e.NewSyntaxf("Function %s is missing ) after expression", fName)
+			}
+			tkns.Remove()
+			fexp := sqtables.NewFuncExpr(fName, exp)
+			return fexp, nil
 		}
 	}
 	return nil, sqerr.NewSyntax("Invalid expression: Unable to find a value or column")

@@ -727,6 +727,66 @@ func TestGetExprList(t *testing.T) {
 				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
 			),
 		},
+		{
+			TestName:   "Partial  Expression with Multiply",
+			Terminator: tk.From,
+			Command:    "20+5*",
+			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column",
+			ExpExprs: sqtables.NewExprList(
+				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
+				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
+			),
+		},
+		{
+			TestName:   "Expression list includes int function",
+			Terminator: tk.From,
+			Command:    "20+int(1.0), -20 FROM",
+			ExpErr:     "",
+			ExpExprs: sqtables.NewExprList(
+				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
+				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
+			),
+		},
+		{
+			TestName:   "Expression list includes int not bracket",
+			Terminator: tk.From,
+			Command:    "20+int, -20 FROM",
+			ExpErr:     "Syntax Error: Function INT must be followed by (",
+			ExpExprs: sqtables.NewExprList(
+				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
+				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
+			),
+		},
+		{
+			TestName:   "Expression list includes int function incomplete",
+			Terminator: tk.From,
+			Command:    "20+int(1.0, -20 FROM",
+			ExpErr:     "Syntax Error: Function INT is missing ) after expression",
+			ExpExprs: sqtables.NewExprList(
+				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
+				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
+			),
+		},
+		{
+			TestName:   "Expression list includes int function partial expression",
+			Terminator: tk.From,
+			Command:    "20+int(1.0+), -20 FROM",
+			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column",
+			ExpExprs: sqtables.NewExprList(
+				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
+				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
+			),
+		},
+		{
+			TestName:   "Expression list includes int, Float function",
+			Terminator: tk.From,
+			Command:    "20+int(1.0), float(-20)+1.95 FROM",
+			ExpErr:     "",
+			ExpExprs: sqtables.NewExprList(
+				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
+				sqtables.NewValueExpr(sqtypes.NewSQFloat(-18.05)),
+			),
+		},
 	}
 
 	for i, row := range data {

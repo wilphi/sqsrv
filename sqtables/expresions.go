@@ -8,6 +8,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 // Expr constants for binary versions
@@ -567,6 +568,119 @@ func (e *NegateExpr) Decode(dec *sqbin.Codec) {
 	e.name = dec.ReadString()
 	e.exL = DecodeExpr(dec)
 
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// FuncExpr stores information about a function to allow Evaluate() to determine the correct Value
+type FuncExpr struct {
+	Cmd  string
+	exL  Expr
+	name string
+}
+
+// GetLeft - FuncExpr is a leaf node, it will always return nil
+func (e *FuncExpr) GetLeft() Expr {
+	return e.exL
+}
+
+// GetRight - FuncExpr is a leaf node, it will always return nil
+func (e *FuncExpr) GetRight() Expr {
+	return nil
+}
+
+// SetLeft -
+func (e *FuncExpr) SetLeft(ex Expr) {
+	e.exL = ex
+}
+
+// SetRight -
+func (e *FuncExpr) SetRight(ex Expr) {
+	log.Panic("Invalid to SetRight on a FuncExpr")
+
+}
+
+// ToString - string representation of Expression. Will traverse to child conditions to form full string
+func (e *FuncExpr) ToString() string {
+	return e.name
+}
+
+// GetName returns the name of the expression
+func (e *FuncExpr) GetName() string {
+	return e.name
+}
+
+// GetColDef returns a column definition for the expression
+func (e *FuncExpr) GetColDef() ColDef {
+	return ColDef{ColName: e.GetName(), ColType: "INT"}
+}
+
+// Evaluate takes the current Expression and calculates the results based on the given row
+func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (retVal sqtypes.Value, err error) {
+	var vL sqtypes.Value
+
+	vL, err = e.exL.Evaluate(profile, row)
+	if err != nil {
+		return
+	}
+
+	retVal, err = evalFunc(e.Cmd, vL)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func evalFunc(cmd string, v sqtypes.Value) (retVal sqtypes.Value, err error) {
+
+	switch cmd {
+	case tokens.TypeFloat, tokens.TypeInt, tokens.TypeBool, tokens.TypeString:
+		retVal, err = v.Convert(cmd)
+	default:
+		err = sqerr.NewSyntaxf("%q is not a valid function", cmd)
+	}
+	return
+}
+
+// Reduce will colapse the expression to it's simplest form
+func (e *FuncExpr) Reduce() (Expr, error) {
+	ex, err := e.exL.Reduce()
+	if err != nil {
+		return nil, err
+	}
+	e.exL = ex
+	v, ok := ex.(*ValueExpr)
+	if ok {
+		val, err := evalFunc(e.Cmd, v.v)
+		if err != nil {
+			return nil, err
+		}
+		return NewValueExpr(val), nil
+	}
+	return e, nil
+}
+
+// ValidateCols make sure that the cols in the expression match the tabledef
+func (e *FuncExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
+	return e.exL.ValidateCols(profile, tab)
+}
+
+// NewFuncExpr creates a new CountExpr object
+func NewFuncExpr(cmd string, lExp Expr) Expr {
+	return &FuncExpr{Cmd: cmd, exL: lExp, name: cmd + "(" + lExp.GetName() + ")"}
+
+}
+
+// Encode returns a binary encoded version of the expression
+func (e *FuncExpr) Encode() *sqbin.Codec {
+	//enc := sqbin.NewCodec(nil)
+	panic("FuncExpr Encode not implemented")
+	//return enc
+}
+
+// Decode gets a binary encoded version of the expression
+func (e *FuncExpr) Decode(*sqbin.Codec) {
+	panic("FuncExpr Decode not implemented")
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////

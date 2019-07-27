@@ -381,6 +381,248 @@ func TestSQFloat(t *testing.T) {
 	}
 }
 
+type ConvertData struct {
+	TestName string
+	V        sqtypes.Value
+	NewType  string
+	ExpVal   sqtypes.Raw
+	ExpErr   string
+}
+
+func testConvertFunc(d ConvertData) func(*testing.T) {
+	return func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		actVal, err := d.V.Convert(d.NewType)
+		if err != nil {
+			log.Println(err.Error())
+			if d.ExpErr == "" {
+				t.Errorf("Unexpected Error in test: %s", err)
+				return
+			}
+			if d.ExpErr != err.Error() {
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err)
+				return
+			}
+			return
+		}
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+			return
+		}
+		if actVal.IsNull() && d.ExpVal == nil {
+			return
+		}
+		expVal := sqtypes.RawValue(d.ExpVal)
+		if !actVal.Equal(expVal) {
+			t.Errorf("Actual value %q does not match expected value %v", actVal.ToString(), d.ExpVal)
+		}
+	}
+}
+func TestConvert(t *testing.T) {
+	data := []ConvertData{
+		{
+			TestName: "Int to Int",
+			V:        sqtypes.NewSQInt(1234),
+			NewType:  tokens.TypeInt,
+			ExpVal:   1234,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Int to Bool",
+			V:        sqtypes.NewSQInt(1234),
+			NewType:  tokens.TypeBool,
+			ExpVal:   true,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Int to Float",
+			V:        sqtypes.NewSQInt(1234),
+			NewType:  tokens.TypeFloat,
+			ExpVal:   1234.0,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Int to String",
+			V:        sqtypes.NewSQInt(1234),
+			NewType:  tokens.TypeString,
+			ExpVal:   "1234",
+			ExpErr:   "",
+		},
+		{
+			TestName: "Int to Invalid",
+			V:        sqtypes.NewSQInt(1234),
+			NewType:  "Invalid",
+			ExpVal:   "1234",
+			ExpErr:   "Error: A value of type INT can not be converted to type Invalid",
+		},
+		{
+			TestName: "Bool to Int True",
+			V:        sqtypes.NewSQBool(true),
+			NewType:  tokens.TypeInt,
+			ExpVal:   1,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Bool to Int False",
+			V:        sqtypes.NewSQBool(false),
+			NewType:  tokens.TypeInt,
+			ExpVal:   0,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Bool to Bool",
+			V:        sqtypes.NewSQBool(true),
+			NewType:  tokens.TypeBool,
+			ExpVal:   true,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Bool to Float True",
+			V:        sqtypes.NewSQBool(true),
+			NewType:  tokens.TypeFloat,
+			ExpVal:   1.0,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Bool to Float false",
+			V:        sqtypes.NewSQBool(false),
+			NewType:  tokens.TypeFloat,
+			ExpVal:   0.0,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Bool to String True",
+			V:        sqtypes.NewSQBool(true),
+			NewType:  tokens.TypeString,
+			ExpVal:   "true",
+			ExpErr:   "",
+		},
+		{
+			TestName: "Bool to String False",
+			V:        sqtypes.NewSQBool(false),
+			NewType:  tokens.TypeString,
+			ExpVal:   "false",
+			ExpErr:   "",
+		},
+		{
+			TestName: "Bool to Invalid",
+			V:        sqtypes.NewSQBool(true),
+			NewType:  "Invalid",
+			ExpVal:   "1234",
+			ExpErr:   "Error: A value of type BOOL can not be converted to type Invalid",
+		},
+		{
+			TestName: "Float to Int",
+			V:        sqtypes.NewSQFloat(1234.5678),
+			NewType:  tokens.TypeInt,
+			ExpVal:   1234,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Float to Bool",
+			V:        sqtypes.NewSQFloat(1234.5678),
+			NewType:  tokens.TypeBool,
+			ExpVal:   true,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Float to Float",
+			V:        sqtypes.NewSQFloat(1234.5678),
+			NewType:  tokens.TypeFloat,
+			ExpVal:   1234.5678,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Float to String",
+			V:        sqtypes.NewSQFloat(1234.5678),
+			NewType:  tokens.TypeString,
+			ExpVal:   "1234.5678",
+			ExpErr:   "",
+		},
+		{
+			TestName: "Float to Invalid",
+			V:        sqtypes.NewSQFloat(1234.5678),
+			NewType:  "Invalid",
+			ExpVal:   "1234",
+			ExpErr:   "Error: A value of type FLOAT can not be converted to type Invalid",
+		},
+		{
+			TestName: "String to Int",
+			V:        sqtypes.NewSQString("1234"),
+			NewType:  tokens.TypeInt,
+			ExpVal:   1234,
+			ExpErr:   "",
+		},
+		{
+			TestName: "String to Int Err",
+			V:        sqtypes.NewSQString("1234FAB"),
+			NewType:  tokens.TypeInt,
+			ExpVal:   1234,
+			ExpErr:   "Error: Unable to Convert \"1234FAB\" to an INT",
+		},
+		{
+			TestName: "String to Bool TRUE",
+			V:        sqtypes.NewSQString("TruE"),
+			NewType:  tokens.TypeBool,
+			ExpVal:   true,
+			ExpErr:   "",
+		},
+		{
+			TestName: "String to Bool FALSE",
+			V:        sqtypes.NewSQString("false"),
+			NewType:  tokens.TypeBool,
+			ExpVal:   false,
+			ExpErr:   "",
+		},
+		{
+			TestName: "String to Bool Err",
+			V:        sqtypes.NewSQString("Going to Fail"),
+			NewType:  tokens.TypeBool,
+			ExpVal:   true,
+			ExpErr:   "Error: Unable to convert string to bool",
+		},
+		{
+			TestName: "String to Float",
+			V:        sqtypes.NewSQString("1234.5678"),
+			NewType:  tokens.TypeFloat,
+			ExpVal:   1234.5678,
+			ExpErr:   "",
+		},
+		{
+			TestName: "String to String",
+			V:        sqtypes.NewSQString("DirectCopy"),
+			NewType:  tokens.TypeString,
+			ExpVal:   "DirectCopy",
+			ExpErr:   "",
+		},
+		{
+			TestName: "String to Invalid",
+			V:        sqtypes.NewSQString("Invalid"),
+			NewType:  "Invalid",
+			ExpVal:   "1234",
+			ExpErr:   "Error: A value of type STRING can not be converted to type Invalid",
+		},
+		{
+			TestName: "Null Convert",
+			V:        sqtypes.NewSQNull(),
+			NewType:  tokens.TypeString,
+			ExpVal:   nil,
+			ExpErr:   "",
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testConvertFunc(row))
+
+	}
+}
+
 type tokenValTest struct {
 	Name    string
 	Tkn     tokens.Token
@@ -399,7 +641,7 @@ func TestCreateValueFromToken(t *testing.T) {
 		{"Bool TRUE Test", *tokens.CreateToken(tokens.RWTrue, "TRUE"), "", tokens.TypeBool},
 		{"Bool FALSE Test", *tokens.CreateToken(tokens.RWFalse, "FALSE"), "", tokens.TypeBool},
 		{"Null Test", *tokens.CreateToken(tokens.Null, tokens.Null), "", tokens.Null},
-		{"Not A Value Token Test", *tokens.CreateToken(tokens.Ident, "This Is a test"), "Internal Error: [IDENT=This Is a test] is not a valid Value", tokens.TypeString},
+		{"Not A Value Token Test", *tokens.CreateToken(tokens.Ident, "This Is a test"), "Internal Error: \"[IDENT=This Is a test]\" is not a valid Value", tokens.TypeString},
 	}
 
 	for _, row := range data {
