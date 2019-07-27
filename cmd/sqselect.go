@@ -16,7 +16,7 @@ func Select(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 	if err != nil {
 		return "", nil, err
 	}
-	return fmt.Sprintf("%d rows found", data.NumRows()), data, err
+	return fmt.Sprintf("%d rows found", data.Len()), data, err
 }
 
 // SelectParse takes a list of tokens and verifies the syntax of the command

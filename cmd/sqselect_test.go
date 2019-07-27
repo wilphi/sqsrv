@@ -45,8 +45,8 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 			}
 			return
 		}
-		if data.NumRows() != d.ExpRows {
-			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", data.NumRows(), d.ExpRows)
+		if data.Len() != d.ExpRows {
+			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", data.Len(), d.ExpRows)
 			return
 		}
 		if err == nil && d.ExpErr != "" {

@@ -60,8 +60,8 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, r *RowDataTest) func(*test
 			return
 		}
 
-		if len(r.ExpRows) != data.NumRows() {
-			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", data.NumRows(), len(r.ExpRows))
+		if len(r.ExpRows) != data.Len() {
+			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", data.Len(), len(r.ExpRows))
 			return
 		}
 

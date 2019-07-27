@@ -60,14 +60,6 @@ func (d *DataSet) NumCols() int {
 	return d.eList.Len()
 }
 
-// NumRows -
-func (d *DataSet) NumRows() int {
-	if d.Vals == nil {
-		return 0
-	}
-	return len(d.Vals)
-}
-
 // GetColList -
 func (d *DataSet) GetColList() ColList {
 	cols := make([]ColDef, d.eList.Len())

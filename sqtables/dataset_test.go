@@ -149,7 +149,7 @@ func TestDataSet(t *testing.T) {
 
 	t.Run("New Expr DataSet no Cols", testNewExprDataSetFunc(tab, emptyExprCols, false))
 
-	t.Run("NumRows==0 from DataSet", func(t *testing.T) {
+	t.Run("Len==0 from DataSet", func(t *testing.T) {
 		defer func() {
 			r := recover()
 			if r != nil {
@@ -162,7 +162,7 @@ func TestDataSet(t *testing.T) {
 			return
 		}
 
-		if data.NumRows() != 0 {
+		if data.Len() != 0 {
 			t.Error("There should be no data")
 		}
 	})

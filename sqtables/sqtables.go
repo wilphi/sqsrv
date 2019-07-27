@@ -98,8 +98,8 @@ func (t *TableDef) ToString(profile *sqprofile.SQProfile) string {
 func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, error) {
 
 	// Create all of the rows before locking and adding them to the table
-	newRows := make([]*RowDef, data.NumRows())
-	data.Ptrs = make([]int64, data.NumRows())
+	newRows := make([]*RowDef, data.Len())
+	data.Ptrs = make([]int64, data.Len())
 
 	for cnt, val := range data.Vals {
 		rowID := atomic.AddInt64(t.nextRowID, 1)

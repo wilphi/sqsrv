@@ -190,7 +190,7 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 				}
 				if data != nil {
 					resp.HasData = true
-					resp.NRows = data.NumRows()
+					resp.NRows = data.Len()
 					resp.NCols = data.NumCols()
 				}
 			} else {
@@ -222,7 +222,7 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 				}
 
 			}
-			log.Info(fmt.Sprintf("%d rows written to client", data.NumRows()))
+			log.Info(fmt.Sprintf("%d rows written to client", data.Len()))
 
 		}
 	}
