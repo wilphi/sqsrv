@@ -110,7 +110,7 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 	}
 
 	if ins.tkns.Len() != 0 {
-		return e.NewSyntax(fmt.Sprintf("Unexpected tokens after the values section: %s", ins.tkns.ToString()))
+		return e.NewSyntaxf("Unexpected tokens after the values section: %s", ins.tkns.ToString())
 	}
 	return nil
 

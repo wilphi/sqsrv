@@ -1,8 +1,6 @@
 package sqtables
 
 import (
-	"fmt"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
@@ -189,7 +187,7 @@ func (e *ColExpr) Reduce() (Expr, error) {
 func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
 	cd := tab.FindColDef(profile, e.col.ColName)
 	if cd == nil {
-		return sqerr.New(fmt.Sprintf("Table %s does not have a column named %s", tab.GetName(profile), e.col.ColName))
+		return sqerr.Newf("Table %s does not have a column named %s", tab.GetName(profile), e.col.ColName)
 	}
 	e.col = *cd
 

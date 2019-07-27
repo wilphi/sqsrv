@@ -170,7 +170,7 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 	for i, idx := range ptrs {
 		row, ok := t.rowm[idx]
 		if !ok {
-			return nil, sqerr.New(fmt.Sprintf("Row %d does not exist", idx))
+			return nil, sqerr.Newf("Row %d does not exist", idx)
 		}
 		ds.Vals[i] = append(row.Data[:0:0], row.Data...)
 	}
@@ -317,7 +317,7 @@ func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 	for _, idx := range ptrs {
 		row, ok := t.rowm[idx]
 		if row == nil || !ok {
-			return sqerr.NewInternal(fmt.Sprintf("Row %d does not exist for update", idx))
+			return sqerr.NewInternalf("Row %d does not exist for update", idx)
 		}
 		vals, err := eList.Evaluate(profile, row)
 		if err != nil {

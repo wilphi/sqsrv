@@ -261,7 +261,7 @@ func writeCodecAt(file *os.File, offset, alloc, size int64, enc *sqbin.Codec) er
 		return err
 	}
 	if n != enc.Len() {
-		sqerr.NewInternal(fmt.Sprintf("Len of disk write (%d) does not match expected size (%d)", n, enc.Len()))
+		sqerr.NewInternalf("Len of disk write (%d) does not match expected size (%d)", n, enc.Len())
 	}
 	return nil
 }

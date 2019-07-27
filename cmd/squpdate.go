@@ -36,7 +36,7 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 	tkns.Remove()
 	tab := sqtables.GetTable(profile, tableName)
 	if tab == nil {
-		return "", nil, e.NewSyntax(fmt.Sprintf("Invalid table name: %s does not exist", tableName))
+		return "", nil, e.NewSyntaxf("Invalid table name: %s does not exist", tableName)
 	}
 
 	// eat the SET
@@ -56,12 +56,12 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 		if colName = tkns.Test(t.Ident); colName != "" {
 			cd := tab.FindColDef(profile, colName)
 			if cd == nil {
-				return "", nil, e.NewSyntax(fmt.Sprintf("Invalid Column name: %s does not exist in Table %s", colName, tableName))
+				return "", nil, e.NewSyntaxf("Invalid Column name: %s does not exist in Table %s", colName, tableName)
 			}
 			tkns.Remove()
 			// Then an EQUAL sign
 			if tkns.Test(t.Equal) == "" {
-				return "", nil, e.NewSyntax(fmt.Sprintf("Expecting = after column name %s in UPDATE SET", colName))
+				return "", nil, e.NewSyntaxf("Expecting = after column name %s in UPDATE SET", colName)
 			}
 			tkns.Remove()
 
@@ -71,10 +71,10 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 				return "", nil, err
 			}
 			if ex == nil {
-				return "", nil, sqerr.NewSyntax(fmt.Sprintf("Expecting an expression in SET clause after %s =", colName))
+				return "", nil, sqerr.NewSyntaxf("Expecting an expression in SET clause after %s =", colName)
 			}
 			if _, ok := colCheck[colName]; ok {
-				return "", nil, sqerr.NewSyntax(fmt.Sprintf("%s is set more than once", colName))
+				return "", nil, sqerr.NewSyntaxf("%s is set more than once", colName)
 			}
 			colCheck[colName] = true
 			setCols = append(setCols, colName)
@@ -87,7 +87,7 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 			}
 			/*
 				} else {
-					err = e.NewSyntax(fmt.Sprintf("Expecting a value in SET clause after %s =", colName))
+					err = e.NewSyntaxf("Expecting a value in SET clause after %s =", colName))
 					return "", nil, err
 				} */
 		}

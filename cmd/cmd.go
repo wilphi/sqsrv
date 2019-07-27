@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/wilphi/sqsrv/sqerr"
@@ -23,7 +22,7 @@ func GetIdentList(tkns *t.TokenList, terminator string) ([]string, error) {
 	for {
 		if tkns.Test(terminator) != "" {
 			if isHangingComma {
-				return nil, e.NewSyntax(fmt.Sprintf("Unexpected %q before %q", ",", t.GetSymbolFromTokenID(terminator)))
+				return nil, e.NewSyntaxf("Unexpected %q before %q", ",", t.GetSymbolFromTokenID(terminator))
 			}
 			break
 		}
@@ -75,7 +74,7 @@ func getCompareValCond(profile *sqprofile.SQProfile, tkns *t.TokenList, td *sqta
 		sym = val
 		tkns.Remove()
 	} else {
-		err = e.NewSyntax(fmt.Sprintf("Expecting an operator after column name (%s) in where clause", colName))
+		err = e.NewSyntaxf("Expecting an operator after column name (%s) in where clause", colName)
 		return nil, err
 	}
 	if tkns.Test(t.Num, t.Quote, t.RWTrue, t.RWFalse) != "" {
@@ -85,7 +84,7 @@ func getCompareValCond(profile *sqprofile.SQProfile, tkns *t.TokenList, td *sqta
 		}
 		tkns.Remove()
 	} else {
-		err = e.NewSyntax(fmt.Sprintf("Expecting a value in where clause after %s %s", colName, sym))
+		err = e.NewSyntaxf("Expecting a value in where clause after %s %s", colName, sym)
 		return nil, err
 	}
 
@@ -336,7 +335,7 @@ func GetExprList(tkns *t.TokenList, terminator string, valuesOnly bool) (*sqtabl
 			// Make sure it is a value
 			_, ok := exp2.(*sqtables.ValueExpr)
 			if !ok {
-				return nil, sqerr.NewSyntax(fmt.Sprintf("Expression %q did not reduce to a value", exp2.GetName()))
+				return nil, sqerr.NewSyntaxf("Expression %q did not reduce to a value", exp2.GetName())
 			}
 		}
 		eList.Add(exp2)
@@ -349,7 +348,7 @@ func GetExprList(tkns *t.TokenList, terminator string, valuesOnly bool) (*sqtabl
 			tkns.Remove()
 			if tkns.Test(terminator) != "" {
 
-				return nil, sqerr.NewSyntax(fmt.Sprintf("Unexpected %q before %q", ",", t.GetSymbolFromTokenID(terminator)))
+				return nil, sqerr.NewSyntaxf("Unexpected %q before %q", ",", t.GetSymbolFromTokenID(terminator))
 			}
 		} else {
 			return nil, sqerr.NewSyntax("Comma is required to separate " + ifte(valuesOnly, "values", "columns"))

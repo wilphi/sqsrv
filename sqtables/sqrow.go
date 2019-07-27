@@ -1,8 +1,6 @@
 package sqtables
 
 import (
-	"fmt"
-
 	e "github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtypes"
@@ -26,7 +24,7 @@ type RowDef struct {
 // UpdateRow updates the values of the row
 func (r *RowDef) UpdateRow(profile *sqprofile.SQProfile, cols []string, vals []sqtypes.Value) error {
 	if len(cols) != len(vals) {
-		return e.New(fmt.Sprintf("The Number of Columns (%d) does not match the number of Values (%d)", len(cols), len(vals)))
+		return e.Newf("The Number of Columns (%d) does not match the number of Values (%d)", len(cols), len(vals))
 	}
 
 	for i, col := range cols {
@@ -35,10 +33,10 @@ func (r *RowDef) UpdateRow(profile *sqprofile.SQProfile, cols []string, vals []s
 			return e.New("Column (" + col + ") does not exist in table (" + r.table.GetName(profile) + ")")
 		}
 		if colDef.IsNotNull && vals[i].IsNull() {
-			return e.New(fmt.Sprintf("Column %q in Table %q can not be NULL", col, r.table.tableName))
+			return e.Newf("Column %q in Table %q can not be NULL", col, r.table.tableName)
 		}
 		if colDef.ColType != vals[i].GetType() && !vals[i].IsNull() {
-			return e.New(fmt.Sprintf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, r.table.tableName, colDef.ColType, vals[i].GetType()))
+			return e.Newf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, r.table.tableName, colDef.ColType, vals[i].GetType())
 		}
 		r.Data[colDef.Idx] = vals[i]
 
@@ -67,7 +65,7 @@ func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols 
 		return nil, e.New("More columns are being set than exist in table definition")
 	}
 	if len(cols) != len(vals) {
-		return nil, e.New(fmt.Sprintf("The Number of Columns (%d) does not match the number of Values (%d)", len(cols), len(vals)))
+		return nil, e.Newf("The Number of Columns (%d) does not match the number of Values (%d)", len(cols), len(vals))
 	}
 
 	for i, col := range cols {
@@ -76,10 +74,10 @@ func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols 
 			return nil, e.New("Column (" + col + ") does not exist in table (" + table.GetName(profile) + ")")
 		}
 		if colDef.IsNotNull && vals[i].IsNull() {
-			return nil, e.New(fmt.Sprintf("Column %q in Table %q can not be NULL", col, row.table.tableName))
+			return nil, e.Newf("Column %q in Table %q can not be NULL", col, row.table.tableName)
 		}
 		if colDef.ColType != vals[i].GetType() && !vals[i].IsNull() {
-			return nil, e.New(fmt.Sprintf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, row.table.tableName, colDef.ColType, vals[i].GetType()))
+			return nil, e.Newf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, row.table.tableName, colDef.ColType, vals[i].GetType())
 		}
 
 		row.Data[colDef.Idx] = vals[i]
@@ -89,7 +87,7 @@ func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols 
 	for i, val := range row.Data {
 
 		if (val == nil || val.IsNull()) && table.tableCols[i].IsNotNull {
-			return nil, e.New(fmt.Sprintf("Column %q in Table %q can not be NULL", table.tableCols[i].ColName, table.tableName))
+			return nil, e.Newf("Column %q in Table %q can not be NULL", table.tableCols[i].ColName, table.tableName)
 		}
 		if val == nil {
 			row.Data[i] = sqtypes.NewSQNull()
@@ -105,11 +103,11 @@ func (r *RowDef) GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Va
 	idx, ctype := r.table.FindCol(profile, c.ColName)
 	if idx < 0 {
 		//error
-		return nil, e.New(fmt.Sprintf("%s not found in table %s", c.ColName, r.table.GetName(profile)))
+		return nil, e.Newf("%s not found in table %s", c.ColName, r.table.GetName(profile))
 	}
 	if c.ColType != ctype {
 		//type error
-		return nil, e.New(fmt.Sprintf("%s's type of %s does not match table definition for table %s", c.ColName, c.ColType, r.table.GetName(profile)))
+		return nil, e.Newf("%s's type of %s does not match table definition for table %s", c.ColName, c.ColType, r.table.GetName(profile))
 
 	}
 	return r.Data[idx], nil

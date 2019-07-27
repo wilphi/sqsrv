@@ -77,7 +77,7 @@ func (cv *CompareValCond) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (b
 	}
 
 	if cv.Val.GetType() != rowValue.GetType() {
-		err = sqerr.New(fmt.Sprintf("Type Mismatch in Where clause expression: %s(%s) %s %s(%s)", cv.Col.ColName, cv.Col.ColType, cv.Operator, cv.Val.ToString(), cv.Val.GetType()))
+		err = sqerr.Newf("Type Mismatch in Where clause expression: %s(%s) %s %s(%s)", cv.Col.ColName, cv.Col.ColType, cv.Operator, cv.Val.ToString(), cv.Val.GetType())
 		log.Error(err)
 		return false, err
 	}
@@ -90,7 +90,7 @@ func (cv *CompareValCond) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (b
 	case ">":
 		ret = rowValue.GreaterThan(cv.Val)
 	default:
-		return false, sqerr.NewInternal(fmt.Sprintf("Operator %s is not implemented", cv.Operator))
+		return false, sqerr.NewInternalf("Operator %s is not implemented", cv.Operator)
 	}
 	return ret, nil
 }

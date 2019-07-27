@@ -1,7 +1,6 @@
 package sqtables
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/wilphi/sqsrv/sqerr"
@@ -92,7 +91,7 @@ func (d *DataSet) SetOrder(order []OrderItem) error {
 		d.order[x].idx = d.eList.FindName(col.ColName)
 		if d.order[x].idx < 0 {
 			// Col not found
-			return sqerr.New(fmt.Sprintf("Column %s not found in dataset", col.ColName))
+			return sqerr.Newf("Column %s not found in dataset", col.ColName)
 		}
 	}
 	d.validOrder = true

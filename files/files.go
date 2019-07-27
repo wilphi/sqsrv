@@ -26,7 +26,7 @@ func Exists(fileName string) (bool, error) {
 func NumberFile(fileName string, maxFiles int) error {
 	isFile, err := Exists(fileName)
 	if err != nil {
-		return sqerr.New(fmt.Sprintf("Unable to rename file %s: %s", fileName, err.Error()))
+		return sqerr.Newf("Unable to rename file %s: %s", fileName, err.Error())
 	}
 	if isFile {
 		fileChanged := false
@@ -37,11 +37,11 @@ func NumberFile(fileName string, maxFiles int) error {
 				continue
 			}
 			if err != nil {
-				return sqerr.New(fmt.Sprintf("Unable to rename file %s to %s: %s", fileName, newFileName, err.Error()))
+				return sqerr.Newf("Unable to rename file %s to %s: %s", fileName, newFileName, err.Error())
 			}
 			err = os.Rename(fileName, newFileName)
 			if err != nil {
-				return sqerr.New(fmt.Sprintf("Unable to rename file %s to %s: %s", fileName, newFileName, err.Error()))
+				return sqerr.Newf("Unable to rename file %s to %s: %s", fileName, newFileName, err.Error())
 			}
 			fileChanged = true
 			break

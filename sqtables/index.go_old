@@ -62,7 +62,7 @@ func (idx *Index) AddElement(d *DataSet) error {
 	for i, col := range idx.col {
 		colMap[i] = dColList.FindColIdx(col.ColName)
 		if colMap[i] < 0 {
-			return sqerr.New(fmt.Sprintf("Index column %q was not found in DataSet", col.ColName))
+			return sqerr.Newf("Index column %q was not found in DataSet", col.ColName))
 		}
 	}
 
@@ -122,10 +122,10 @@ func NewIndex(profile *sqprofile.SQProfile, name string, dataSet *DataSet) (*Ind
 
 	for _, c := range col {
 		if ret, _ := tab.FindCol(profile, c.ColName); ret < 0 {
-			return nil, sqerr.New(fmt.Sprintf("Create Index: Column %s does not exist in table %s", c.ColName, tab.GetName(profile)))
+			return nil, sqerr.Newf("Create Index: Column %s does not exist in table %s", c.ColName, tab.GetName(profile)))
 		}
 		if colMap[c.ColName] {
-			return nil, sqerr.New(fmt.Sprintf("Create Index: Column %s can not occur more than once in index %s", c.ColName, name))
+			return nil, sqerr.Newf("Create Index: Column %s can not occur more than once in index %s", c.ColName, name))
 		}
 		colMap[c.ColName] = true
 	}

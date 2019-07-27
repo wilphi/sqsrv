@@ -1,7 +1,6 @@
 package sqtables
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -36,12 +35,12 @@ func CreateTable(profile *sqprofile.SQProfile, tab *TableDef) error {
 	tableName := tab.GetName(profile)
 	// Err if name begins with _ (UnderScore is reserved for system tables)
 	if isUnderScore(tableName) {
-		return sqerr.New(fmt.Sprintf("Invalid Name: %s - Only system tables may begin with _", tableName))
+		return sqerr.Newf("Invalid Name: %s - Only system tables may begin with _", tableName)
 	}
 
 	// make sure there are more than one cols.
 	if tab.NumCol(profile) < 1 {
-		return sqerr.New(fmt.Sprintf("Create Table: table must have at least one column"))
+		return sqerr.Newf("Create Table: table must have at least one column")
 	}
 
 	// add to _tables
@@ -50,7 +49,7 @@ func CreateTable(profile *sqprofile.SQProfile, tab *TableDef) error {
 
 	// Err if there is already a table with the same name
 	if _tables.FindTableDef(profile, tableName) != nil {
-		return sqerr.New(fmt.Sprintf("Invalid Name: Table %s already exists", tableName))
+		return sqerr.Newf("Invalid Name: Table %s already exists", tableName)
 	}
 	_tables.tables[tableName] = tab
 
@@ -64,7 +63,7 @@ func DropTable(profile *sqprofile.SQProfile, name string) error {
 	name = strings.ToLower(name)
 	// Err is name begins with _
 	if isUnderScore(name) {
-		return sqerr.New(fmt.Sprintf("Invalid Name: %s - Unable to drop system tables", name))
+		return sqerr.Newf("Invalid Name: %s - Unable to drop system tables", name)
 	}
 
 	_tables.Lock(profile)
@@ -73,7 +72,7 @@ func DropTable(profile *sqprofile.SQProfile, name string) error {
 	// Err if table does not exist
 	tab := _tables.FindTableDef(profile, name)
 	if tab == nil {
-		return sqerr.New(fmt.Sprintf("Invalid Name: Table %s does not exist", name))
+		return sqerr.Newf("Invalid Name: Table %s does not exist", name)
 	}
 	// Make sure that no one else is changing the table
 	tab.Lock(profile)
