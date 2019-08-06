@@ -5,75 +5,98 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/redo"
-	e "github.com/wilphi/sqsrv/sqerr"
+	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
-	t "github.com/wilphi/sqsrv/tokens"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 // Delete -
-func Delete(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.DataSet, error) {
+func Delete(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	nRows, err := DeleteFromTokens(profile, tkns)
 
 	return fmt.Sprintf("Deleted %d rows from table", nRows), nil, err
 }
 
 // DeleteFromTokens - takes a list of tokens returns number of rows deleted from table, error
-func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *t.TokenList) (int, error) {
-	var err error
+func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (numRows int, err error) {
 	var tableName string
 	var td *sqtables.TableDef
-	var whereConditions sqtables.Condition
+	var whereExpr sqtables.Expr
 	log.Info("Delete statement...")
+
+	numRows = -1
 
 	//eat Delete token
 	tkns.Remove()
 
 	// eat the From
-	if tkns.Test(t.From) == "" {
+	if tkns.Test(tokens.From) == "" {
 		// no FROM
-		return -1, e.NewSyntax("Expecting FROM")
+		err = sqerr.NewSyntax("Expecting FROM")
+		return
 	}
 	tkns.Remove()
 
 	//expecting Ident (tablename)
-	if tableName = tkns.Test(t.Ident); tableName == "" {
-		return -1, e.NewSyntax("Expecting table name in Delete statement")
+	if tableName = tkns.Test(tokens.Ident); tableName == "" {
+		err = sqerr.NewSyntax("Expecting table name in Delete statement")
+		return
 	}
 	tkns.Remove()
 
 	// get the TableDef
 	td = sqtables.GetTable(profile, tableName)
 	if td == nil {
-		return -1, e.New("Table " + tableName + " does not exist for delete statement")
+		err = sqerr.New("Table " + tableName + " does not exist for delete statement")
+		return
 	}
 
 	// Optional Where clause processing goes here
-	if tkns.Test(t.Where) != "" {
+	if tkns.Test(tokens.Where) != "" {
 		tkns.Remove()
-		whereConditions, err = GetWhereConditions(profile, tkns, td)
+		whereExpr, err = GetExpr(tkns, nil, 0, tokens.Order)
+
 		if err != nil {
-			return -1, err
+			return
 		}
+		err = whereExpr.ValidateCols(profile, td)
+		if err != nil {
+			return
+		}
+		whereExpr, err = whereExpr.Reduce()
+		if err != nil {
+			return
+		}
+
 	}
 	if !tkns.IsEmpty() {
-		return -1, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+		err = sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+		return
 	}
 
-	return DeleteFromTable(profile, tableName, whereConditions)
+	numRows, err = DeleteFromTable(profile, tableName, whereExpr)
+	return
 }
 
 // DeleteFromTable -
-func DeleteFromTable(profile *sqprofile.SQProfile, tableName string, whereConditions sqtables.Condition) (int, error) {
-	t := sqtables.GetTable(profile, tableName)
-	if t == nil {
-		return -1, e.New("Table " + tableName + " does not exist for Delete statement")
+func DeleteFromTable(profile *sqprofile.SQProfile, tableName string, whereExpr sqtables.Expr) (numRows int, err error) {
+	var rowsDeleted []int64
+	numRows = -1
+
+	tab := sqtables.GetTable(profile, tableName)
+	if tab == nil {
+		err = sqerr.New("Table " + tableName + " does not exist for Delete statement")
+		return
 	}
-	rowsDeleted, err := t.DeleteRows(profile, whereConditions)
+	rowsDeleted, err = tab.DeleteRows(profile, whereExpr)
 	if err != nil {
-		return -1, err
+		return
 	}
 	err = redo.Send(redo.NewDeleteRows(tableName, rowsDeleted))
+	if err != nil {
+		log.Panic("Unable to send delete command to redo")
+	}
 
 	return len(rowsDeleted), nil
 }

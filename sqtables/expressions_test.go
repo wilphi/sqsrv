@@ -10,9 +10,14 @@ import (
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
+
+func init() {
+	sqtest.TestInit("sqtables_test.log")
+}
 
 type InterfaceData struct {
 	TestName string
@@ -20,13 +25,13 @@ type InterfaceData struct {
 }
 
 func TestInterfaces(t *testing.T) {
-
 	data := []InterfaceData{
 		{"ValueExpr is an Expr", &sqtables.ValueExpr{}},
 		{"ColExpr is an Expr", &sqtables.ColExpr{}},
 		{"OpExpr is an Expr", &sqtables.OpExpr{}},
 		{"CountExpr is an Expr", &sqtables.CountExpr{}},
 		{"NegateExpr is an Expr", &sqtables.NegateExpr{}},
+		{"FuncExpr is an Expr", &sqtables.FuncExpr{}},
 	}
 
 	for i, row := range data {
@@ -172,6 +177,7 @@ func TestGetLeftExpr(t *testing.T) {
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpExpr: cExpr},
 		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpExpr: nil},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: vExpr},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpExpr: vExpr},
 	}
 
 	for i, row := range data {
@@ -194,6 +200,7 @@ func TestSetLeftExpr(t *testing.T) {
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpExpr: cExpr, ExpPanic: false},
 		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpExpr: nil, ExpPanic: true},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: vExpr, ExpPanic: false},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpExpr: vExpr, ExpPanic: false},
 	}
 
 	for i, row := range data {
@@ -215,6 +222,7 @@ func TestGetRightExpr(t *testing.T) {
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpExpr: vExpr},
 		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpExpr: nil},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: nil},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpExpr: nil},
 	}
 
 	for i, row := range data {
@@ -237,6 +245,7 @@ func TestSetRightExpr(t *testing.T) {
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpExpr: cExpr, ExpPanic: false},
 		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpExpr: nil, ExpPanic: true},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: nil, ExpPanic: true},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpExpr: nil, ExpPanic: true},
 	}
 
 	for i, row := range data {
@@ -258,6 +267,7 @@ func TestToStringExpr(t *testing.T) {
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpVal: "(col1[INT]+1)"},
 		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpVal: "count()"},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpVal: "(-1)"},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpVal: "FLOAT(1)"},
 	}
 
 	for i, row := range data {
@@ -279,6 +289,7 @@ func TestGetNameExpr(t *testing.T) {
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpVal: "(col1+1)"},
 		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpVal: "count()"},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpVal: "(-1)"},
+		{TestName: "FloatExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpVal: "FLOAT(1)"},
 	}
 
 	for i, row := range data {
@@ -300,6 +311,7 @@ func TestGetColDefExpr(t *testing.T) {
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpCol: sqtables.ColDef{ColName: "(col1+1)", ColType: "INT"}},
 		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpCol: sqtables.ColDef{ColName: "count()", ColType: "INT"}},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpCol: sqtables.ColDef{ColName: "(-1)", ColType: "INT"}},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpCol: sqtables.ColDef{ColName: "FLOAT(1)", ColType: "FUNC"}},
 	}
 
 	for i, row := range data {
@@ -551,6 +563,62 @@ func TestEvaluateExpr(t *testing.T) {
 			ExpVal:   sqtypes.NewSQNull(),
 			ExpErr:   "",
 		},
+		{
+			TestName: "Float from Int",
+			e:        sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewValueExpr(sqtypes.NewSQInt(1234))),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   sqtypes.NewSQFloat(1234),
+			ExpErr:   "",
+		},
+		{
+			TestName: "Float from String err",
+			e:        sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewValueExpr(sqtypes.NewSQString("BEZ1234"))),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   sqtypes.NewSQFloat(1234),
+			ExpErr:   "strconv.ParseFloat: parsing \"BEZ1234\": invalid syntax",
+		},
+		{
+			TestName: "Float from Invalid Col",
+			e:        sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false))),
+			profile:  profile,
+			row:      row,
+			ExpVal:   sqtypes.NewSQFloat(1234),
+			ExpErr:   "Error: colX not found in table valueexprtest",
+		},
+		{
+			TestName: "Invalid Function",
+			e:        sqtables.NewFuncExpr("NotAFunction", sqtables.NewValueExpr(sqtypes.NewSQInt(1234))),
+			profile:  profile,
+			row:      row,
+			ExpVal:   sqtypes.NewSQFloat(1234),
+			ExpErr:   "Syntax Error: \"NotAFunction\" is not a valid function",
+		},
+		{
+			TestName: "Int from String",
+			e:        sqtables.NewFuncExpr(tokens.TypeInt, sqtables.NewValueExpr(sqtypes.NewSQString("1234"))),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   sqtypes.NewSQInt(1234),
+			ExpErr:   "",
+		},
+		{
+			TestName: "Bool from String",
+			e:        sqtables.NewFuncExpr(tokens.TypeBool, sqtables.NewValueExpr(sqtypes.NewSQString("true"))),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   sqtypes.NewSQBool(true),
+			ExpErr:   "",
+		},
+		{
+			TestName: "String from Int",
+			e:        sqtables.NewFuncExpr(tokens.TypeString, sqtables.NewValueExpr(sqtypes.NewSQInt(1234))),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   sqtypes.NewSQString("1234"),
+			ExpErr:   "",
+		},
 	}
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
@@ -704,6 +772,44 @@ func TestReduceExpr(t *testing.T) {
 			)),
 			ExpExpr: "",
 			ExpErr:  "Syntax Error: Only Int & Float values can be negated",
+		},
+		{
+			TestName: "Function Int Value Expr",
+			e: sqtables.NewFuncExpr(
+				tokens.TypeString,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
+			),
+			ExpExpr: "1234",
+			ExpErr:  "",
+		},
+		{
+			TestName: "Function with ColExpr",
+			e: sqtables.NewFuncExpr(
+				tokens.TypeString,
+				sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false))),
+			ExpExpr: "STRING(col1)",
+			ExpErr:  "",
+		},
+		{
+			TestName: "Function with Conversion err",
+			e: sqtables.NewFuncExpr(
+				tokens.TypeInt,
+				sqtables.NewValueExpr(sqtypes.NewSQString("BZ1234")),
+			),
+			ExpExpr: "STRING(col1)",
+			ExpErr:  "Error: Unable to Convert \"BZ1234\" to an INT",
+		},
+		{
+			TestName: "Function with Reduce err",
+			e: sqtables.NewFuncExpr(
+				tokens.TypeString,
+				sqtables.NewFuncExpr(
+					tokens.TypeInt,
+					sqtables.NewValueExpr(sqtypes.NewSQString("BZ1234")),
+				),
+			),
+			ExpExpr: "STRING(col1)",
+			ExpErr:  "Error: Unable to Convert \"BZ1234\" to an INT",
 		},
 	}
 	for i, row := range data {
@@ -928,6 +1034,26 @@ func TestValidateCols(t *testing.T) {
 			Tab:      tab,
 			ExpErr:   "",
 		},
+		{
+			TestName: "Function with Col Expr",
+			e: sqtables.NewFuncExpr(
+				tokens.TypeFloat,
+				sqtables.NewColExpr(sqtables.CreateColDef("col1", "", false)),
+			),
+			profile: profile,
+			Tab:     tab,
+			ExpErr:  "",
+		},
+		{
+			TestName: "Function with Col Expr Invalid col",
+			e: sqtables.NewFuncExpr(
+				tokens.TypeFloat,
+				sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false)),
+			),
+			profile: profile,
+			Tab:     tab,
+			ExpErr:  "Error: Table validatecolstest does not have a column named colX",
+		},
 	}
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
@@ -991,6 +1117,11 @@ func TestEncDecExpr(t *testing.T) {
 		{
 			TestName: "CountExpr",
 			e:        sqtables.NewCountExpr(),
+			ExpPanic: true,
+		},
+		{
+			TestName: "FuncExpr",
+			e:        sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewValueExpr(sqtypes.NewSQInt(1234))),
 			ExpPanic: true,
 		},
 	}
@@ -1072,6 +1203,13 @@ func TestDecodeExpr(t *testing.T) {
 		{
 			TestName: "CountExpr Error",
 			ex:       &sqtables.CountExpr{},
+			ExpExpr:  valueEx,
+			bin:      valueEx.Encode(),
+			ExpPanic: true,
+		},
+		{
+			TestName: "FuncExpr Error",
+			ex:       &sqtables.FuncExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
 			ExpPanic: true,

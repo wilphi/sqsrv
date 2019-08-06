@@ -10,8 +10,13 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
+
+func init() {
+	sqtest.TestInit("sqtables_test.log")
+}
 
 type CreateTableData struct {
 	TestName  string
@@ -221,4 +226,114 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 			t.Errorf("Table %s was not dropped correctly from table list", d.TableName)
 		}
 	}
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func TestMiscTableList(t *testing.T) {
+	// Data Setup
+	profile := sqprofile.CreateSQProfile()
+
+	originalList := sqtables.ListTables(profile)
+	originalAllList := sqtables.ListAllTables(profile)
+
+	tab := sqtables.CreateTableDef(
+		"tablea",
+		sqtables.CreateColDef("col1", tokens.TypeInt, false),
+		sqtables.CreateColDef("col2", tokens.TypeString, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
+	if err != nil {
+		t.Error("Error setting up data for TestDropTable ", err)
+		return
+	}
+	tab2 := sqtables.CreateTableDef(
+		"tableb",
+		sqtables.CreateColDef("col1", tokens.TypeInt, false),
+		sqtables.CreateColDef("col2", tokens.TypeString, false),
+	)
+	err = sqtables.CreateTable(profile, tab2)
+	if err != nil {
+		t.Error("Error setting up data for TestDropTable ", err)
+		return
+	}
+	tabdrop := sqtables.CreateTableDef(
+		"tabledrop",
+		sqtables.CreateColDef("col1", tokens.TypeInt, false),
+		sqtables.CreateColDef("col2", tokens.TypeString, false),
+	)
+	err = sqtables.CreateTable(profile, tabdrop)
+	if err != nil {
+		t.Error("Error setting up data for TestDropTable ", err)
+		return
+	}
+	err = sqtables.DropTable(profile, "tabledrop")
+	if err != nil {
+		t.Error("Error setting up data for TestDropTable ", err)
+		return
+	}
+	// \Data Setup
+
+	t.Run("Tables List", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		tList := sqtables.ListTables(profile)
+
+		if len(originalList)+2 != len(tList) {
+			t.Error("Tables not added correctly to tables list")
+			return
+		}
+	})
+
+	t.Run("Tables All List", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		tList := sqtables.ListAllTables(profile)
+
+		if len(originalAllList)+3 != len(tList) {
+			t.Error("Tables not added correctly to tables list")
+			return
+		}
+	})
+
+	t.Run("Lock All Tables", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		sqtables.LockAllTables(profile)
+	})
+	t.Run("UnLock All Tables", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		sqtables.UnlockAllTables(profile)
+	})
+	t.Run("underscore test", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		tab := sqtables.CreateTableDef("", sqtables.CreateColDef("col1", tokens.TypeString, false))
+		err := sqtables.CreateTable(profile, tab)
+		experr := "Error: Invalid Name: Table names can not be blank"
+		if err.Error() != experr {
+			t.Errorf("Expected error: %q, Actual Error: %q", experr, err)
+		}
+	})
 }

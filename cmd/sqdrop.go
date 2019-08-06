@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/redo"
-	e "github.com/wilphi/sqsrv/sqerr"
+	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/tokens"
@@ -32,11 +32,11 @@ func DropTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *s
 		tableName = strings.ToLower(val)
 		tkns.Remove()
 	} else {
-		return "", nil, e.NewSyntax("Expecting name of table to Drop")
+		return "", nil, sqerr.NewSyntax("Expecting name of table to Drop")
 	}
 
 	if !tkns.IsEmpty() {
-		return "", nil, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+		return "", nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
 	}
 
 	err := sqtables.DropTable(profile, tableName)

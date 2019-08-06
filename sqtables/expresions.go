@@ -279,7 +279,7 @@ func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Va
 		return nil, err
 	}
 
-	return vL.MathOp(e.Operator, vR)
+	return vL.Operation(e.Operator, vR)
 }
 
 // Reduce will colapse the expression to it's simplest form
@@ -300,7 +300,7 @@ func (e *OpExpr) Reduce() (Expr, error) {
 	vR, okR := eR.(*ValueExpr)
 
 	if okL && okR {
-		val, err := vL.v.MathOp(e.Operator, vR.v)
+		val, err := vL.v.Operation(e.Operator, vR.v)
 		if err != nil {
 			return e, err
 		}
@@ -610,7 +610,7 @@ func (e *FuncExpr) GetName() string {
 
 // GetColDef returns a column definition for the expression
 func (e *FuncExpr) GetColDef() ColDef {
-	return ColDef{ColName: e.GetName(), ColType: "INT"}
+	return ColDef{ColName: e.GetName(), ColType: "FUNC"}
 }
 
 // Evaluate takes the current Expression and calculates the results based on the given row
@@ -671,9 +671,7 @@ func NewFuncExpr(cmd string, lExp Expr) Expr {
 
 // Encode returns a binary encoded version of the expression
 func (e *FuncExpr) Encode() *sqbin.Codec {
-	//enc := sqbin.NewCodec(nil)
 	panic("FuncExpr Encode not implemented")
-	//return enc
 }
 
 // Decode gets a binary encoded version of the expression

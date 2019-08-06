@@ -14,46 +14,52 @@ type Token struct {
 
 // Token Constants
 const (
-	Err          = "ERR"
-	Unk          = "UNK"
-	Ws           = "WS"
-	Ident        = "IDENT"
-	Quote        = "QUOTE"
-	Num          = "NUM"
-	Asterix      = "ASTERIX"
-	Period       = "PERIOD"
-	Equal        = "EQUAL"
-	OpenBracket  = "OPENBRACKET"
-	CloseBracket = "CLOSEBRACKET"
-	Comma        = "COMMA"
-	Colon        = "COLON"
-	UnderScore   = "UnderScore"
-	SemiColon    = "SemiColon"
-	LessThan     = "LessThan"
-	GreaterThan  = "GreaterThan"
-	Minus        = "Minus"
-	Plus         = "Plus"
-	Divide       = "Divide"
-	Modulus      = "Modulus"
+	Err              = "ERR"
+	Unk              = "UNK"
+	Ws               = "WS"
+	Ident            = "IDENT"
+	Quote            = "QUOTE"
+	Num              = "NUM"
+	Asterix          = "ASTERIX"
+	Period           = "PERIOD"
+	Equal            = "EQUAL"
+	OpenBracket      = "OPENBRACKET"
+	CloseBracket     = "CLOSEBRACKET"
+	Comma            = "COMMA"
+	Colon            = "COLON"
+	UnderScore       = "UnderScore"
+	SemiColon        = "SemiColon"
+	LessThan         = "LessThan"
+	GreaterThan      = "GreaterThan"
+	Minus            = "Minus"
+	Plus             = "Plus"
+	Divide           = "Divide"
+	Modulus          = "Modulus"
+	NotEqual         = "NotEqual"
+	LessThanEqual    = "LessThanEqual"
+	GreaterThanEqual = "GreaterThanEqual"
 )
 
 // SYMBOLS - tokens that are individual runes
-var SYMBOLS = map[rune]*Token{
-	'*': &Token{tokenID: Asterix, tokenValue: "*"},
-	'.': &Token{tokenID: Period, tokenValue: "."},
-	'=': &Token{tokenID: Equal, tokenValue: "="},
-	'(': &Token{tokenID: OpenBracket, tokenValue: "("},
-	')': &Token{tokenID: CloseBracket, tokenValue: ")"},
-	',': &Token{tokenID: Comma, tokenValue: ","},
-	':': &Token{tokenID: Colon, tokenValue: ":"},
-	'_': &Token{tokenID: UnderScore, tokenValue: "_"},
-	';': &Token{tokenID: SemiColon, tokenValue: ";"},
-	'<': &Token{tokenID: LessThan, tokenValue: "<"},
-	'>': &Token{tokenID: GreaterThan, tokenValue: ">"},
-	'+': &Token{tokenID: Plus, tokenValue: "+"},
-	'-': &Token{tokenID: Minus, tokenValue: "-"},
-	'/': &Token{tokenID: Divide, tokenValue: "/"},
-	'%': &Token{tokenID: Modulus, tokenValue: "%"},
+var SYMBOLS = map[string]*Token{
+	"*":  &Token{tokenID: Asterix, tokenValue: "*"},
+	".":  &Token{tokenID: Period, tokenValue: "."},
+	"=":  &Token{tokenID: Equal, tokenValue: "="},
+	"(":  &Token{tokenID: OpenBracket, tokenValue: "("},
+	")":  &Token{tokenID: CloseBracket, tokenValue: ")"},
+	",":  &Token{tokenID: Comma, tokenValue: ","},
+	":":  &Token{tokenID: Colon, tokenValue: ":"},
+	"_":  &Token{tokenID: UnderScore, tokenValue: "_"},
+	";":  &Token{tokenID: SemiColon, tokenValue: ";"},
+	"<":  &Token{tokenID: LessThan, tokenValue: "<"},
+	">":  &Token{tokenID: GreaterThan, tokenValue: ">"},
+	"+":  &Token{tokenID: Plus, tokenValue: "+"},
+	"-":  &Token{tokenID: Minus, tokenValue: "-"},
+	"/":  &Token{tokenID: Divide, tokenValue: "/"},
+	"%":  &Token{tokenID: Modulus, tokenValue: "%"},
+	"!=": &Token{tokenID: NotEqual, tokenValue: "!="},
+	"<=": &Token{tokenID: LessThanEqual, tokenValue: "<="},
+	">=": &Token{tokenID: GreaterThanEqual, tokenValue: ">="},
 }
 
 // Reserved Words
@@ -145,7 +151,7 @@ func (tkn Token) GetString() string {
 	case TypeTKN:
 		tknStr = tkn.tokenValue
 	case Asterix, Period, Equal, OpenBracket, CloseBracket, Comma, Colon, UnderScore,
-		SemiColon, LessThan, GreaterThan, Minus, Plus, Modulus, Divide:
+		SemiColon, LessThan, GreaterThan, Minus, Plus, Modulus, Divide, NotEqual, LessThanEqual, GreaterThanEqual:
 		tknStr = tkn.tokenValue
 	case Ident:
 		tknStr = "[" + Ident + "=" + tkn.tokenValue + "]"
@@ -316,7 +322,16 @@ func Tokenize(str string) *TokenList {
 		}
 
 		//check to see if it is a symbol
-		if Symbl, isSymbl := SYMBOLS[r[0]]; isSymbl {
+		// Check double char symbols first
+		if len(r) > 1 {
+			if Symbl, isSymbl := SYMBOLS[string(r[0])+string(r[1])]; isSymbl {
+				tl.Add(Symbl)
+				r = r[2:]
+				continue
+			}
+		}
+		// now single char symbols
+		if Symbl, isSymbl := SYMBOLS[string(r[0])]; isSymbl {
 			tl.Add(Symbl)
 			r = r[1:]
 			continue

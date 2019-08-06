@@ -6,67 +6,66 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqerr"
-	e "github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
-	t "github.com/wilphi/sqsrv/tokens"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 // Update implements the SQL command UPDATE
-func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.DataSet, error) {
+func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	var err error
 	var tableName, colName string
 	var setCols []string
 	var setExprs sqtables.ExprList
-	var cond sqtables.Condition
+	var whereExpr sqtables.Expr
 
 	colCheck := make(map[string]bool)
 
 	log.Info("Update statement...")
 
 	// Eat Update Token
-	if tkns.Test(t.Update) != "" {
+	if tkns.Test(tokens.Update) != "" {
 		tkns.Remove()
 	}
 
 	//expecting Ident (tablename)
-	if tableName = tkns.Test(t.Ident); tableName == "" {
-		return "", nil, e.NewSyntax("Expecting table name in Update statement")
+	if tableName = tkns.Test(tokens.Ident); tableName == "" {
+		return "", nil, sqerr.NewSyntax("Expecting table name in Update statement")
 	}
 	tkns.Remove()
 	tab := sqtables.GetTable(profile, tableName)
 	if tab == nil {
-		return "", nil, e.NewSyntaxf("Invalid table name: %s does not exist", tableName)
+		return "", nil, sqerr.NewSyntaxf("Invalid table name: %s does not exist", tableName)
 	}
 
 	// eat the SET
-	if tkns.Test(t.Set) == "" {
+	if tkns.Test(tokens.Set) == "" {
 		// no SET
-		return "", nil, e.NewSyntax("Expecting SET")
+		return "", nil, sqerr.NewSyntax("Expecting SET")
 	}
 	tkns.Remove()
 	isValidSetExpression := false
 	// col = value
 	for {
 		// stop if end of tokens or a WHERE
-		if tkns.Len() <= 0 || tkns.Test(t.Where) != "" {
+		if tkns.Len() <= 0 || tkns.Test(tokens.Where) != "" {
 			break
 		}
 		// Identifier first
-		if colName = tkns.Test(t.Ident); colName != "" {
+		if colName = tkns.Test(tokens.Ident); colName != "" {
 			cd := tab.FindColDef(profile, colName)
 			if cd == nil {
-				return "", nil, e.NewSyntaxf("Invalid Column name: %s does not exist in Table %s", colName, tableName)
+				return "", nil, sqerr.NewSyntaxf("Invalid Column name: %s does not exist in Table %s", colName, tableName)
 			}
 			tkns.Remove()
 			// Then an EQUAL sign
-			if tkns.Test(t.Equal) == "" {
-				return "", nil, e.NewSyntaxf("Expecting = after column name %s in UPDATE SET", colName)
+			if tkns.Test(tokens.Equal) == "" {
+				return "", nil, sqerr.NewSyntaxf("Expecting = after column name %s in UPDATE SET", colName)
 			}
 			tkns.Remove()
 
 			// Get a value/expression
-			ex, err := getExpr(tkns, nil, 0, t.Where, t.Comma)
+			ex, err := GetExpr(tkns, nil, 0, tokens.Where, tokens.Comma)
 			if err != nil {
 				return "", nil, err
 			}
@@ -80,30 +79,41 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 			setCols = append(setCols, colName)
 			setExprs.Add(ex)
 			isValidSetExpression = true
-			if tkns.Test(t.Comma) != "" {
+			if tkns.Test(tokens.Comma) != "" {
 				tkns.Remove()
 			} else {
 				break
 			}
 			/*
 				} else {
-					err = e.NewSyntaxf("Expecting a value in SET clause after %s =", colName))
+					err = sqerr.NewSyntaxf("Expecting a value in SET clause after %s =", colName))
 					return "", nil, err
 				} */
 		}
 
 	}
 	if !isValidSetExpression {
-		return "", nil, e.NewSyntax("Expecting valid SET expression")
+		return "", nil, sqerr.NewSyntax("Expecting valid SET expression")
 	}
 	// Optional Where Clause
-	if tkns.Len() > 0 && tkns.Test(t.Where) != "" {
+	if tkns.Len() > 0 && tkns.Test(tokens.Where) != "" {
 		tkns.Remove()
-		cond, err = GetWhereConditions(profile, tkns, tab)
+		whereExpr, err = GetExpr(tkns, nil, 0)
+		if err != nil {
+			return "", nil, err
+		}
+		whereExpr, err = whereExpr.Reduce()
+		if err != nil {
+			return "", nil, err
+		}
+		err = whereExpr.ValidateCols(profile, tab)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	if !tkns.IsEmpty() {
-		return "", nil, e.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+		return "", nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
 	}
 
 	err = setExprs.ValidateCols(profile, tab)
@@ -113,7 +123,7 @@ func Update(profile *sqprofile.SQProfile, tkns *t.TokenList) (string, *sqtables.
 	// get the data
 	tab.Lock(profile)
 	defer tab.Unlock(profile)
-	ptrs, err := tab.GetRowPtrs(profile, cond, false)
+	ptrs, err := tab.GetRowPtrs(profile, whereExpr, false)
 	if err != nil {
 		return "", nil, err
 	}

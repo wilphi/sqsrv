@@ -40,7 +40,7 @@ type Value interface {
 	GreaterThan(v Value) bool
 	IsNull() bool
 	Write(c *sqbin.Codec)
-	MathOp(op string, v Value) (Value, error)
+	Operation(op string, v Value) (Value, error)
 	Convert(newtype string) (Value, error)
 }
 
@@ -153,31 +153,46 @@ func (i SQInt) Write(c *sqbin.Codec) {
 
 }
 
-// MathOp performs math on two SQInt values based on given operator
-func (i SQInt) MathOp(op string, v Value) (Value, error) {
-	var res int
+// Operation transforms two SQInt values based on given operator
+func (i SQInt) Operation(op string, v Value) (retVal Value, err error) {
+
 	vint, ok := v.(SQInt)
 	if !ok {
 		if v.IsNull() {
-			return v, nil
+			retVal = v
+			return
 		}
-		return nil, sqerr.New("Type Mismatch: " + v.ToString() + " is not an Int")
+		err = sqerr.New("Type Mismatch: " + v.ToString() + " is not an Int")
+		return
 	}
 	switch op {
 	case "+":
-		res = i.Val + vint.Val
+		retVal = NewSQInt(i.Val + vint.Val)
 	case "-":
-		res = i.Val - vint.Val
+		retVal = NewSQInt(i.Val - vint.Val)
 	case "*":
-		res = i.Val * vint.Val
+		retVal = NewSQInt(i.Val * vint.Val)
 	case "/":
-		res = i.Val / vint.Val
+		retVal = NewSQInt(i.Val / vint.Val)
 	case "%":
-		res = i.Val % vint.Val
+		retVal = NewSQInt(i.Val % vint.Val)
+	case "=":
+		retVal = NewSQBool(i.Val == vint.Val)
+	case "!=":
+		retVal = NewSQBool(i.Val != vint.Val)
+	case "<":
+		retVal = NewSQBool(i.Val < vint.Val)
+	case ">":
+		retVal = NewSQBool(i.Val > vint.Val)
+	case "<=":
+		retVal = NewSQBool(i.Val <= vint.Val)
+	case ">=":
+		retVal = NewSQBool(i.Val >= vint.Val)
 	default:
-		return nil, sqerr.NewSyntax("Invalid Int Operator " + op)
+		err = sqerr.NewSyntax("Invalid Int Operator " + op)
+		return
 	}
-	return NewSQInt(res), nil
+	return
 
 }
 
@@ -249,23 +264,37 @@ func (s SQString) Write(c *sqbin.Codec) {
 	c.WriteString(s.Val)
 }
 
-// MathOp performs math on two SQString values based on given operator
-func (s SQString) MathOp(op string, v Value) (Value, error) {
-	var res string
-	vint, ok := v.(SQString)
+// Operation transforms two SQString values based on given operator
+func (s SQString) Operation(op string, v Value) (retVal Value, err error) {
+	vStr, ok := v.(SQString)
 	if !ok {
 		if v.IsNull() {
-			return v, nil
+			retVal = v
+			return
 		}
-		return nil, sqerr.New("Type Mismatch: " + v.ToString() + " is not a String")
+		err = sqerr.Newf("Type Mismatch: %s is not a String", v.ToString())
+		return
 	}
 	switch op {
 	case "+":
-		res = s.Val + vint.Val
+		retVal = NewSQString(s.Val + vStr.Val)
+	case "=":
+		retVal = NewSQBool(s.Val == vStr.Val)
+	case "!=":
+		retVal = NewSQBool(s.Val != vStr.Val)
+	case "<":
+		retVal = NewSQBool(s.Val < vStr.Val)
+	case ">":
+		retVal = NewSQBool(s.Val > vStr.Val)
+	case "<=":
+		retVal = NewSQBool(s.Val <= vStr.Val)
+	case ">=":
+		retVal = NewSQBool(s.Val >= vStr.Val)
 	default:
-		return nil, sqerr.NewSyntax("Invalid String Operator " + op)
+		err = sqerr.NewSyntax("Invalid String Operator " + op)
+		return
 	}
-	return NewSQString(res), nil
+	return
 
 }
 
@@ -358,9 +387,31 @@ func (b SQBool) Write(c *sqbin.Codec) {
 	}
 }
 
-// MathOp is not valid for booleans
-func (b SQBool) MathOp(op string, v Value) (Value, error) {
-	return nil, sqerr.NewSyntax("Invalid Operation on type Bool")
+// Operation transforms two SQBool values based on given operator
+func (b SQBool) Operation(op string, v Value) (retVal Value, err error) {
+	vBool, ok := v.(SQBool)
+	if !ok {
+		if v.IsNull() {
+			retVal = v
+			return
+		}
+		err = sqerr.Newf("Type Mismatch: %s is not a Bool", v.ToString())
+		return
+	}
+	switch op {
+	case tokens.And:
+		retVal = NewSQBool(b.Val && vBool.Val)
+	case tokens.Or:
+		retVal = NewSQBool(b.Val || vBool.Val)
+	case "=":
+		retVal = NewSQBool(b.Val == vBool.Val)
+	case "!=":
+		retVal = NewSQBool(b.Val != vBool.Val)
+	default:
+		err = sqerr.NewSyntax("Invalid Bool Operator " + op)
+		return
+	}
+	return
 }
 
 // Convert returns the value converted to the given type
@@ -441,8 +492,8 @@ func (n SQNull) Write(c *sqbin.Codec) {
 	c.Writebyte(SQNullType)
 }
 
-// MathOp is always NULL for Null values
-func (n SQNull) MathOp(op string, v Value) (Value, error) {
+// Operation is always NULL for Null values
+func (n SQNull) Operation(op string, v Value) (Value, error) {
 	return SQNull{}, nil
 }
 
@@ -507,32 +558,46 @@ func (fp SQFloat) Write(c *sqbin.Codec) {
 	c.WriteFloat(fp.Val)
 }
 
-// MathOp performs math on two SQFloat values based on given operator
-func (fp SQFloat) MathOp(op string, v Value) (Value, error) {
-	var res float64
+// Operation transforms two SQFloat values based on given operator
+func (fp SQFloat) Operation(op string, v Value) (retVal Value, err error) {
 
 	// if v is null then the result is null
 	if v.IsNull() {
-		return v, nil
+		retVal = v
+		return
 	}
 
 	vfp, ok := v.(SQFloat)
 	if !ok {
-		return nil, sqerr.New("Type Mismatch: " + v.ToString() + " is not a Float")
+		err = sqerr.New("Type Mismatch: " + v.ToString() + " is not a Float")
+		return
 	}
 	switch op {
 	case "+":
-		res = fp.Val + vfp.Val
+		retVal = NewSQFloat(fp.Val + vfp.Val)
 	case "-":
-		res = fp.Val - vfp.Val
+		retVal = NewSQFloat(fp.Val - vfp.Val)
 	case "*":
-		res = fp.Val * vfp.Val
+		retVal = NewSQFloat(fp.Val * vfp.Val)
 	case "/":
-		res = fp.Val / vfp.Val
+		retVal = NewSQFloat(fp.Val / vfp.Val)
+	case "=":
+		retVal = NewSQBool(fp.Val == vfp.Val)
+	case "!=":
+		retVal = NewSQBool(fp.Val != vfp.Val)
+	case "<":
+		retVal = NewSQBool(fp.Val < vfp.Val)
+	case ">":
+		retVal = NewSQBool(fp.Val > vfp.Val)
+	case "<=":
+		retVal = NewSQBool(fp.Val <= vfp.Val)
+	case ">=":
+		retVal = NewSQBool(fp.Val >= vfp.Val)
 	default:
-		return nil, sqerr.NewSyntax("Invalid Float Operator " + op)
+		err = sqerr.NewSyntax("Invalid Float Operator " + op)
+		return
 	}
-	return NewSQFloat(res), nil
+	return
 
 }
 

@@ -3,20 +3,18 @@ package cmd
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
-
-	log "github.com/sirupsen/logrus"
-	e "github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqtables"
-	sqtypes "github.com/wilphi/sqsrv/sqtypes"
-	t "github.com/wilphi/sqsrv/tokens"
+	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 // InsertStmt - structure to store decoded Insert Statement
 type InsertStmt struct {
-	tkns      *t.TokenList
+	tkns      *tokens.TokenList
 	tableName string
 	//cols      []string
 	//vals      [][]sqtypes.Value
@@ -25,7 +23,7 @@ type InsertStmt struct {
 
 /*
 // InsertIntoOld -
-func InsertIntoOld(profile *sqprofile.SQProfile, tl *t.TokenList) (int, error) {
+func InsertIntoOld(profile *sqprofile.SQProfile, tl *tokens.TokenList) (int, error) {
 	ins, err := CreateInsertStmt(tl)
 	if err != nil {
 		return -1, err
@@ -40,7 +38,7 @@ func InsertIntoOld(profile *sqprofile.SQProfile, tl *t.TokenList) (int, error) {
 */
 
 // InsertInto -
-func InsertInto(profile *sqprofile.SQProfile, tl *t.TokenList) (string, *sqtables.DataSet, error) {
+func InsertInto(profile *sqprofile.SQProfile, tl *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	ins, err := CreateInsertStmt(tl)
 	if err != nil {
 		return "Zero rows inserted", nil, err
@@ -54,15 +52,15 @@ func InsertInto(profile *sqprofile.SQProfile, tl *t.TokenList) (string, *sqtable
 }
 
 // CreateInsertStmt - Create the Insert Statement
-func CreateInsertStmt(tl *t.TokenList) (*InsertStmt, error) {
+func CreateInsertStmt(tl *tokens.TokenList) (*InsertStmt, error) {
 
 	// make that this is an Insert
-	if tl.Test(t.Insert) == "" {
-		return nil, e.New("Expecting INSERT INTO to start the statement")
+	if tl.Test(tokens.Insert) == "" {
+		return nil, sqerr.New("Expecting INSERT INTO to start the statement")
 	}
 	tl.Remove()
-	if tl.Test(t.Into) == "" {
-		return nil, e.New("Expecting INSERT INTO to start the statement")
+	if tl.Test(tokens.Into) == "" {
+		return nil, sqerr.New("Expecting INSERT INTO to start the statement")
 	}
 	tl.Remove()
 	ins := InsertStmt{tkns: tl}
@@ -76,20 +74,20 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 	log.Debug("Decoding INSERT INTO statement....")
 
 	// make sure the next token is an Ident - TableName
-	if val := ins.tkns.Test(t.Ident); val != "" {
+	if val := ins.tkns.Test(tokens.Ident); val != "" {
 		ins.tableName = val
 		ins.tkns.Remove()
 	} else {
-		return e.NewSyntax("Expecting name of table for insert")
+		return sqerr.NewSyntax("Expecting name of table for insert")
 	}
 
-	if ins.tkns.Test(t.OpenBracket) != "" {
+	if ins.tkns.Test(tokens.OpenBracket) != "" {
 		ins.tkns.Remove()
 	} else {
-		return e.NewSyntax("Expecting ( after name of table")
+		return sqerr.NewSyntax("Expecting ( after name of table")
 	}
 
-	colNames, err = GetIdentList(ins.tkns, t.CloseBracket)
+	colNames, err = GetIdentList(ins.tkns, tokens.CloseBracket)
 	if err != nil {
 		return err
 	}
@@ -110,7 +108,7 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 	}
 
 	if ins.tkns.Len() != 0 {
-		return e.NewSyntaxf("Unexpected tokens after the values section: %s", ins.tkns.ToString())
+		return sqerr.NewSyntaxf("Unexpected tokens after the values section: %s", ins.tkns.ToString())
 	}
 	return nil
 
@@ -120,13 +118,13 @@ func (ins *InsertStmt) getInsertValues() error {
 	var vals []sqtypes.Value
 	var err error
 
-	if ins.tkns.Test(t.Values) != "" {
+	if ins.tkns.Test(tokens.Values) != "" {
 		ins.tkns.Remove()
 	} else {
-		return e.NewSyntax("Expecting keyword VALUES")
+		return sqerr.NewSyntax("Expecting keyword VALUES")
 	}
-	if ins.tkns.Test(t.OpenBracket) == "" {
-		return e.NewSyntax("Expecting ( after keyword VALUES")
+	if ins.tkns.Test(tokens.OpenBracket) == "" {
+		return sqerr.NewSyntax("Expecting ( after keyword VALUES")
 	}
 
 	for {
@@ -136,7 +134,7 @@ func (ins *InsertStmt) getInsertValues() error {
 		}
 		ins.data.Vals = append(ins.data.Vals, vals)
 
-		if ins.tkns.Test(t.Comma) != "" {
+		if ins.tkns.Test(tokens.Comma) != "" {
 			ins.tkns.Remove()
 		} else {
 			break
@@ -148,12 +146,12 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 	var vals []sqtypes.Value
 	vals = make([]sqtypes.Value, ins.data.NumCols())
 
-	if ins.tkns.Test(t.OpenBracket) != "" {
+	if ins.tkns.Test(tokens.OpenBracket) != "" {
 		ins.tkns.Remove()
 	} else {
-		return nil, e.NewSyntax("Expecting ( to start next row of VALUES")
+		return nil, sqerr.NewSyntax("Expecting ( to start next row of VALUES")
 	}
-	eList, err := GetExprList(ins.tkns, t.CloseBracket, true)
+	eList, err := GetExprList(ins.tkns, tokens.CloseBracket, true)
 	if err != nil {
 		return nil, err
 	}
@@ -165,13 +163,13 @@ func (ins *InsertStmt) insertIntoTables(profile *sqprofile.SQProfile) (int, erro
 	/*
 		// make sure cols, vals, valtypes are the same len
 		if len(cols) != len(vals) {
-			return e.New("cols, vals are not equal length")
+			return sqerr.New("cols, vals are not equal length")
 		}
 	*/
 	// make sure there is a valid table
 	tab := sqtables.GetTable(profile, ins.tableName)
 	if tab == nil {
-		return 0, e.New("Table " + ins.tableName + " does not exist")
+		return 0, sqerr.New("Table " + ins.tableName + " does not exist")
 	}
 
 	nRows, err := tab.AddRows(profile, ins.data)

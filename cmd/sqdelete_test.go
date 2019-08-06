@@ -9,9 +9,14 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
+
+func init() {
+	sqtest.TestInit("cmd_test.log")
+}
 
 type DeleteData struct {
 	TestName  string
@@ -183,7 +188,7 @@ func TestDelete(t *testing.T) {
 			TestName:  "Delete FROM table where invalid ",
 			Command:   "Delete FROM deltest where col1 = \"invalid\"",
 			TableName: "deltest",
-			ExpErr:    "Error: Type Mismatch in Where clause expression: col1(INT) = invalid(STRING)",
+			ExpErr:    "Error: Type Mismatch: invalid is not an Int",
 			ExpVals: sqtypes.RawVals{
 				{123, "With Cols Test", true},
 				{789, "Seltest 3", false},
@@ -196,7 +201,7 @@ func TestDelete(t *testing.T) {
 			TestName:  "Delete FROM table where invalid 2",
 			Command:   "Delete FROM deltest where \"invalid\" =",
 			TableName: "deltest",
-			ExpErr:    "Syntax Error: Expecting a column name in where clause",
+			ExpErr:    "Syntax Error: Unexpected end to expression",
 			ExpVals: sqtypes.RawVals{
 				{123, "With Cols Test", true},
 				{789, "Seltest 3", false},

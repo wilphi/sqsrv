@@ -8,8 +8,13 @@ import (
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
+
+func init() {
+	sqtest.TestInit("cmd_test.log")
+}
 
 func testCreateTableFunc(profile *sqprofile.SQProfile, d CreateTableData) func(*testing.T) {
 	return func(t *testing.T) {

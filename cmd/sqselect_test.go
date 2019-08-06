@@ -10,9 +10,14 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
+
+func init() {
+	sqtest.TestInit("cmd_test.log")
+}
 
 type SelectData struct {
 	TestName string
@@ -122,7 +127,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT Where invalid",
 			Command:  "SELECT col1 FROM seltest WHERE col1=9999999999999999999999",
-			ExpErr:   "Error: Type Mismatch in Where clause expression: col1(INT) = 1E+22(FLOAT)",
+			ExpErr:   "Error: Type Mismatch: 1E+22 is not an Int",
 			ExpRows:  0,
 			ExpCols:  []string{"col1"},
 			ExpVals:  nil,

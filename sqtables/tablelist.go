@@ -38,6 +38,10 @@ func CreateTable(profile *sqprofile.SQProfile, tab *TableDef) error {
 		return sqerr.Newf("Invalid Name: %s - Only system tables may begin with _", tableName)
 	}
 
+	if tableName == "" {
+		return sqerr.New("Invalid Name: Table names can not be blank")
+	}
+
 	// make sure there are more than one cols.
 	if tab.NumCol(profile) < 1 {
 		return sqerr.Newf("Create Table: table must have at least one column")
@@ -148,4 +152,22 @@ func (tl *tableList) UnlockAll(profile *sqprofile.SQProfile) {
 		}
 	}
 	tl.Unlock(profile)
+}
+
+// isUnderScore - Checks to see if first char in string is an underscore
+func isUnderScore(name string) bool {
+	for _, c := range name {
+		return c == '_'
+	}
+	return false
+}
+
+//UnlockAllTables releases write locks against the tablelist and all tables in it
+func UnlockAllTables(profile *sqprofile.SQProfile) {
+	_tables.UnlockAll(profile)
+}
+
+//LockAllTables reserves write locks against the tablelist and all tables in it
+func LockAllTables(profile *sqprofile.SQProfile) {
+	_tables.LockAll(profile)
 }

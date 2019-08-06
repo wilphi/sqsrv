@@ -31,7 +31,7 @@ type TableDef struct {
 }
 
 // RowOrder sets the default sort for a dataset. If true then all rows are sorted by the RowID
-//   if false then the order will be random.
+//   if false then the order will be the default golang map order (somewhat random).
 //   the Sort function on a data set will override the default sort
 var RowOrder = false
 
@@ -105,7 +105,7 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 		rowID := atomic.AddInt64(t.nextRowID, 1)
 		row, err := CreateRow(profile, rowID, t, data.GetColNames(), val)
 		if err != nil {
-			return 0, err
+			return -1, err
 		}
 		newRows[cnt] = row
 	}
@@ -125,19 +125,17 @@ func GetTable(profile *sqprofile.SQProfile, name string) *TableDef {
 	return _tables.FindTableDef(profile, name)
 }
 
-// DeleteRows - Delete rows based on where condition
-func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, conditions Condition) ([]int64, error) {
-	var err error
-	var ptrs []int64
+// DeleteRows - Delete rows based on where expression
+func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptrs []int64, err error) {
 
 	t.Lock(profile)
 	defer t.Unlock(profile)
 
-	ptrs, err = t.GetRowPtrs(profile, conditions, false)
+	ptrs, err = t.GetRowPtrs(profile, whereExpr, false)
 
 	// If no errors then delete
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	return ptrs, t.DeleteRowsFromPtrs(profile, ptrs, SoftDelete)
@@ -178,7 +176,7 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 }
 
 // GetRowData - Returns a dataset with the data from table
-func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, conditions Condition) (*DataSet, error) {
+func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr) (*DataSet, error) {
 	var err error
 
 	t.RLock(profile)
@@ -194,7 +192,7 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, con
 	ret.usePtrs = !eList.HasCount()
 
 	// Get the pointers to the rows based on the conditions
-	ptrs, err := t.GetRowPtrs(profile, conditions, RowOrder)
+	ptrs, err := t.GetRowPtrs(profile, whereExpr, RowOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -277,14 +275,13 @@ func (t *TableDef) NumCol(profile *sqprofile.SQProfile) int {
 	return len(t.tableCols)
 }
 
-// GetRowPtrs returns the list of rowIDs for the table based on the conditions.
-//    If the conditions are nil, then all rows are returned. The list can be sorted or not.
+// GetRowPtrs returns the list of rowIDs for the table based on the expression.
+//    If the expression is nil, then all rows are returned. The list can be sorted or not.
 //    By default the table is Read Locked, to have a write lock the calling function must do it.
-func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, conditions Condition, sorted bool) ([]int64, error) {
-	var err error
-	var ptrs []int64
+func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted bool) (ptrs []int64, err error) {
+	var val sqtypes.Value
 
-	includeRow := (conditions == nil)
+	includeRow := (exp == nil)
 	t.RLock(profile)
 	defer t.RUnlock(profile)
 
@@ -292,11 +289,16 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, conditions Condition
 		if row == nil || row.isDeleted {
 			continue
 		}
-		if conditions != nil {
-			includeRow, err = conditions.Evaluate(profile, row)
+		if exp != nil {
+			val, err = exp.Evaluate(profile, row)
 			if err != nil {
 				return nil, err
 			}
+			boolVal, ok := val.(sqtypes.SQBool)
+			if ok {
+				includeRow = boolVal.Val
+			}
+
 		}
 		if !includeRow {
 			continue
@@ -339,12 +341,4 @@ func (t *TableDef) GetRow(profile *sqprofile.SQProfile, RowID int64) *RowDef {
 		return nil
 	}
 	return row
-}
-
-// isUnderScore - Checks to see if first char in string is an underscore
-func isUnderScore(name string) bool {
-	for _, c := range name {
-		return c == '_'
-	}
-	return false
 }

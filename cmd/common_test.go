@@ -2,37 +2,20 @@ package cmd_test
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-
+	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
-
-	"github.com/wilphi/sqsrv/cmd"
-	sqt "github.com/wilphi/sqsrv/sqtables"
-	tk "github.com/wilphi/sqsrv/tokens"
 )
 
-const (
-	withErr    = true
-	withoutErr = false
-)
-
-func TestMain(m *testing.M) {
-	// setup logging
-	logFile, err := os.OpenFile("cmd_test.log", os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		panic(err)
-	}
-	log.SetOutput(logFile)
-
-	os.Exit(m.Run())
-
+func init() {
+	sqtest.TestInit("cmd_test.log")
 }
 
 type GetIdentListData struct {
@@ -51,7 +34,7 @@ func testGetIdentListFunc(d GetIdentListData) func(*testing.T) {
 				t.Errorf(d.TestName + " panicked unexpectedly")
 			}
 		}()
-		tkns := tk.Tokenize(d.Command)
+		tkns := tokens.Tokenize(d.Command)
 
 		rIdents, err := cmd.GetIdentList(tkns, d.Terminator)
 		if err != nil {
@@ -89,63 +72,63 @@ func TestGetIdentList(t *testing.T) {
 	data := []GetIdentListData{
 		{
 			TestName:     "One Col",
-			Terminator:   tk.CloseBracket,
+			Terminator:   tokens.CloseBracket,
 			Command:      "col1",
 			ExpErr:       "Syntax Error: Comma is required to separate columns",
 			ExpectedCols: nil,
 		},
 		{
 			TestName:     "Expect another Col",
-			Terminator:   tk.CloseBracket,
+			Terminator:   tokens.CloseBracket,
 			Command:      "col1,",
 			ExpErr:       "Syntax Error: Expecting name of column",
 			ExpectedCols: nil,
 		},
 		{
 			TestName:     "Two Col",
-			Terminator:   tk.CloseBracket,
+			Terminator:   tokens.CloseBracket,
 			Command:      "col1, col2",
 			ExpErr:       "Syntax Error: Comma is required to separate columns",
 			ExpectedCols: nil,
 		},
 		{
 			TestName:     "Expect a third Col",
-			Terminator:   tk.CloseBracket,
+			Terminator:   tokens.CloseBracket,
 			Command:      "col1,col2,",
 			ExpErr:       "Syntax Error: Expecting name of column",
 			ExpectedCols: nil,
 		},
 		{
 			TestName:     "Three Col",
-			Terminator:   tk.CloseBracket,
+			Terminator:   tokens.CloseBracket,
 			Command:      "col1, col2, col3",
 			ExpErr:       "Syntax Error: Comma is required to separate columns",
 			ExpectedCols: nil,
 		},
 		{
 			TestName:     "Complete col definition with )",
-			Terminator:   tk.CloseBracket,
+			Terminator:   tokens.CloseBracket,
 			Command:      "col1, col2, col3)",
 			ExpErr:       "",
 			ExpectedCols: []string{"col1", "col2", "col3"},
 		},
 		{
 			TestName:     "Complete col definition with FROM",
-			Terminator:   tk.From,
+			Terminator:   tokens.From,
 			Command:      "firstname, lastname, phonenum FROM",
 			ExpErr:       "",
 			ExpectedCols: []string{"firstname", "lastname", "phonenum"},
 		},
 		{
 			TestName:     "Extra Comma in list",
-			Terminator:   tk.CloseBracket,
+			Terminator:   tokens.CloseBracket,
 			Command:      "col1, col2, col3,)",
 			ExpErr:       "Syntax Error: Unexpected \",\" before \")\"",
 			ExpectedCols: []string{"col1", "col2", "col3"},
 		},
 		{
 			TestName:     "No Cols in list",
-			Terminator:   tk.CloseBracket,
+			Terminator:   tokens.CloseBracket,
 			Command:      ")",
 			ExpErr:       "Syntax Error: No columns defined for table",
 			ExpectedCols: []string{"col1", "col2", "col3"},
@@ -160,121 +143,18 @@ func TestGetIdentList(t *testing.T) {
 
 }
 
-type GetWhereConditionsData struct {
-	TestName     string
-	Command      string
-	TableName    string
-	ExpectedCond string
-	ExpErr       string
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type GetExprData struct {
+	TestName   string
+	Terminator string
+	Command    string
+	ExpErr     string
+	ExpExpr    string
+	ValuesOnly bool
 }
 
-func TestGetWhereConditions(t *testing.T) {
-
-	//make sure table exists for testing
-	profile := sqprofile.CreateSQProfile()
-	tkns := tokens.Tokenize("CREATE TABLE WhereCondtest (col1 int, col2 string, col3 bool)")
-	tableName, err := cmd.CreateTableFromTokens(profile, tkns)
-	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
-
-	data := []GetWhereConditionsData{
-		{
-			TestName:     "Equal Condition",
-			Command:      "col1 = 1",
-			TableName:    tableName,
-			ExpectedCond: "col1 = 1",
-			ExpErr:       "",
-		},
-		{
-			TestName:     "Reverse Equal Condition",
-			Command:      "1 = col1",
-			TableName:    tableName,
-			ExpectedCond: "col1 = 1",
-			ExpErr:       "Syntax Error: Expecting a column name in where clause",
-		},
-		{
-			TestName:     "No Col Condition",
-			Command:      "2=1",
-			TableName:    tableName,
-			ExpectedCond: "",
-			ExpErr:       "Syntax Error: Expecting a column name in where clause",
-		},
-		{
-			TestName:     "Invalid Operator",
-			Command:      "col1 ~ 1",
-			TableName:    tableName,
-			ExpectedCond: "col1 = 1",
-			ExpErr:       "Syntax Error: Expecting an operator after column name (col1) in where clause",
-		},
-		{
-			TestName:     "Missing Value",
-			Command:      "col1 = ",
-			TableName:    tableName,
-			ExpectedCond: "col1 = 1",
-			ExpErr:       "Syntax Error: Expecting a value in where clause after col1 =",
-		},
-		/* It is very difficult to get an invalid number due to the way parsing works
-		{
-			TestName:     "Invalid Value",
-			Command:      "col1 = 999999999999999999999 ",
-			TableName:    tableName,
-			ExpectedCond: "col1 = 1",
-			ExpErr:       "Syntax Error: \"9999999999999999999999\" is not a number",
-		},*/
-		{
-			TestName:     "Simple AND Condition",
-			Command:      "col1 = 1 AND col2 = \"test\"",
-			TableName:    tableName,
-			ExpectedCond: "(col1 = 1 AND col2 = \"test\")",
-			ExpErr:       "",
-		},
-		{
-			TestName:     "Simple OR Condition",
-			Command:      "col1 = 1 OR col2 = \"test\"",
-			TableName:    tableName,
-			ExpectedCond: "(col1 = 1 OR col2 = \"test\")",
-			ExpErr:       "",
-		},
-		{
-			TestName:     "Multiple AND Conditions",
-			Command:      "col1 = 1 AND col2 = \"test\" AND col3 = false",
-			TableName:    tableName,
-			ExpectedCond: "((col1 = 1 AND col2 = \"test\") AND col3 = false)",
-			ExpErr:       "",
-		},
-		{
-			TestName:     "Multiple OR Conditions",
-			Command:      "col1 = 1 OR col2 = \"test\" OR col3 = false",
-			TableName:    tableName,
-			ExpectedCond: "(col1 = 1 OR (col2 = \"test\" OR col3 = false))",
-			ExpErr:       "",
-		},
-		{
-			TestName:     "Multiple AND/OR conditions",
-			Command:      "col1 = 1 AND col2 = \"test\" OR col3 = false",
-			TableName:    tableName,
-			ExpectedCond: "((col1 = 1 AND col2 = \"test\") OR col3 = false)",
-			ExpErr:       "",
-		},
-		{
-			TestName:     "Multiple OR/AND conditions",
-			Command:      "col1 = 1 OR col2 = \"test\" AND col3 = false",
-			TableName:    tableName,
-			ExpectedCond: "(col1 = 1 OR (col2 = \"test\" AND col3 = false))",
-			ExpErr:       "",
-		},
-	}
-
-	for i, row := range data {
-		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testGetWhereConditionsFunc(profile, row))
-
-	}
-
-}
-
-func testGetWhereConditionsFunc(profile *sqprofile.SQProfile, d GetWhereConditionsData) func(*testing.T) {
+func testGetExprFunc(d GetExprData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -282,9 +162,9 @@ func testGetWhereConditionsFunc(profile *sqprofile.SQProfile, d GetWhereConditio
 				t.Errorf(d.TestName + " panicked unexpectedly")
 			}
 		}()
-		tkns := tk.Tokenize(d.Command)
-		tab := sqt.GetTable(profile, d.TableName)
-		rConds, err := cmd.GetWhereConditions(profile, tkns, tab)
+		tkns := tokens.Tokenize(d.Command)
+
+		actExpr, err := cmd.GetExpr(tkns, nil, 0, d.Terminator)
 		if err != nil {
 			log.Println(err.Error())
 			if d.ExpErr == "" {
@@ -301,16 +181,119 @@ func testGetWhereConditionsFunc(profile *sqprofile.SQProfile, d GetWhereConditio
 			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
-		if tkns.Len() != 0 {
-			t.Error("All tokens should be consumed by test")
+		if d.ExpExpr != actExpr.GetName() {
+			t.Errorf("Expected Expressions %s do not match actual Expressions %s", d.ExpExpr, actExpr.GetName())
 			return
 		}
-		if rConds.ToString() != d.ExpectedCond {
-			t.Errorf("Expected Condition (%s) does not match actual Condition (%s)", d.ExpectedCond, rConds.ToString())
-		}
+	}
+}
+
+func TestGetExpr(t *testing.T) {
+
+	data := []GetExprData{
+		{
+			TestName:   "Full Where expression",
+			Terminator: tokens.Order,
+			Command:    "col1 = -1 and col2 = \"test\" or col1=3 and col2 = \"nat\"",
+			ExpErr:     "",
+			ExpExpr:    "(((col1=(-1))AND(col2=test))OR((col1=3)AND(col2=nat)))",
+		},
+
+		{
+			TestName:   "Full expression <= =>, !=",
+			Terminator: tokens.Order,
+			Command:    "col1 <= 1 and col2 != \"test\" or col1>=3 and col2 = \"nat\"",
+			ExpErr:     "",
+			ExpExpr:    "(((col1<=1)AND(col2!=test))OR((col1>=3)AND(col2=nat)))",
+		},
+		{
+			TestName:   "Expression with FLOAT function",
+			Terminator: tokens.Order,
+			Command:    "FLOAT(col1) <= 1.0",
+			ExpErr:     "",
+			ExpExpr:    "(FLOAT(col1)<=1)",
+		},
+		{
+			TestName:   "Expression with FLOAT error no (",
+			Terminator: tokens.Order,
+			Command:    "FLOAT col1  <= 1.0",
+			ExpErr:     "Syntax Error: Function FLOAT must be followed by (",
+			ExpExpr:    "(FLOAT(col1)<=1)",
+		},
+		{
+			TestName:   "Expression with FLOAT error no )",
+			Terminator: tokens.Order,
+			Command:    "FLOAT(col1  <= 1.0",
+			ExpErr:     "Syntax Error: Function FLOAT is missing ) after expression",
+			ExpExpr:    "(FLOAT(col1)<=1)",
+		},
+		{
+			TestName:   "Expression with FLOAT error no expression in()",
+			Terminator: tokens.Order,
+			Command:    "FLOAT() <= 1.0",
+			ExpErr:     "Syntax Error: Function FLOAT is missing an expression between ( and )",
+			ExpExpr:    "(FLOAT(col1)<=1)",
+		},
+		{
+			TestName:   "Expression with FLOAT function with err",
+			Terminator: tokens.Order,
+			Command:    "FLOAT(float) <= 1.0",
+			ExpErr:     "Syntax Error: Function FLOAT must be followed by (",
+			ExpExpr:    "(FLOAT(col1)<=1)",
+		},
+
+		{
+			TestName:   "Count Expression",
+			Terminator: tokens.From,
+			Command:    "count()",
+			ExpErr:     "",
+			ExpExpr:    "count()",
+		},
+		{
+			TestName:   "Count Err no brackets",
+			Terminator: tokens.From,
+			Command:    "count",
+			ExpErr:     "Syntax Error: Count must be followed by ()",
+			ExpExpr:    "count()",
+		},
+		{
+			TestName:   "Count Err Open bracket",
+			Terminator: tokens.From,
+			Command:    "count(",
+			ExpErr:     "Syntax Error: Count must be followed by ()",
+			ExpExpr:    "count()",
+		},
+		{
+			TestName:   "Count Err Close bracket",
+			Terminator: tokens.From,
+			Command:    "count)",
+			ExpErr:     "Syntax Error: Count must be followed by ()",
+			ExpExpr:    "count()",
+		},
+		{
+			TestName:   "Count Err Expression",
+			Terminator: tokens.From,
+			Command:    "count(x=1)",
+			ExpErr:     "Syntax Error: Count must be followed by ()",
+			ExpExpr:    "count()",
+		},
+		{
+			TestName:   "Err Expression",
+			Terminator: tokens.From,
+			Command:    "a+ by",
+			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column near BY",
+			ExpExpr:    "count()",
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testGetExprFunc(row))
 
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func testOrderByFunc(profile *sqprofile.SQProfile, d OrderByData) func(*testing.T) {
 	return func(t *testing.T) {
@@ -430,6 +413,8 @@ func TestOrderBy(t *testing.T) {
 	}
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 type GetExprListData struct {
 	TestName   string
 	Terminator string
@@ -447,7 +432,7 @@ func testGetExprListFunc(d GetExprListData) func(*testing.T) {
 				t.Errorf(d.TestName + " panicked unexpectedly")
 			}
 		}()
-		tkns := tk.Tokenize(d.Command)
+		tkns := tokens.Tokenize(d.Command)
 
 		rExprs, err := cmd.GetExprList(tkns, d.Terminator, d.ValuesOnly)
 		if err != nil {
@@ -486,49 +471,49 @@ func TestGetExprList(t *testing.T) {
 	data := []GetExprListData{
 		{
 			TestName:   "Invalid Expression",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "~",
-			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column",
+			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column near ~",
 			ExpExprs:   nil,
 		},
 		{
 			TestName:   "One Col",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "col1",
 			ExpErr:     "Syntax Error: Comma is required to separate columns",
 			ExpExprs:   nil,
 		},
 		{
 			TestName:   "Expect another Col",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "col1,",
 			ExpErr:     "Syntax Error: Expecting name of column or a valid expression",
 			ExpExprs:   nil,
 		},
 		{
 			TestName:   "Two Col",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "col1, col2",
 			ExpErr:     "Syntax Error: Comma is required to separate columns",
 			ExpExprs:   nil,
 		},
 		{
 			TestName:   "Expect a third Col",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "col1,col2,",
 			ExpErr:     "Syntax Error: Expecting name of column or a valid expression",
 			ExpExprs:   nil,
 		},
 		{
 			TestName:   "Three Col",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "col1, col2, col3",
 			ExpErr:     "Syntax Error: Comma is required to separate columns",
 			ExpExprs:   nil,
 		},
 		{
 			TestName:   "Complete col definition with )",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "col1, col2, col3)",
 			ExpErr:     "",
 			ExpExprs: sqtables.ColsToExpr(
@@ -541,7 +526,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Complete col definition with FROM",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "firstname, lastname, phonenum FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.ColsToExpr(
@@ -554,21 +539,21 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Extra Comma in list",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "col1, col2, col3,)",
 			ExpErr:     "Syntax Error: Unexpected \",\" before \")\"",
 			ExpExprs:   nil,
 		},
 		{
 			TestName:   "No Cols in list",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    ")",
 			ExpErr:     "Syntax Error: No columns defined for query",
 			ExpExprs:   nil,
 		},
 		{
 			TestName:   "Value, col, OpExpr with FROM",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1, lastname, \"Cell: \"+phonenum FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -579,7 +564,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Empty Expression",
-			Terminator: tk.CloseBracket,
+			Terminator: tokens.CloseBracket,
 			Command:    "1,,test)",
 			ExpErr:     "Syntax Error: Expecting name of column or a valid expression",
 			ExpExprs:   nil,
@@ -587,7 +572,7 @@ func TestGetExprList(t *testing.T) {
 
 		{
 			TestName:   "Complex Expression",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1, 1+2*3-8/4*3+9, lastname FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -598,7 +583,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Complex Expression 2",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1, 4*3+9/3-18+75+1*9, lastname FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -609,7 +594,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Complex Col Expression",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "firstname, 3*id/2+12, lastname FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -630,7 +615,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Type Mismatch",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1, 1+2*3+3.0, lastname FROM",
 			ExpErr:     "Error: Type Mismatch: 3 is not an Int",
 			ExpExprs: sqtables.NewExprList(
@@ -641,7 +626,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Type Mismatch String",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1, \"Test\"+3.0, lastname FROM",
 			ExpErr:     "Error: Type Mismatch: 3 is not a String",
 			ExpExprs: sqtables.NewExprList(
@@ -652,7 +637,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Negative Number",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1,1+-9, lastname FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -663,7 +648,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Negative Number start",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1,-9*2 +3*14, lastname FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -674,7 +659,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Negative column",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1,-id, lastname FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -685,7 +670,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "ValueOnly with col",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1,-id, lastname FROM",
 			ExpErr:     "Syntax Error: Expression \"(-id)\" did not reduce to a value",
 			ExpExprs: sqtables.NewExprList(
@@ -697,7 +682,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "ValueOnly with Negative Expression",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "1,-25/5*4 FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -708,9 +693,9 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "ValueOnly with Invalid  Expression",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "20/~, 1,-25/5*4 FROM",
-			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column",
+			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column near ~",
 			ExpExprs: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
@@ -719,9 +704,9 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Partial  Expression",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "20+",
-			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column",
+			ExpErr:     "Syntax Error: Unexpected end to expression",
 			ExpExprs: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
@@ -729,9 +714,9 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Partial  Expression with Multiply",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "20+5*",
-			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column",
+			ExpErr:     "Syntax Error: Unexpected end to expression",
 			ExpExprs: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
@@ -739,7 +724,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Expression list includes int function",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "20+int(1.0), -20 FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(
@@ -749,7 +734,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Expression list includes int not bracket",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "20+int, -20 FROM",
 			ExpErr:     "Syntax Error: Function INT must be followed by (",
 			ExpExprs: sqtables.NewExprList(
@@ -759,7 +744,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Expression list includes int function incomplete",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "20+int(1.0, -20 FROM",
 			ExpErr:     "Syntax Error: Function INT is missing ) after expression",
 			ExpExprs: sqtables.NewExprList(
@@ -769,9 +754,9 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Expression list includes int function partial expression",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "20+int(1.0+), -20 FROM",
-			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column",
+			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column near )",
 			ExpExprs: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
 				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
@@ -779,7 +764,7 @@ func TestGetExprList(t *testing.T) {
 		},
 		{
 			TestName:   "Expression list includes int, Float function",
-			Terminator: tk.From,
+			Terminator: tokens.From,
 			Command:    "20+int(1.0), float(-20)+1.95 FROM",
 			ExpErr:     "",
 			ExpExprs: sqtables.NewExprList(

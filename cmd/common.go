@@ -4,50 +4,45 @@ import (
 	"strings"
 
 	"github.com/wilphi/sqsrv/sqerr"
-	e "github.com/wilphi/sqsrv/sqerr"
-	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
-	t "github.com/wilphi/sqsrv/tokens"
 )
 
-// contains common functions for all commands
-
 // GetIdentList - get a comma separated list of Ident ended by a terminator token.
-func GetIdentList(tkns *t.TokenList, terminator string) ([]string, error) {
+func GetIdentList(tkns *tokens.TokenList, terminator string) ([]string, error) {
 	var ids []string
 	isHangingComma := false
 	// loop to get the columns of the INSERT
 	for {
 		if tkns.Test(terminator) != "" {
 			if isHangingComma {
-				return nil, e.NewSyntaxf("Unexpected %q before %q", ",", t.GetSymbolFromTokenID(terminator))
+				return nil, sqerr.NewSyntaxf("Unexpected %q before %q", ",", tokens.GetSymbolFromTokenID(terminator))
 			}
 			break
 		}
 		if len(ids) > 0 && !isHangingComma {
-			return nil, e.NewSyntax("Comma is required to separate columns")
+			return nil, sqerr.NewSyntax("Comma is required to separate columns")
 		}
 		// Ident(colName),  opt comma
-		if cName := tkns.Test(t.Ident); cName != "" {
+		if cName := tkns.Test(tokens.Ident); cName != "" {
 			ids = append(ids, cName)
 			tkns.Remove()
 
 			// check for optional comma
-			if tkns.Test(t.Comma) != "" {
+			if tkns.Test(tokens.Comma) != "" {
 				isHangingComma = true
 				tkns.Remove()
 			} else {
 				isHangingComma = false
 			}
 		} else {
-			return nil, e.NewSyntax("Expecting name of column")
+			return nil, sqerr.NewSyntax("Expecting name of column")
 
 		}
 	}
 	if len(ids) <= 0 {
-		return nil, e.NewSyntax("No columns defined for table")
+		return nil, sqerr.NewSyntax("No columns defined for table")
 	}
 
 	// eat terminator
@@ -56,78 +51,8 @@ func GetIdentList(tkns *t.TokenList, terminator string) ([]string, error) {
 	return ids, nil
 }
 
-func getCompareValCond(profile *sqprofile.SQProfile, tkns *t.TokenList, td *sqtables.TableDef) (sqtables.Condition, error) {
-	var colName, sym string
-	var err error
-	var v sqtypes.Value
-	var col sqtables.ColDef
-
-	if val := tkns.Test(t.Ident); val != "" {
-		colName = val
-		col = *td.FindColDef(profile, colName)
-		tkns.Remove()
-	} else {
-		err = e.NewSyntax("Expecting a column name in where clause")
-		return nil, err
-	}
-	if val := tkns.Test(t.Equal, t.LessThan, t.GreaterThan); val != "" {
-		sym = val
-		tkns.Remove()
-	} else {
-		err = e.NewSyntaxf("Expecting an operator after column name (%s) in where clause", colName)
-		return nil, err
-	}
-	if tkns.Test(t.Num, t.Quote, t.RWTrue, t.RWFalse) != "" {
-		v, err = sqtypes.CreateValueFromToken(*tkns.Peek())
-		if err != nil {
-			return nil, err
-		}
-		tkns.Remove()
-	} else {
-		err = e.NewSyntaxf("Expecting a value in where clause after %s %s", colName, sym)
-		return nil, err
-	}
-
-	return sqtables.NewCVCond(col, sym, v), nil
-}
-
-// GetWhereConditions -
-func GetWhereConditions(profile *sqprofile.SQProfile, tkns *t.TokenList, td *sqtables.TableDef) (sqtables.Condition, error) {
-	var cond, lCond, rCond sqtables.Condition
-	var err error
-
-	cond, err = getCompareValCond(profile, tkns, td)
-	if err != nil {
-		return nil, err
-	}
-	for {
-		if tkns.Len() <= 0 || tkns.Test(t.Order) != "" {
-			break
-		}
-		if val := tkns.Test(t.And, t.Or); val != "" {
-			tkns.Remove()
-			lCond = cond
-			if val == t.And {
-				rCond, err = getCompareValCond(profile, tkns, td)
-				if err != nil {
-					return nil, err
-				}
-				cond = sqtables.NewANDCondition(lCond, rCond)
-			} else {
-				rCond, err = GetWhereConditions(profile, tkns, td)
-				cond = sqtables.NewORCondition(lCond, rCond)
-				break
-			}
-		} else {
-			break
-		}
-	}
-
-	return cond, nil
-}
-
 //OrderByClause processing
-func OrderByClause(tkns *t.TokenList) ([]sqtables.OrderItem, error) {
+func OrderByClause(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
 	var sortCol, sortType string
 	var orderBy []sqtables.OrderItem
 
@@ -135,7 +60,7 @@ func OrderByClause(tkns *t.TokenList) ([]sqtables.OrderItem, error) {
 		tkns.Remove()
 	}
 	if tkns.Test(tokens.By) == "" {
-		return nil, e.NewSyntax("ORDER missing BY")
+		return nil, sqerr.NewSyntax("ORDER missing BY")
 	}
 	tkns.Remove()
 	hangingComma := true
@@ -144,7 +69,7 @@ func OrderByClause(tkns *t.TokenList) ([]sqtables.OrderItem, error) {
 		// colName ASC/DESC, ...
 		if sortCol = tkns.Test(tokens.Ident); sortCol != "" {
 			if !hangingComma {
-				return nil, e.NewSyntax("Missing comma in ORDER BY clause")
+				return nil, sqerr.NewSyntax("Missing comma in ORDER BY clause")
 			}
 			tkns.Remove()
 			hangingComma = false
@@ -160,7 +85,7 @@ func OrderByClause(tkns *t.TokenList) ([]sqtables.OrderItem, error) {
 				continue
 			}
 		} else {
-			return nil, e.NewSyntax("Missing column name in ORDER BY clause")
+			return nil, sqerr.NewSyntax("Missing column name in ORDER BY clause")
 		}
 
 		if tkns.Len() == 0 || tkns.Peek().GetName() != tokens.Ident {
@@ -171,12 +96,12 @@ func OrderByClause(tkns *t.TokenList) ([]sqtables.OrderItem, error) {
 	return orderBy, nil
 }
 
-func getValCol(tkns *t.TokenList) (sqtables.Expr, error) {
+func getValCol(tkns *tokens.TokenList) (sqtables.Expr, error) {
 	var exp sqtables.Expr
 	var mSign bool
 	exp = nil
 
-	if tkns.Test(t.Minus) != "" {
+	if tkns.Test(tokens.Minus) != "" {
 		mSign = true
 		tkns.Remove()
 	}
@@ -194,7 +119,7 @@ func getValCol(tkns *t.TokenList) (sqtables.Expr, error) {
 			return exp, nil
 		}
 		// is token a ColName
-		if cName := tkns.Test(t.Ident); cName != "" {
+		if cName := tkns.Test(tokens.Ident); cName != "" {
 			exp = sqtables.NewColExpr(sqtables.ColDef{ColName: cName})
 			tkns.Remove()
 			if mSign {
@@ -203,10 +128,10 @@ func getValCol(tkns *t.TokenList) (sqtables.Expr, error) {
 			return exp, nil
 		}
 		// Is it a function without args
-		if fName := tkns.Test(t.Count); fName != "" {
+		if fName := tkns.Test(tokens.Count); fName != "" {
 			tkns.Remove()
-			if !(tkns.Peek().GetName() == t.OpenBracket && tkns.Peekx(1).GetName() == t.CloseBracket) {
-				return nil, e.NewSyntax("Count must be followed by ()")
+			if tkns.Len() < 2 || !(tkns.Peek().GetName() == tokens.OpenBracket && tkns.Peekx(1).GetName() == tokens.CloseBracket) {
+				return nil, sqerr.NewSyntax("Count must be followed by ()")
 			}
 			tkns.Remove()
 			tkns.Remove()
@@ -216,38 +141,53 @@ func getValCol(tkns *t.TokenList) (sqtables.Expr, error) {
 		}
 
 		// Function with a single expression argument
-		if fName := tkns.Test(t.TypeTKN); fName != "" {
+		if fName := tkns.Test(tokens.TypeTKN); fName != "" {
 			tkns.Remove()
-			if tkns.Peek().GetName() != t.OpenBracket {
-				return nil, e.NewSyntaxf("Function %s must be followed by (", fName)
+			if tkns.IsEmpty() || tkns.Peek().GetName() != tokens.OpenBracket {
+				return nil, sqerr.NewSyntaxf("Function %s must be followed by (", fName)
 			}
 			tkns.Remove()
-			exp, err = getExpr(tkns, nil, 0, t.CloseBracket)
+			exp, err = GetExpr(tkns, nil, 0, tokens.CloseBracket)
 			if err != nil {
 				return nil, err
 			}
-			if tkns.Peek().GetName() != t.CloseBracket {
-				return nil, e.NewSyntaxf("Function %s is missing ) after expression", fName)
+			if exp == nil {
+				return nil, sqerr.NewSyntaxf("Function %s is missing an expression between ( and )", fName)
+			}
+			if tkns.IsEmpty() || tkns.Peek().GetName() != tokens.CloseBracket {
+				return nil, sqerr.NewSyntaxf("Function %s is missing ) after expression", fName)
 			}
 			tkns.Remove()
 			fexp := sqtables.NewFuncExpr(fName, exp)
 			return fexp, nil
 		}
 	}
-	return nil, sqerr.NewSyntax("Invalid expression: Unable to find a value or column")
+	if tkns.IsEmpty() {
+		return nil, sqerr.NewSyntax("Unexpected end to expression")
+	}
+
+	return nil, sqerr.NewSyntaxf("Invalid expression: Unable to find a value or column near %s", tkns.Peek().GetValue())
 }
 
-var precedence = map[string]int{
-	"+": 1,
-	"-": 1,
-	"*": 2,
-	"/": 2,
-	"%": 2,
+var exPrecedence = map[string]int{
+	tokens.Or:  0,
+	tokens.And: 1,
+	"=":        2,
+	"!=":       2,
+	"<":        2,
+	">":        2,
+	"<=":       2,
+	">=":       2,
+	"+":        3,
+	"-":        3,
+	"*":        4,
+	"/":        4,
+	"%":        4,
 }
 
-// getExpr uses a Operator-precedence parser algorthim based on pseudo code from Wikipedia
+// GetExpr uses a Operator-precedence parser algorthim based on pseudo code from Wikipedia
 //    (see https://en.wikipedia.org/wiki/Operator-precedence_parser for more details)
-func getExpr(tkns *t.TokenList, lExp sqtables.Expr, minPrecedence int, terminators ...string) (sqtables.Expr, error) {
+func GetExpr(tkns *tokens.TokenList, lExp sqtables.Expr, minPrecedence int, terminators ...string) (sqtables.Expr, error) {
 	var rExp sqtables.Expr
 	var err error
 
@@ -268,8 +208,8 @@ func getExpr(tkns *t.TokenList, lExp sqtables.Expr, minPrecedence int, terminato
 		return lExp, nil
 	}
 	lookahead := tkns.Peek().GetValue()
-	_, ok := precedence[lookahead]
-	for precedence[lookahead] >= minPrecedence && ok {
+	_, ok := exPrecedence[lookahead]
+	for exPrecedence[lookahead] >= minPrecedence && ok {
 		op := lookahead
 		tkns.Remove()
 		rExp, err = getValCol(tkns)
@@ -278,14 +218,14 @@ func getExpr(tkns *t.TokenList, lExp sqtables.Expr, minPrecedence int, terminato
 		}
 		if !tkns.IsEmpty() {
 			lookahead = tkns.Peek().GetValue()
-			_, ok = precedence[lookahead]
-			for precedence[lookahead] > precedence[op] && ok {
-				rExp, err = getExpr(tkns, rExp, precedence[lookahead], terminators...)
+			_, ok = exPrecedence[lookahead]
+			for exPrecedence[lookahead] > exPrecedence[op] && ok {
+				rExp, err = GetExpr(tkns, rExp, exPrecedence[lookahead], terminators...)
 				if err != nil {
 					return nil, err
 				}
 				if tkns.IsEmpty() {
-					return nil, sqerr.NewSyntax("Incomplete expression")
+					break
 				}
 
 				lookahead = tkns.Peek().GetValue()
@@ -301,6 +241,7 @@ func getExpr(tkns *t.TokenList, lExp sqtables.Expr, minPrecedence int, terminato
 
 	return lExp, err
 }
+
 func ifte(cond bool, a, b string) string {
 	if cond {
 		return a
@@ -309,14 +250,14 @@ func ifte(cond bool, a, b string) string {
 }
 
 // GetExprList - get a comma separated list of Expressions ended by a terminator token.
-func GetExprList(tkns *t.TokenList, terminator string, valuesOnly bool) (*sqtables.ExprList, error) {
+func GetExprList(tkns *tokens.TokenList, terminator string, valuesOnly bool) (*sqtables.ExprList, error) {
 	var eList sqtables.ExprList
 	var hasCount bool
 
 	// loop to get the expressions
 	for {
 		// get expression
-		exp, err := getExpr(tkns, nil, 1, terminator, t.Comma)
+		exp, err := GetExpr(tkns, nil, 1, terminator, tokens.Comma)
 		if err != nil {
 			return nil, err
 		}
@@ -344,21 +285,21 @@ func GetExprList(tkns *t.TokenList, terminator string, valuesOnly bool) (*sqtabl
 
 			break
 		}
-		if tkns.Test(t.Comma) != "" {
+		if tkns.Test(tokens.Comma) != "" {
 			tkns.Remove()
 			if tkns.Test(terminator) != "" {
 
-				return nil, sqerr.NewSyntaxf("Unexpected %q before %q", ",", t.GetSymbolFromTokenID(terminator))
+				return nil, sqerr.NewSyntaxf("Unexpected %q before %q", ",", tokens.GetSymbolFromTokenID(terminator))
 			}
 		} else {
 			return nil, sqerr.NewSyntax("Comma is required to separate " + ifte(valuesOnly, "values", "columns"))
 		}
 	}
 	if eList.Len() <= 0 {
-		return nil, e.NewSyntax(ifte(valuesOnly, "No values defined", "No columns defined for query"))
+		return nil, sqerr.NewSyntax(ifte(valuesOnly, "No values defined", "No columns defined for query"))
 	}
 	if hasCount && eList.Len() > 1 {
-		return nil, e.NewSyntax("Select Statements with Count() must not have other expressions")
+		return nil, sqerr.NewSyntax("Select Statements with Count() must not have other expressions")
 	}
 
 	if tkns.Test(terminator) == "" {

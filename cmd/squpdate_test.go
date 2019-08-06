@@ -11,9 +11,14 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
+
+func init() {
+	sqtest.TestInit("cmd_test.log")
+}
 
 type UpdateData struct {
 	TestName  string
@@ -119,7 +124,7 @@ func TestUpdate(t *testing.T) {
 		{
 			TestName:  "UPDATE with error in Where Clause",
 			SQLStr:    "UPDATE testupdate SET col1 = 99 WHERE col1 = \"test row 4\"",
-			ExpErr:    "Error: Type Mismatch in Where clause expression: col1(INT) = test row 4(STRING)",
+			ExpErr:    "Error: Type Mismatch: test row 4 is not an Int",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
 			ExpData:   sqtypes.RawVals{{1, "test row 1"}, {2, "test row 2"}, {3, "test row 3"}, {5, "test row 5"}, {6, "test row 6"}, {99, "test row 4"}},

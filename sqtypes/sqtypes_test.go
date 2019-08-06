@@ -192,7 +192,7 @@ func testWriteRead(a sqtypes.Value) func(*testing.T) {
 	}
 }
 
-type MathOpData struct {
+type OperationData struct {
 	name   string
 	a, b   sqtypes.Value
 	op     string
@@ -200,7 +200,7 @@ type MathOpData struct {
 	ExpErr string
 }
 
-func testMathOp(d MathOpData) func(*testing.T) {
+func testOperation(d OperationData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -208,7 +208,7 @@ func testMathOp(d MathOpData) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		actVal, err := d.a.MathOp(d.op, d.b)
+		actVal, err := d.a.Operation(d.op, d.b)
 		if err != nil {
 			log.Println(err.Error())
 			if d.ExpErr == "" {
@@ -253,7 +253,7 @@ func TestSQInt(t *testing.T) {
 	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
-	data := []MathOpData{
+	data := []OperationData{
 		{name: "int+int", a: a, b: b, op: "+", ExpVal: sqtypes.NewSQInt(1268), ExpErr: ""},
 		{name: "int-int", a: a, b: b, op: "-", ExpVal: sqtypes.NewSQInt(1200), ExpErr: ""},
 		{name: "int*int", a: a, b: b, op: "*", ExpVal: sqtypes.NewSQInt(41956), ExpErr: ""},
@@ -263,9 +263,23 @@ func TestSQInt(t *testing.T) {
 		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
 		{name: "Type Mismatch string", a: a, b: sqtypes.NewSQString("test"), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: test is not an Int"},
 		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not an Int"},
+		{name: "int=int : false", a: a, b: notEqualA, op: "=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int=int : true", a: a, b: equalA, op: "=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int!=int : true", a: a, b: notEqualA, op: "!=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int!=int : false", a: a, b: equalA, op: "!=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int<int : true", a: a, b: notEqualA, op: "<", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int<int : false", a: a, b: equalA, op: "<", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int>int : true", a: a, b: b, op: ">", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int>int : false", a: a, b: equalA, op: ">", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int<=int : true", a: a, b: notEqualA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int<=int : false", a: a, b: b, op: "<=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int<=int : Equal true", a: a, b: equalA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int>=int : true", a: a, b: b, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int>=int : false", a: a, b: notEqualA, op: ">=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int>=int : true", a: a, b: equalA, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
 	}
 	for _, row := range data {
-		t.Run(row.name, testMathOp(row))
+		t.Run(row.name, testOperation(row))
 	}
 }
 
@@ -287,7 +301,7 @@ func TestSQString(t *testing.T) {
 	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
-	data := []MathOpData{
+	data := []OperationData{
 		{name: "str+str", a: a, b: sqtypes.NewSQString(" !!!"), op: "+", ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: ""},
 		{name: "str-str", a: a, b: sqtypes.NewSQString(" !!!"), op: "-", ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid String Operator -"},
 		{name: "str*str", a: a, b: sqtypes.NewSQString(" !!!"), op: "*", ExpVal: sqtypes.NewSQInt(41956), ExpErr: "Syntax Error: Invalid String Operator *"},
@@ -297,14 +311,29 @@ func TestSQString(t *testing.T) {
 		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
 		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a String"},
 		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not a String"},
+		{name: "str=str : false", a: a, b: notEqualA, op: "=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str=str : true", a: a, b: equalA, op: "=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str!=str : true", a: a, b: notEqualA, op: "!=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str!=str : false", a: a, b: equalA, op: "!=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str<str : true", a: a, b: notEqualA, op: "<", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str<str : false", a: a, b: equalA, op: "<", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str>str : true", a: a, b: v, op: ">", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str>str : false", a: a, b: equalA, op: ">", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str<=str : true", a: a, b: notEqualA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str<=str : false", a: a, b: v, op: "<=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str<=str : Equal true", a: a, b: equalA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str>=str : true", a: a, b: v, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str>=str : false", a: a, b: notEqualA, op: ">=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str>=str : true", a: a, b: equalA, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
 	}
 	for _, row := range data {
-		t.Run(row.name, testMathOp(row))
+		t.Run(row.name, testOperation(row))
 	}
 }
 func TestSQBool(t *testing.T) {
 	v := sqtypes.NewSQBool(true)
 	a := sqtypes.NewSQBool(true)
+	b := sqtypes.NewSQBool(false)
 	equalA := sqtypes.NewSQBool(true)
 	notEqualA := sqtypes.NewSQBool(false)
 	t.Run("Type Test", testValueType(v, tokens.TypeBool))
@@ -321,7 +350,32 @@ func TestSQBool(t *testing.T) {
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read true", testWriteRead(a))
 	t.Run("Write/Read false", testWriteRead(notEqualA))
-	t.Run("MathOP", testMathOp(MathOpData{name: "MathOp", a: a, b: notEqualA, op: "+", ExpErr: "Syntax Error: Invalid Operation on type Bool"}))
+	data := []OperationData{
+		{name: "bool+bool", a: a, b: b, op: "+", ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: "Syntax Error: Invalid Bool Operator +"},
+		{name: "bool-bool", a: a, b: b, op: "-", ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid Bool Operator -"},
+		{name: "bool*bool", a: a, b: b, op: "*", ExpVal: sqtypes.NewSQInt(41956), ExpErr: "Syntax Error: Invalid Bool Operator *"},
+		{name: "bool div bool", a: a, b: b, op: "/", ExpVal: sqtypes.NewSQInt(36), ExpErr: "Syntax Error: Invalid Bool Operator /"},
+		{name: "bool%bool", a: a, b: b, op: "%", ExpVal: sqtypes.NewSQInt(10), ExpErr: "Syntax Error: Invalid Bool Operator %"},
+		{name: "Invalid operator", a: a, b: b, op: "~", ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid Bool Operator ~"},
+		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
+		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a Bool"},
+		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not a Bool"},
+		{name: "bool=bool : false", a: a, b: notEqualA, op: "=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "bool=bool : true", a: a, b: equalA, op: "=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "bool!=bool : true", a: a, b: notEqualA, op: "!=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "bool!=bool : false", a: a, b: equalA, op: "!=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "bool<bool : true", a: a, b: notEqualA, op: "<", ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator <"},
+		{name: "bool>bool : true", a: a, b: v, op: ">", ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator >"},
+		{name: "bool<=bool : true", a: a, b: notEqualA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator <="},
+		{name: "bool>=bool : true", a: a, b: v, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator >="},
+		{name: "bool and bool : true", a: a, b: v, op: tokens.And, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "bool and bool : false", a: a, b: b, op: tokens.And, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "bool or bool : true", a: a, b: b, op: tokens.Or, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "bool or bool : false", a: b, b: b, op: tokens.Or, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+	}
+	for _, row := range data {
+		t.Run(row.name, testOperation(row))
+	}
 }
 func TestSQNull(t *testing.T) {
 	v := sqtypes.NewSQNull()
@@ -341,7 +395,7 @@ func TestSQNull(t *testing.T) {
 	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
 	t.Run("IsNull", testisNull(a, true))
 	t.Run("Write/Read", testWriteRead(a))
-	t.Run("MathOP", testMathOp(MathOpData{name: "MathOp", a: a, b: notEqualA, op: "+", ExpVal: v, ExpErr: ""}))
+	t.Run("Operation", testOperation(OperationData{name: "Operation", a: a, b: notEqualA, op: "+", ExpVal: v, ExpErr: ""}))
 
 }
 
@@ -365,7 +419,7 @@ func TestSQFloat(t *testing.T) {
 	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
-	data := []MathOpData{
+	data := []OperationData{
 		{name: "float+float", a: a, b: b, op: "+", ExpVal: sqtypes.NewSQFloat(1240.8876), ExpErr: ""},
 		{name: "float-float", a: a, b: b, op: "-", ExpVal: sqtypes.NewSQFloat(1229.0875999999998), ExpErr: ""},
 		{name: "float*float", a: a, b: b, op: "*", ExpVal: sqtypes.NewSQFloat(7286.42684), ExpErr: ""},
@@ -375,9 +429,23 @@ func TestSQFloat(t *testing.T) {
 		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
 		{name: "Type Mismatch string", a: a, b: sqtypes.NewSQString("test"), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: test is not a Float"},
 		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a Float"},
+		{name: "float=float : false", a: a, b: notEqualA, op: "=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float=float : true", a: a, b: equalA, op: "=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float!=float : true", a: a, b: notEqualA, op: "!=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float!=float : false", a: a, b: equalA, op: "!=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float<float : true", a: a, b: notEqualA, op: "<", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float<float : false", a: a, b: equalA, op: "<", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float>float : true", a: a, b: b, op: ">", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float>float : false", a: a, b: equalA, op: ">", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float<=float : true", a: a, b: notEqualA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float<=float : false", a: a, b: b, op: "<=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float<=float : Equal true", a: a, b: equalA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float>=float : true", a: a, b: b, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float>=float : false", a: a, b: notEqualA, op: ">=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float>=float : true", a: a, b: equalA, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
 	}
 	for _, row := range data {
-		t.Run(row.name, testMathOp(row))
+		t.Run(row.name, testOperation(row))
 	}
 }
 
