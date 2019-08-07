@@ -274,9 +274,16 @@ func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Va
 	if err != nil {
 		return nil, err
 	}
+	if vL == nil {
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.GetName())
+	}
+
 	vR, err := e.exR.Evaluate(profile, row)
 	if err != nil {
 		return nil, err
+	}
+	if vR == nil {
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exR.GetName())
 	}
 
 	return vL.Operation(e.Operator, vR)
@@ -492,6 +499,9 @@ func (e *NegateExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtype
 	if err != nil {
 		return nil, err
 	}
+	if vL == nil {
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.GetName())
+	}
 
 	switch tp := vL.(type) {
 	case sqtypes.SQInt:
@@ -620,6 +630,9 @@ func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (retVal s
 	vL, err = e.exL.Evaluate(profile, row)
 	if err != nil {
 		return
+	}
+	if vL == nil {
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.GetName())
 	}
 
 	retVal, err = evalFunc(e.Cmd, vL)

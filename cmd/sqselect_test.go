@@ -451,6 +451,42 @@ func TestSelect(t *testing.T) {
 				{7890, "Seltest 3", false},
 			},
 		},
+		{
+			TestName: "SELECT Where count() ",
+			Command:  "SELECT col1 FROM seltest Where col1 <count()",
+			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Where -count() ",
+			Command:  "SELECT col1 FROM seltest Where col1 = -count()",
+			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Where FLOAT(count()) ",
+			Command:  "SELECT col1 FROM seltest Where FLOAT(col1) < FLOAT(count())",
+			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
 	}
 
 	for i, row := range data {

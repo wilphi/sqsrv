@@ -619,6 +619,38 @@ func TestEvaluateExpr(t *testing.T) {
 			ExpVal:   sqtypes.NewSQString("1234"),
 			ExpErr:   "",
 		},
+		{
+			TestName: "Operator Right with count",
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1)), "+", sqtables.NewCountExpr()),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   nil,
+			ExpErr:   "Error: Unable to evaluate \"count()\"",
+		},
+		{
+			TestName: "Operator Left with count",
+			e:        sqtables.NewOpExpr(sqtables.NewCountExpr(), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   nil,
+			ExpErr:   "Error: Unable to evaluate \"count()\"",
+		},
+		{
+			TestName: "Negate with count",
+			e:        sqtables.NewNegateExpr(sqtables.NewCountExpr()),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   nil,
+			ExpErr:   "Error: Unable to evaluate \"count()\"",
+		},
+		{
+			TestName: "Int Function with count",
+			e:        sqtables.NewFuncExpr(tokens.TypeInt, sqtables.NewCountExpr()),
+			profile:  profile,
+			row:      nil,
+			ExpVal:   nil,
+			ExpErr:   "Error: Unable to evaluate \"count()\"",
+		},
 	}
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
