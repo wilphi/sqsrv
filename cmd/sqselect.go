@@ -84,10 +84,16 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 		}
 	}
 
+	whereProcessed := false
+	orderByProcessed := false
 	// loop twice just in case the where clause is after the order by clause
 	for i := 0; i < 2; i++ {
 		// Optional Where clause processing goes here
 		if tkns.Test(tokens.Where) != "" {
+			if whereProcessed {
+				return nil, sqerr.NewSyntax("Duplicate where clause, only one allowed")
+			}
+			whereProcessed = true
 			tkns.Remove()
 			whereExpr, err = GetExpr(tkns, nil, 0, tokens.Order)
 			if err != nil {
@@ -105,6 +111,10 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 
 		// Optional Order By clause processing goes here
 		if tkns.Test(tokens.Order) != "" {
+			if orderByProcessed {
+				return nil, sqerr.NewSyntax("Duplicate order by clause, only one allowed")
+			}
+			orderByProcessed = true
 			tkns.Remove()
 			orderBy, err = OrderByClause(tkns)
 			if err != nil {

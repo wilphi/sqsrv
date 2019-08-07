@@ -391,6 +391,66 @@ func TestSelect(t *testing.T) {
 				{7890, "Seltest 3", false},
 			},
 		},
+		{
+			TestName: "SELECT Double Where ",
+			Command:  "SELECT col1 FROM seltest WHERE col1 = 456 Where col1=123",
+			ExpErr:   "Syntax Error: Duplicate where clause, only one allowed",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Double Order By ",
+			Command:  "SELECT col1 FROM seltest Order by col1 Order by col1 desc",
+			ExpErr:   "Syntax Error: Duplicate order by clause, only one allowed",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Where expression err ",
+			Command:  "SELECT col1 FROM seltest Where col1<",
+			ExpErr:   "Syntax Error: Unexpected end to expression",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Where expression err invalid col ",
+			Command:  "SELECT col1 FROM seltest Where colX<5",
+			ExpErr:   "Error: Table seltest does not have a column named colX",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Where expression err reduce ",
+			Command:  "SELECT col1 FROM seltest Where colX<(5-\"test\")",
+			ExpErr:   "Error: Type Mismatch: test is not an Int",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
 	}
 
 	for i, row := range data {
