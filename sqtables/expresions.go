@@ -274,9 +274,16 @@ func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Va
 	if err != nil {
 		return nil, err
 	}
+	if vL == nil {
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.GetName())
+	}
+
 	vR, err := e.exR.Evaluate(profile, row)
 	if err != nil {
 		return nil, err
+	}
+	if vR == nil {
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exR.GetName())
 	}
 
 	return vL.Operation(e.Operator, vR)
