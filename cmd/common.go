@@ -96,18 +96,26 @@ func OrderByClause(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
 	return orderBy, nil
 }
 
-func getValCol(tkns *tokens.TokenList) (sqtables.Expr, error) {
-	var exp sqtables.Expr
+func getValCol(tkns *tokens.TokenList) (exp sqtables.Expr, err error) {
 	var mSign bool
-	exp = nil
+	var v sqtypes.Value
 
 	if tkns.Test(tokens.Minus) != "" {
 		mSign = true
 		tkns.Remove()
 	}
+	if tkns.Test(tokens.OpenBracket) != "" {
+		tkns.Remove()
+		exp, err = GetExpr(tkns, nil, 0, tokens.CloseBracket)
+		if tkns.Test(tokens.CloseBracket) == "" {
+			return nil, sqerr.NewSyntax("'(' does not have a matching ')'")
+		}
+		tkns.Remove()
+		return exp, err
+	}
 	tkn := tkns.Peek()
 	if tkn != nil {
-		v, err := sqtypes.CreateValueFromToken(*tkn)
+		v, err = sqtypes.CreateValueFromToken(*tkn)
 		if err == nil {
 			//Token is a value
 			exp = sqtables.NewValueExpr(v)
@@ -229,6 +237,7 @@ func GetExpr(tkns *tokens.TokenList, lExp sqtables.Expr, minPrecedence int, term
 				}
 
 				lookahead = tkns.Peek().GetValue()
+				_, ok = exPrecedence[lookahead]
 			}
 		}
 		lExp = sqtables.NewOpExpr(lExp, op, rExp)
@@ -236,8 +245,6 @@ func GetExpr(tkns *tokens.TokenList, lExp sqtables.Expr, minPrecedence int, term
 			break
 		}
 	}
-
-	//	}
 
 	return lExp, err
 }

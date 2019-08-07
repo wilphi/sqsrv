@@ -284,6 +284,34 @@ func TestGetExpr(t *testing.T) {
 			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column near BY",
 			ExpExpr:    "count()",
 		},
+		{
+			TestName:   "Brackets Expression",
+			Terminator: tokens.From,
+			Command:    "8/2*(2+2)",
+			ExpErr:     "",
+			ExpExpr:    "((8/2)*(2+2))",
+		},
+		{
+			TestName:   "Brackets Expression 2",
+			Terminator: tokens.From,
+			Command:    "8/(2+2)*2",
+			ExpErr:     "",
+			ExpExpr:    "((8/(2+2))*2)",
+		},
+		{
+			TestName:   "Brackets Expression Missing End Bracket",
+			Terminator: tokens.From,
+			Command:    "8/(2+2*2",
+			ExpErr:     "Syntax Error: '(' does not have a matching ')'",
+			ExpExpr:    "((8/(2+2))*2)",
+		},
+		{
+			TestName:   "Complex Brackets Expression",
+			Terminator: tokens.From,
+			Command:    "8/(2+((9-3)/1)*(2+1))*2",
+			ExpErr:     "",
+			ExpExpr:    "((8/(2+(((9-3)/1)*(2+1))))*2)",
+		},
 	}
 
 	for i, row := range data {
