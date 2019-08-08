@@ -57,7 +57,7 @@ func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 	}
 }
 
-func testGetLeftFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
+func testLeftFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -65,13 +65,13 @@ func testGetLeftFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		if !reflect.DeepEqual(e.GetLeft(), ExpExpr) {
+		if !reflect.DeepEqual(e.Left(), ExpExpr) {
 			t.Errorf("Actual Expr does not match Expected Expr")
 			return
 		}
 	}
 }
-func testGetRightFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
+func testRightFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -79,7 +79,7 @@ func testGetRightFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		if !reflect.DeepEqual(e.GetRight(), ExpExpr) {
+		if !reflect.DeepEqual(e.Right(), ExpExpr) {
 			t.Errorf("Actual Expr does not match Expected Expr")
 			return
 		}
@@ -97,7 +97,7 @@ func testSetLeftFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 			}
 		}()
 		a.SetLeft(b)
-		if !reflect.DeepEqual(a.GetLeft(), b) {
+		if !reflect.DeepEqual(a.Left(), b) {
 			t.Errorf("Actual Expr does not match Expected Expr")
 			return
 		}
@@ -115,13 +115,13 @@ func testSetRightFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 			}
 		}()
 		a.SetRight(b)
-		if !reflect.DeepEqual(a.GetRight(), b) {
+		if !reflect.DeepEqual(a.Right(), b) {
 			t.Errorf("Actual Expr does not match Expected Expr")
 			return
 		}
 	}
 }
-func testToStringFunc(e sqtables.Expr, ExpVal string) func(*testing.T) {
+func testToStringFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -129,13 +129,15 @@ func testToStringFunc(e sqtables.Expr, ExpVal string) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
+		e.SetAlias(alias)
+
 		if e.ToString() != ExpVal {
 			t.Errorf("Actual value %q does not match Expected value %q", e.ToString(), ExpVal)
 			return
 		}
 	}
 }
-func testGetNameFunc(e sqtables.Expr, ExpVal string) func(*testing.T) {
+func testGetNameFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -143,9 +145,16 @@ func testGetNameFunc(e sqtables.Expr, ExpVal string) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		if e.GetName() != ExpVal {
-			t.Errorf("Actual value %q does not match Expected value %q", e.GetName(), ExpVal)
+		if e.Name() != ExpVal {
+			t.Errorf("Actual value %q does not match Expected value %q", e.Name(), ExpVal)
 			return
+		}
+		if alias != "" {
+			e.SetAlias(alias)
+			if e.Name() != alias {
+				t.Errorf("Name with alias set: ActualValue %q does not match Expected Value %q", e.Name(), alias)
+				return
+			}
 		}
 	}
 }
@@ -157,8 +166,8 @@ func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		if !reflect.DeepEqual(e.GetColDef(), col) {
-			t.Errorf("Actual value %v does not match Expected value %v", e.GetColDef(), col)
+		if !reflect.DeepEqual(e.ColDef(), col) {
+			t.Errorf("Actual value %v does not match Expected value %v", e.ColDef(), col)
 			return
 		}
 	}
@@ -182,7 +191,7 @@ func TestGetLeftExpr(t *testing.T) {
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testGetLeftFunc(row.TestExpr, row.ExpExpr))
+			testLeftFunc(row.TestExpr, row.ExpExpr))
 	}
 }
 
@@ -227,7 +236,7 @@ func TestGetRightExpr(t *testing.T) {
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testGetRightFunc(row.TestExpr, row.ExpExpr))
+			testRightFunc(row.TestExpr, row.ExpExpr))
 	}
 }
 
@@ -255,46 +264,85 @@ func TestSetRightExpr(t *testing.T) {
 }
 
 func TestToStringExpr(t *testing.T) {
-	vExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	cExpr := sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"})
 	data := []struct {
 		TestName string
 		TestExpr sqtables.Expr
 		ExpVal   string
+		Alias    string
 	}{
-		{TestName: "ValueExpr", TestExpr: vExpr, ExpVal: "1"},
-		{TestName: "ColExpr", TestExpr: cExpr, ExpVal: "col1[INT]"},
-		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpVal: "(col1[INT]+1)"},
+		{
+			TestName: "ValueExpr",
+			TestExpr: sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
+			ExpVal:   "1234",
+		},
+		{
+			TestName: "ValueExpr with alias",
+			TestExpr: sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
+			ExpVal:   "1234 vAlias",
+			Alias:    "vAlias",
+		},
+		{
+			TestName: "ColExpr",
+			TestExpr: sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"}),
+			ExpVal:   "col1",
+		},
+		{
+			TestName: "ColExpr with alias",
+			TestExpr: sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"}),
+			ExpVal:   "col1 cAlias",
+			Alias:    "cAlias",
+		},
+		{
+			TestName: "OpExpr",
+			TestExpr: sqtables.NewOpExpr(
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"}),
+				"+",
+				sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
+			),
+			ExpVal: "(col1+1234)",
+		},
+		{
+			TestName: "OpExpr with Alias",
+			TestExpr: sqtables.NewOpExpr(
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"}),
+				"+",
+				sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
+			),
+			ExpVal: "(col1+1234) oAlias",
+			Alias:  "oAlias",
+		},
 		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpVal: "count()"},
-		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpVal: "(-1)"},
-		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpVal: "FLOAT(1)"},
+		{TestName: "CountExpr with Alias", TestExpr: sqtables.NewCountExpr(), ExpVal: "count() cntAlias", Alias: "cntAlias"},
+		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1234))), ExpVal: "(-1234)"},
+		{TestName: "NegateExpr with Alias", TestExpr: sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1234))), ExpVal: "(-1234) nAlias", Alias: "nAlias"},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewValueExpr(sqtypes.NewSQInt(1234))), ExpVal: "FLOAT(1234)"},
+		{TestName: "FuncExpr with Alias", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewValueExpr(sqtypes.NewSQInt(1234))), ExpVal: "FLOAT(1234) fAlias", Alias: "fAlias"},
 	}
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testToStringFunc(row.TestExpr, row.ExpVal))
+			testToStringFunc(row.TestExpr, row.ExpVal, row.Alias))
 	}
 }
 
 func TestGetNameExpr(t *testing.T) {
-	vExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	cExpr := sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"})
 	data := []struct {
 		TestName string
 		TestExpr sqtables.Expr
 		ExpVal   string
+		Alias    string
 	}{
-		{TestName: "ValueExpr", TestExpr: vExpr, ExpVal: "1"},
-		{TestName: "ColExpr", TestExpr: cExpr, ExpVal: "col1"},
-		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpVal: "(col1+1)"},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpVal: "count()"},
-		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpVal: "(-1)"},
-		{TestName: "FloatExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpVal: "FLOAT(1)"},
+		{TestName: "ValueExpr", TestExpr: sqtables.NewValueExpr(sqtypes.NewSQInt(1)), ExpVal: "1", Alias: "vAlias"},
+		{TestName: "ColExpr", TestExpr: sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"}), ExpVal: "col1", Alias: "colAlias"},
+		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"}), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "(col1+1)", Alias: "opAlias"},
+		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpVal: "count()", Alias: "cntAlias"},
+		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "(-1)", Alias: "negAlias"},
+		{TestName: "FloatExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "FLOAT(1)", Alias: "funcAlias"},
 	}
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testGetNameFunc(row.TestExpr, row.ExpVal))
+			testGetNameFunc(row.TestExpr, row.ExpVal, row.Alias))
 	}
 }
 
@@ -714,7 +762,7 @@ func TestReduceExpr(t *testing.T) {
 		{
 			TestName: "Col Expr",
 			e:        sqtables.NewColExpr(sqtables.CreateColDef("col2", "STRING", false)),
-			ExpExpr:  "col2[STRING]",
+			ExpExpr:  "col2",
 			ExpErr:   "",
 		},
 		{
@@ -724,7 +772,7 @@ func TestReduceExpr(t *testing.T) {
 				"+",
 				sqtables.NewValueExpr(sqtypes.NewSQString(" Test")),
 			),
-			ExpExpr: "(col2[STRING]+ Test)",
+			ExpExpr: "(col2+ Test)",
 			ExpErr:  "",
 		},
 		{
@@ -794,7 +842,7 @@ func TestReduceExpr(t *testing.T) {
 			e: sqtables.NewNegateExpr(
 				sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false)),
 			),
-			ExpExpr: "(-col1[INT])",
+			ExpExpr: "(-col1)",
 			ExpErr:  "",
 		},
 		{

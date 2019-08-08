@@ -20,35 +20,36 @@ const (
 
 // Expr interface maintains a tree structure of expressions that will eventually evaluate to a single value
 type Expr interface {
-	GetLeft() Expr
-	GetRight() Expr
+	Left() Expr
+	Right() Expr
 	SetLeft(ex Expr)
 	SetRight(ex Expr)
 	ToString() string
-	GetName() string
-	GetColDef() ColDef
+	Name() string
+	ColDef() ColDef
 	Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Value, error)
 	Reduce() (Expr, error)
 	ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error
 	Encode() *sqbin.Codec
 	Decode(*sqbin.Codec)
+	SetAlias(alias string)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ValueExpr stores a single value. It is a leaf node for the Expr tree
 type ValueExpr struct {
-	v    sqtypes.Value
-	name string
+	v     sqtypes.Value
+	alias string
 }
 
-// GetLeft - ValueExpr is a leaf node, it will always return nil
-func (e *ValueExpr) GetLeft() Expr {
+// Left - ValueExpr is a leaf node, it will always return nil
+func (e *ValueExpr) Left() Expr {
 	return nil
 }
 
-// GetRight - ValueExpr is a leaf node, it will always return nil
-func (e *ValueExpr) GetRight() Expr {
+// Right - ValueExpr is a leaf node, it will always return nil
+func (e *ValueExpr) Right() Expr {
 	return nil
 }
 
@@ -65,17 +66,24 @@ func (e *ValueExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *ValueExpr) ToString() string {
-	return e.v.ToString()
+	str := e.v.ToString()
+	if e.alias != "" {
+		str += " " + e.alias
+	}
+	return str
 }
 
-// GetName returns the name of the expression
-func (e *ValueExpr) GetName() string {
-	return e.name
+// Name returns the name of the expression
+func (e *ValueExpr) Name() string {
+	if e.alias != "" {
+		return e.alias
+	}
+	return e.ToString()
 }
 
-// GetColDef returns a column definition for the expression
-func (e *ValueExpr) GetColDef() ColDef {
-	return ColDef{ColName: e.GetName(), ColType: e.v.Type()}
+// ColDef returns a column definition for the expression
+func (e *ValueExpr) ColDef() ColDef {
+	return ColDef{ColName: e.Name(), ColType: e.v.Type()}
 }
 
 // Evaluate -
@@ -95,7 +103,7 @@ func (e *ValueExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) er
 
 // NewValueExpr creates a new ValueExpr object
 func NewValueExpr(v sqtypes.Value) Expr {
-	return &ValueExpr{v: v, name: v.ToString()}
+	return &ValueExpr{v: v}
 }
 
 // Encode returns a binary encoded version of the expression
@@ -104,7 +112,7 @@ func (e *ValueExpr) Encode() *sqbin.Codec {
 	// Identify the type of Expression
 	enc.Writebyte(IDValueExpr)
 
-	enc.WriteString(e.name)
+	enc.WriteString(e.alias)
 	// Write out the value
 	e.v.Write(enc)
 
@@ -117,26 +125,31 @@ func (e *ValueExpr) Decode(dec *sqbin.Codec) {
 	if mkr != IDValueExpr {
 		log.Panic("Found wrong statement type. Expecting IDValueExpr")
 	}
-	e.name = dec.ReadString()
+	e.alias = dec.ReadString()
 	e.v = sqtypes.ReadValue(dec)
 
+}
+
+//SetAlias sets an alternative name for the expression
+func (e *ValueExpr) SetAlias(alias string) {
+	e.alias = alias
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ColExpr stores information about a column to allow Evaluate() to determine the correct Value
 type ColExpr struct {
-	col  ColDef
-	name string
+	col   ColDef
+	alias string
 }
 
-// GetLeft - ColExpr is a leaf node, it will always return nil
-func (e *ColExpr) GetLeft() Expr {
+// Left - ColExpr is a leaf node, it will always return nil
+func (e *ColExpr) Left() Expr {
 	return nil
 }
 
-// GetRight - ColExpr is a leaf node, it will always return nil
-func (e *ColExpr) GetRight() Expr {
+// Right - ColExpr is a leaf node, it will always return nil
+func (e *ColExpr) Right() Expr {
 	return nil
 }
 
@@ -153,16 +166,23 @@ func (e *ColExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *ColExpr) ToString() string {
-	return e.col.ColName + "[" + e.col.ColType + "]"
+	str := e.col.ColName
+	if e.alias != "" {
+		str += " " + e.alias
+	}
+	return str
 }
 
-// GetName returns the name of the expression
-func (e *ColExpr) GetName() string {
-	return e.name
+// Name returns the name of the expression
+func (e *ColExpr) Name() string {
+	if e.alias != "" {
+		return e.alias
+	}
+	return e.ToString()
 }
 
-// GetColDef returns a column definition for the expression
-func (e *ColExpr) GetColDef() ColDef {
+// ColDef returns a column definition for the expression
+func (e *ColExpr) ColDef() ColDef {
 	return e.col
 }
 
@@ -196,7 +216,7 @@ func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) erro
 
 // NewColExpr creates a new ColExpr object
 func NewColExpr(c ColDef) Expr {
-	return &ColExpr{col: c, name: c.ColName}
+	return &ColExpr{col: c}
 
 }
 
@@ -204,7 +224,7 @@ func NewColExpr(c ColDef) Expr {
 func (e *ColExpr) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	enc.Writebyte(IDColExpr)
-	enc.WriteString(e.name)
+	enc.WriteString(e.alias)
 
 	// Write out the value
 	e.col.Encode(enc)
@@ -218,9 +238,14 @@ func (e *ColExpr) Decode(dec *sqbin.Codec) {
 	if mkr != IDColExpr {
 		log.Panic("Found wrong statement type. Expecting ColExpr")
 	}
-	e.name = dec.ReadString()
+	e.alias = dec.ReadString()
 	e.col.Decode(dec)
 
+}
+
+//SetAlias sets an alternative name for the expression
+func (e *ColExpr) SetAlias(alias string) {
+	e.alias = alias
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -229,16 +254,16 @@ func (e *ColExpr) Decode(dec *sqbin.Codec) {
 type OpExpr struct {
 	exL, exR Expr
 	Operator string
-	name     string
+	alias    string
 }
 
-// GetLeft - returns the left expression for OpExpr
-func (e *OpExpr) GetLeft() Expr {
+// Left - returns the left expression for OpExpr
+func (e *OpExpr) Left() Expr {
 	return e.exL
 }
 
-// GetRight -returns the right expression for OpExpr
-func (e *OpExpr) GetRight() Expr {
+// Right -returns the right expression for OpExpr
+func (e *OpExpr) Right() Expr {
 	return e.exR
 }
 
@@ -254,18 +279,25 @@ func (e *OpExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *OpExpr) ToString() string {
-	return "(" + e.exL.ToString() + e.Operator + e.exR.ToString() + ")"
+	str := "(" + e.exL.ToString() + e.Operator + e.exR.ToString() + ")"
+	if e.alias != "" {
+		str += " " + e.alias
+	}
+	return str
 }
 
-// GetName returns the name of the expression
-func (e *OpExpr) GetName() string {
-	return e.name
+// Name returns the name of the expression
+func (e *OpExpr) Name() string {
+	if e.alias != "" {
+		return e.alias
+	}
+	return e.ToString()
 }
 
-// GetColDef returns a column definition for the expression
-func (e *OpExpr) GetColDef() ColDef {
-	col := e.exL.GetColDef()
-	return ColDef{ColName: e.GetName(), ColType: col.ColType}
+// ColDef returns a column definition for the expression
+func (e *OpExpr) ColDef() ColDef {
+	col := e.exL.ColDef()
+	return ColDef{ColName: e.Name(), ColType: col.ColType}
 }
 
 // Evaluate -
@@ -275,7 +307,7 @@ func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Va
 		return nil, err
 	}
 	if vL == nil {
-		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.GetName())
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
 	}
 
 	vR, err := e.exR.Evaluate(profile, row)
@@ -283,7 +315,7 @@ func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Va
 		return nil, err
 	}
 	if vR == nil {
-		return nil, sqerr.Newf("Unable to evaluate %q", e.exR.GetName())
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exR.Name())
 	}
 
 	return vL.Operation(e.Operator, vR)
@@ -328,7 +360,7 @@ func (e *OpExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error
 
 // NewOpExpr creates a new OpExpr and returns it as an Expr
 func NewOpExpr(exL Expr, op string, exR Expr) Expr {
-	return &OpExpr{exL: exL, Operator: op, exR: exR, name: "(" + exL.GetName() + op + exR.GetName() + ")"}
+	return &OpExpr{exL: exL, Operator: op, exR: exR}
 }
 
 // Encode returns a binary encoded version of the expression
@@ -337,7 +369,7 @@ func (e *OpExpr) Encode() *sqbin.Codec {
 
 	// Identify the type of Expression
 	enc.Writebyte(IDOpExpr)
-	enc.WriteString(e.name)
+	enc.WriteString(e.alias)
 
 	enc.WriteString(e.Operator)
 
@@ -356,12 +388,17 @@ func (e *OpExpr) Decode(dec *sqbin.Codec) {
 	if mkr != IDOpExpr {
 		log.Panic("Found wrong statement type. Expecting IDOpExpr")
 	}
-	e.name = dec.ReadString()
+	e.alias = dec.ReadString()
 	e.Operator = dec.ReadString()
 	e.exL = DecodeExpr(dec)
 
 	e.exR = DecodeExpr(dec)
 
+}
+
+//SetAlias sets an alternative name for the expression
+func (e *OpExpr) SetAlias(alias string) {
+	e.alias = alias
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -370,18 +407,18 @@ func (e *OpExpr) Decode(dec *sqbin.Codec) {
 
 // CountExpr stores information about a function to allow Evaluate() to determine the correct Value
 type CountExpr struct {
-	Cmd  string
-	name string
-	cnt  int
+	Cmd   string
+	alias string
+	cnt   int
 }
 
-// GetLeft - CountExpr is a leaf node, it will always return nil
-func (e *CountExpr) GetLeft() Expr {
+// Left - CountExpr is a leaf node, it will always return nil
+func (e *CountExpr) Left() Expr {
 	return nil
 }
 
-// GetRight - CountExpr is a leaf node, it will always return nil
-func (e *CountExpr) GetRight() Expr {
+// Right - CountExpr is a leaf node, it will always return nil
+func (e *CountExpr) Right() Expr {
 	return nil
 }
 
@@ -398,17 +435,24 @@ func (e *CountExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *CountExpr) ToString() string {
-	return "count()"
+	str := "count()"
+	if e.alias != "" {
+		str += " " + e.alias
+	}
+	return str
 }
 
-// GetName returns the name of the expression
-func (e *CountExpr) GetName() string {
-	return e.name
+// Name returns the name of the expression
+func (e *CountExpr) Name() string {
+	if e.alias != "" {
+		return e.alias
+	}
+	return e.ToString()
 }
 
-// GetColDef returns a column definition for the expression
-func (e *CountExpr) GetColDef() ColDef {
-	return ColDef{ColName: e.GetName(), ColType: "INT"}
+// ColDef returns a column definition for the expression
+func (e *CountExpr) ColDef() ColDef {
+	return ColDef{ColName: e.Name(), ColType: "INT"}
 }
 
 // Evaluate -
@@ -430,7 +474,7 @@ func (e *CountExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) er
 
 // NewCountExpr creates a new CountExpr object
 func NewCountExpr() Expr {
-	return &CountExpr{name: "count()"}
+	return &CountExpr{}
 
 }
 
@@ -446,21 +490,26 @@ func (e *CountExpr) Decode(*sqbin.Codec) {
 	panic("CountExpr Decode not implemented")
 }
 
+//SetAlias sets an alternative name for the expression
+func (e *CountExpr) SetAlias(alias string) {
+	e.alias = alias
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // NegateExpr allows for an operator to create a value based on two other values
 type NegateExpr struct {
-	exL  Expr
-	name string
+	exL   Expr
+	alias string
 }
 
-// GetLeft - returns the left expression for NegateExpr
-func (e *NegateExpr) GetLeft() Expr {
+// Left - returns the left expression for NegateExpr
+func (e *NegateExpr) Left() Expr {
 	return e.exL
 }
 
-// GetRight -returns the right expression for NegateExpr
-func (e *NegateExpr) GetRight() Expr {
+// Right -returns the right expression for NegateExpr
+func (e *NegateExpr) Right() Expr {
 	return nil
 }
 
@@ -477,18 +526,25 @@ func (e *NegateExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *NegateExpr) ToString() string {
-	return "(-" + e.exL.ToString() + ")"
+	str := "(-" + e.exL.ToString() + ")"
+	if e.alias != "" {
+		str += " " + e.alias
+	}
+	return str
 }
 
-// GetName returns the name of the expression
-func (e *NegateExpr) GetName() string {
-	return e.name
+// Name returns the name of the expression
+func (e *NegateExpr) Name() string {
+	if e.alias != "" {
+		return e.alias
+	}
+	return e.ToString()
 }
 
-// GetColDef returns a column definition for the expression
-func (e *NegateExpr) GetColDef() ColDef {
-	col := e.exL.GetColDef()
-	return ColDef{ColName: e.GetName(), ColType: col.ColType}
+// ColDef returns a column definition for the expression
+func (e *NegateExpr) ColDef() ColDef {
+	col := e.exL.ColDef()
+	return ColDef{ColName: e.Name(), ColType: col.ColType}
 }
 
 // Evaluate -
@@ -500,7 +556,7 @@ func (e *NegateExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtype
 		return nil, err
 	}
 	if vL == nil {
-		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.GetName())
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
 	}
 
 	switch tp := vL.(type) {
@@ -551,7 +607,7 @@ func (e *NegateExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) e
 
 // NewNegateExpr creates a new NegateExpr and returns it as an Expr
 func NewNegateExpr(exL Expr) Expr {
-	return &NegateExpr{exL: exL, name: "(-" + exL.GetName() + ")"}
+	return &NegateExpr{exL: exL}
 }
 
 // Encode returns a binary encoded version of the expression
@@ -559,7 +615,7 @@ func (e *NegateExpr) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of Expression
 	enc.Writebyte(IDNegateExpr)
-	enc.WriteString(e.name)
+	enc.WriteString(e.alias)
 
 	tmp := e.exL.Encode()
 	enc.Write(tmp.Bytes())
@@ -573,27 +629,32 @@ func (e *NegateExpr) Decode(dec *sqbin.Codec) {
 	if mkr != IDNegateExpr {
 		log.Panic("Found wrong statement type. Expecting IDNegateExpr")
 	}
-	e.name = dec.ReadString()
+	e.alias = dec.ReadString()
 	e.exL = DecodeExpr(dec)
 
+}
+
+//SetAlias sets an alternative name for the expression
+func (e *NegateExpr) SetAlias(alias string) {
+	e.alias = alias
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // FuncExpr stores information about a function to allow Evaluate() to determine the correct Value
 type FuncExpr struct {
-	Cmd  string
-	exL  Expr
-	name string
+	Cmd   string
+	exL   Expr
+	alias string
 }
 
-// GetLeft - FuncExpr is a leaf node, it will always return nil
-func (e *FuncExpr) GetLeft() Expr {
+// Left - FuncExpr is a leaf node, it will always return nil
+func (e *FuncExpr) Left() Expr {
 	return e.exL
 }
 
-// GetRight - FuncExpr is a leaf node, it will always return nil
-func (e *FuncExpr) GetRight() Expr {
+// Right - FuncExpr is a leaf node, it will always return nil
+func (e *FuncExpr) Right() Expr {
 	return nil
 }
 
@@ -610,17 +671,24 @@ func (e *FuncExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *FuncExpr) ToString() string {
-	return e.name
+	str := e.Cmd + "(" + e.exL.ToString() + ")"
+	if e.alias != "" {
+		str += " " + e.alias
+	}
+	return str
 }
 
-// GetName returns the name of the expression
-func (e *FuncExpr) GetName() string {
-	return e.name
+// Name returns the name of the expression
+func (e *FuncExpr) Name() string {
+	if e.alias != "" {
+		return e.alias
+	}
+	return e.ToString()
 }
 
-// GetColDef returns a column definition for the expression
-func (e *FuncExpr) GetColDef() ColDef {
-	return ColDef{ColName: e.GetName(), ColType: "FUNC"}
+// ColDef returns a column definition for the expression
+func (e *FuncExpr) ColDef() ColDef {
+	return ColDef{ColName: e.Name(), ColType: "FUNC"}
 }
 
 // Evaluate takes the current Expression and calculates the results based on the given row
@@ -632,7 +700,7 @@ func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (retVal s
 		return
 	}
 	if vL == nil {
-		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.GetName())
+		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
 	}
 
 	retVal, err = evalFunc(e.Cmd, vL)
@@ -678,7 +746,7 @@ func (e *FuncExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) err
 
 // NewFuncExpr creates a new CountExpr object
 func NewFuncExpr(cmd string, lExp Expr) Expr {
-	return &FuncExpr{Cmd: cmd, exL: lExp, name: cmd + "(" + lExp.GetName() + ")"}
+	return &FuncExpr{Cmd: cmd, exL: lExp}
 
 }
 
@@ -690,6 +758,11 @@ func (e *FuncExpr) Encode() *sqbin.Codec {
 // Decode gets a binary encoded version of the expression
 func (e *FuncExpr) Decode(*sqbin.Codec) {
 	panic("FuncExpr Decode not implemented")
+}
+
+//SetAlias sets an alternative name for the expression
+func (e *FuncExpr) SetAlias(alias string) {
+	e.alias = alias
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////

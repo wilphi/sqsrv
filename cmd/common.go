@@ -276,15 +276,21 @@ func GetExprList(tkns *tokens.TokenList, terminator string, valuesOnly bool) (*s
 		if err != nil {
 			return nil, err
 		}
-		if strings.Contains(exp2.GetName(), "count()") {
+		if strings.Contains(exp2.ToString(), "count()") {
 			hasCount = true
 		}
 		if valuesOnly {
 			// Make sure it is a value
 			_, ok := exp2.(*sqtables.ValueExpr)
 			if !ok {
-				return nil, sqerr.NewSyntaxf("Expression %q did not reduce to a value", exp2.GetName())
+				return nil, sqerr.NewSyntaxf("Expression %q did not reduce to a value", exp2.Name())
 			}
+		}
+
+		// Check for optional alias
+		if alias := tkns.Test(tokens.Ident); alias != "" {
+			tkns.Remove()
+			exp2.SetAlias(alias)
 		}
 		eList.Add(exp2)
 		// Is token the terminator

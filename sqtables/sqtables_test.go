@@ -143,7 +143,7 @@ func TestGetRowData(t *testing.T) {
 			ExpRows:  []int{2},
 		},
 		{
-			TestName: "Invalid function in Expression onv Evaluate",
+			TestName: "Invalid function in Expression on Evaluate",
 			Tab:      testT,
 			Cols: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
@@ -152,7 +152,7 @@ func TestGetRowData(t *testing.T) {
 					sqtables.NewColExpr(sqtables.CreateColDef("col2", tokens.TypeString, false)),
 				),
 			),
-			WhereStr: "",
+			WhereStr: "col2=\"d test string\"",
 			ExpErr:   "strconv.ParseFloat: parsing \"d test string\": invalid syntax",
 			ExpRows:  []int{2},
 		},

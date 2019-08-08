@@ -64,7 +64,7 @@ func (d *DataSet) NumCols() int {
 func (d *DataSet) GetColList() ColList {
 	cols := make([]ColDef, d.eList.Len())
 	for i, ex := range d.eList.exprlist {
-		cols[i] = ex.GetColDef()
+		cols[i] = ex.ColDef()
 	}
 	return NewColListDefs(cols)
 }

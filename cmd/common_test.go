@@ -10,7 +10,6 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
-	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -181,8 +180,8 @@ func testGetExprFunc(d GetExprData) func(*testing.T) {
 			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
-		if d.ExpExpr != actExpr.GetName() {
-			t.Errorf("Expected Expressions %s do not match actual Expressions %s", d.ExpExpr, actExpr.GetName())
+		if d.ExpExpr != actExpr.Name() {
+			t.Errorf("Expected Expressions %s do not match actual Expressions %s", d.ExpExpr, actExpr.Name())
 			return
 		}
 	}
@@ -448,7 +447,7 @@ type GetExprListData struct {
 	Terminator string
 	Command    string
 	ExpErr     string
-	ExpExprs   *sqtables.ExprList
+	ExpExprTxt string
 	ValuesOnly bool
 }
 
@@ -483,12 +482,9 @@ func testGetExprListFunc(d GetExprListData) func(*testing.T) {
 			t.Error("All tokens should be consumed by test")
 			return
 		}
-		if d.ExpExprs.Len() != rExprs.Len() {
-			t.Errorf("The length Expected Exprs (%d) and returned Exprs (%d) do not match", d.ExpExprs.Len(), rExprs.Len())
-			return
-		}
-		if !reflect.DeepEqual(d.ExpExprs, rExprs) {
-			t.Errorf("Expected Expressions %v do not match actual Expressions %v", d.ExpExprs.GetNames(), rExprs.GetNames())
+
+		if d.ExpExprTxt != rExprs.ToString() {
+			t.Errorf("Expected Expressions %v do not match actual Expressions %v", d.ExpExprTxt, rExprs.ToString())
 			return
 		}
 
@@ -502,100 +498,84 @@ func TestGetExprList(t *testing.T) {
 			Terminator: tokens.CloseBracket,
 			Command:    "~",
 			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column near ~",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "One Col",
 			Terminator: tokens.CloseBracket,
 			Command:    "col1",
 			ExpErr:     "Syntax Error: Comma is required to separate columns",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Expect another Col",
 			Terminator: tokens.CloseBracket,
 			Command:    "col1,",
 			ExpErr:     "Syntax Error: Expecting name of column or a valid expression",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Two Col",
 			Terminator: tokens.CloseBracket,
 			Command:    "col1, col2",
 			ExpErr:     "Syntax Error: Comma is required to separate columns",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Expect a third Col",
 			Terminator: tokens.CloseBracket,
 			Command:    "col1,col2,",
 			ExpErr:     "Syntax Error: Expecting name of column or a valid expression",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Three Col",
 			Terminator: tokens.CloseBracket,
 			Command:    "col1, col2, col3",
 			ExpErr:     "Syntax Error: Comma is required to separate columns",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Complete col definition with )",
 			Terminator: tokens.CloseBracket,
 			Command:    "col1, col2, col3)",
 			ExpErr:     "",
-			ExpExprs: sqtables.ColsToExpr(
-				sqtables.NewColListDefs([]sqtables.ColDef{
-					sqtables.ColDef{ColName: "col1"},
-					sqtables.ColDef{ColName: "col2"},
-					sqtables.ColDef{ColName: "col3"},
-				}),
-			),
+			ExpExprTxt: "col1,col2,col3",
 		},
 		{
 			TestName:   "Complete col definition with FROM",
 			Terminator: tokens.From,
 			Command:    "firstname, lastname, phonenum FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.ColsToExpr(
-				sqtables.NewColListDefs([]sqtables.ColDef{
-					sqtables.ColDef{ColName: "firstname"},
-					sqtables.ColDef{ColName: "lastname"},
-					sqtables.ColDef{ColName: "phonenum"},
-				}),
-			),
+			ExpExprTxt: "firstname,lastname,phonenum",
 		},
 		{
 			TestName:   "Extra Comma in list",
 			Terminator: tokens.CloseBracket,
 			Command:    "col1, col2, col3,)",
 			ExpErr:     "Syntax Error: Unexpected \",\" before \")\"",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "No Cols in list",
 			Terminator: tokens.CloseBracket,
 			Command:    ")",
 			ExpErr:     "Syntax Error: No columns defined for query",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Value, col, OpExpr with FROM",
 			Terminator: tokens.From,
 			Command:    "1, lastname, \"Cell: \"+phonenum FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-				sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQString("Cell: ")), "+", sqtables.NewColExpr(sqtables.ColDef{ColName: "phonenum"})),
-			),
+			ExpExprTxt: "1,lastname,(Cell: +phonenum)",
 		},
 		{
 			TestName:   "Empty Expression",
 			Terminator: tokens.CloseBracket,
 			Command:    "1,,test)",
 			ExpErr:     "Syntax Error: Expecting name of column or a valid expression",
-			ExpExprs:   nil,
+			ExpExprTxt: "",
 		},
 
 		{
@@ -603,109 +583,63 @@ func TestGetExprList(t *testing.T) {
 			Terminator: tokens.From,
 			Command:    "1, 1+2*3-8/4*3+9, lastname FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(10)),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "1,10,lastname",
 		},
 		{
 			TestName:   "Complex Expression 2",
 			Terminator: tokens.From,
 			Command:    "1, 4*3+9/3-18+75+1*9, lastname FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(81)),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "1,81,lastname",
 		},
 		{
 			TestName:   "Complex Col Expression",
 			Terminator: tokens.From,
 			Command:    "firstname, 3*id/2+12, lastname FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname"}),
-				sqtables.NewOpExpr(
-					sqtables.NewOpExpr(
-						sqtables.NewOpExpr(
-							sqtables.NewValueExpr(sqtypes.NewSQInt(3)),
-							"*",
-							sqtables.NewColExpr(sqtables.ColDef{ColName: "id"})),
-						"/",
-						sqtables.NewValueExpr(sqtypes.NewSQInt(2))),
-					"+",
-					sqtables.NewValueExpr(sqtypes.NewSQInt(12)),
-				),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "firstname,(((3*id)/2)+12),lastname",
 		},
 		{
 			TestName:   "Type Mismatch",
 			Terminator: tokens.From,
 			Command:    "1, 1+2*3+3.0, lastname FROM",
 			ExpErr:     "Error: Type Mismatch: 3 is not an Int",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(10)),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Type Mismatch String",
 			Terminator: tokens.From,
 			Command:    "1, \"Test\"+3.0, lastname FROM",
 			ExpErr:     "Error: Type Mismatch: 3 is not a String",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(10)),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Negative Number",
 			Terminator: tokens.From,
 			Command:    "1,1+-9, lastname FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-8)),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "1,-8,lastname",
 		},
 		{
 			TestName:   "Negative Number start",
 			Terminator: tokens.From,
 			Command:    "1,-9*2 +3*14, lastname FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(24)),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "1,24,lastname",
 		},
 		{
 			TestName:   "Negative column",
 			Terminator: tokens.From,
 			Command:    "1,-id, lastname FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewNegateExpr(sqtables.NewColExpr(sqtables.ColDef{ColName: "id"})),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "1,(-id),lastname",
 		},
 		{
 			TestName:   "ValueOnly with col",
 			Terminator: tokens.From,
 			Command:    "1,-id, lastname FROM",
 			ExpErr:     "Syntax Error: Expression \"(-id)\" did not reduce to a value",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewNegateExpr(sqtables.NewColExpr(sqtables.ColDef{ColName: "id"})),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname"}),
-			),
+			ExpExprTxt: "",
 			ValuesOnly: true,
 		},
 		{
@@ -713,10 +647,7 @@ func TestGetExprList(t *testing.T) {
 			Terminator: tokens.From,
 			Command:    "1,-25/5*4 FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
-			),
+			ExpExprTxt: "1,-20",
 			ValuesOnly: true,
 		},
 		{
@@ -724,10 +655,7 @@ func TestGetExprList(t *testing.T) {
 			Terminator: tokens.From,
 			Command:    "20/~, 1,-25/5*4 FROM",
 			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column near ~",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
-			),
+			ExpExprTxt: "",
 			ValuesOnly: true,
 		},
 		{
@@ -735,70 +663,56 @@ func TestGetExprList(t *testing.T) {
 			Terminator: tokens.From,
 			Command:    "20+",
 			ExpErr:     "Syntax Error: Unexpected end to expression",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
-			),
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Partial  Expression with Multiply",
 			Terminator: tokens.From,
 			Command:    "20+5*",
 			ExpErr:     "Syntax Error: Unexpected end to expression",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
-			),
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Expression list includes int function",
 			Terminator: tokens.From,
 			Command:    "20+int(1.0), -20 FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
-			),
+			ExpExprTxt: "21,-20",
 		},
 		{
 			TestName:   "Expression list includes int not bracket",
 			Terminator: tokens.From,
 			Command:    "20+int, -20 FROM",
 			ExpErr:     "Syntax Error: Function INT must be followed by (",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
-			),
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Expression list includes int function incomplete",
 			Terminator: tokens.From,
 			Command:    "20+int(1.0, -20 FROM",
 			ExpErr:     "Syntax Error: Function INT is missing ) after expression",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
-			),
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Expression list includes int function partial expression",
 			Terminator: tokens.From,
 			Command:    "20+int(1.0+), -20 FROM",
 			ExpErr:     "Syntax Error: Invalid expression: Unable to find a value or column near )",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
-				sqtables.NewValueExpr(sqtypes.NewSQInt(-20)),
-			),
+			ExpExprTxt: "",
 		},
 		{
 			TestName:   "Expression list includes int, Float function",
 			Terminator: tokens.From,
-			Command:    "20+int(1.0), float(-20)+1.95 FROM",
+			Command:    "20+int(1.0) first, float(-20)+1.95 second FROM",
 			ExpErr:     "",
-			ExpExprs: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(21)),
-				sqtables.NewValueExpr(sqtypes.NewSQFloat(-18.05)),
-			),
+			ExpExprTxt: "21 first,-18.05 second",
+		},
+		{
+			TestName:   "Count with alias",
+			Terminator: tokens.From,
+			Command:    "count() Total FROM",
+			ExpErr:     "",
+			ExpExprTxt: "count() Total",
 		},
 	}
 

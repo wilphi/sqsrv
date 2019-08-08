@@ -80,7 +80,7 @@ func ColsToExpr(clist ColList) *ExprList {
 func (el *ExprList) GetNames() []string {
 	names := make([]string, el.Len())
 	for i, ex := range el.exprlist {
-		names[i] = ex.GetName()
+		names[i] = ex.Name()
 	}
 	return names
 }
@@ -90,7 +90,7 @@ func (el *ExprList) FindName(name string) int {
 	idx := -1
 	name = strings.ToLower(name)
 	for i, ex := range el.exprlist {
-		if strings.ToLower(ex.GetName()) == name {
+		if strings.ToLower(ex.Name()) == name {
 			idx = i
 			break
 		}
