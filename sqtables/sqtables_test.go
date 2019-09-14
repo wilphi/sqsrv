@@ -45,13 +45,13 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 
 		tkns := tokens.Tokenize(d.WhereStr)
 		tWhere, err := cmd.GetExpr(tkns, nil, 0)
-
+		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
 		if err != nil {
 			t.Errorf("Unable to parse Where String %q", d.WhereStr)
 			return
 		}
 		if tWhere != nil {
-			err = tWhere.ValidateCols(profile, d.Tab)
+			err = tWhere.ValidateCols(profile, tables)
 			if err != nil {
 				t.Errorf("Unable to validate cols in Where String %q", d.WhereStr)
 				return
@@ -139,7 +139,7 @@ func TestGetRowData(t *testing.T) {
 				sqtables.NewColExpr(sqtables.CreateColDef("colX", tokens.TypeString, false)),
 			),
 			WhereStr: "",
-			ExpErr:   "Error: Table rowdatatest does not have a column named colX",
+			ExpErr:   "Error: Column \"colX\" not found in Table(s): rowdatatest",
 			ExpRows:  []int{2},
 		},
 		{
@@ -182,7 +182,7 @@ func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*test
 		}()
 		var tWhere sqtables.Expr
 		var err error
-
+		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
 		if d.WhereStr != "" {
 			tkns := tokens.Tokenize(d.WhereStr)
 			tWhere, err = cmd.GetExpr(tkns, nil, 0)
@@ -191,7 +191,7 @@ func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*test
 				t.Errorf("Unable to parse Where String %q", d.WhereStr)
 				return
 			}
-			err = tWhere.ValidateCols(profile, d.Tab)
+			err = tWhere.ValidateCols(profile, tables)
 			if err != nil {
 				t.Errorf("Unable to validate cols in Where String %q", d.WhereStr)
 				return
@@ -345,7 +345,7 @@ func TestMisc(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		expstr := "rowcounttest\n--------------------------------------\n\t{rowid, INT, NOT NULL}\n\t{firstname, STRING}\n\t{active, BOOL}\n"
+		expstr := "rowcounttest\n--------------------------------------\n\t{rowcounttest.rowid, INT NOT NULL}\n\t{rowcounttest.firstname, STRING}\n\t{rowcounttest.active, BOOL}\n"
 		str := tab.ToString(profile)
 		if str != expstr {
 			t.Errorf("ToString = %q \n\n\twhen it should be %q", str, expstr)
@@ -402,6 +402,7 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 		}
 
 		tab := sqtables.GetTable(profile, tableName)
+		tables := sqtables.NewTableListFromTableDef(profile, tab)
 		stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES (1,5,\"d test string\", 10, true), (2,7,\"f test string\", 100, false), (3,17,\"A test string\", 500, false) "
 		tkList = tokens.Tokenize(stmt)
 		_, _, err = cmd.InsertInto(profile, tkList)
@@ -422,7 +423,7 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 				t.Errorf("Unable to parse Where String %q", d.WhereStr)
 				return
 			}
-			err = tWhere.ValidateCols(profile, tab)
+			err = tWhere.ValidateCols(profile, tables)
 			if err != nil {
 				t.Errorf("Unable to validate cols in Where String %q", d.WhereStr)
 				return
@@ -542,12 +543,7 @@ func testGetRowDataFromPtrsFunc(d *GetRowDataFromPtrsData) func(*testing.T) {
 			t.Errorf("The number of ptrs (%d) does not match data returned (%d)", len(d.Ptrs), data.Len())
 			return
 		}
-		/*
-			if !reflect.DeepEqual(actPtrs, d.ExpPtrs) {
-				t.Errorf("Actual Pointers %v do not match Expected Ptrs %v", actPtrs, d.ExpPtrs)
-				return
-			}
-		*/
+
 	}
 }
 
@@ -720,7 +716,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 		{
 			TestName: "Evaluate Error",
 			Tab:      tab,
-			ExpErr:   "Error: ColX not found in table updaterowsfromptrstest",
+			ExpErr:   "Error: Column \"ColX\" not found in Table(s): updaterowsfromptrstest",
 			Ptrs:     []int64{1},
 			Cols:     []string{"col4"},
 			ExpList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.CreateColDef("ColX", tokens.TypeFloat, false))),
@@ -760,11 +756,12 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 		}()
 		profile := sqprofile.CreateSQProfile()
 		clist := sqtables.NewColListNames(d.Cols)
-		err := clist.ValidateTable(profile, d.Tab)
+		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
+		err := clist.ValidateTable(profile, tables)
 		if err != nil {
 			t.Errorf("Unexpected Error setting up ColList for test %s: %s", t.Name(), err)
 		}
-		data, err := sqtables.NewDataSet(profile, d.Tab, d.Tab.GetCols(profile))
+		data, err := sqtables.NewDataSet(profile, tables, d.Tab.GetCols(profile))
 		if err != nil {
 			t.Errorf("Unexpected Error setting up DataSet for test %s: %s", t.Name(), err)
 		}
@@ -789,25 +786,25 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 		if n != len(d.ExpData) {
 			t.Errorf("Number of rows returned %d does not match expected %d", n, len(d.ExpData))
 		}
-		/*
-			if d.ExpData != nil {
-				cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-				ds, err := d.Tab.GetRowData(profile, cList, nil)
-				if err != nil {
-					t.Errorf("Error getting data for comparison: %s", err)
-					return
-				}
-				v := ds.Vals
-				sort.SliceStable(v, func(i, j int) bool { return v[i][1].LessThan(v[j][1]) })
-				sort.SliceStable(v, func(i, j int) bool { return v[i][0].LessThan(v[j][0]) })
-				expVals := sqtypes.CreateValuesFromRaw(d.ExpData)
-				if !reflect.DeepEqual(v, expVals) {
-					t.Error("Expected data does not match actual data in table")
-					fmt.Printf("Actual: \n%v, \n\nExpected:\n%v", v, expVals)
-					return
-				}
+
+		if d.ExpData != nil {
+			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
+			ds, err := d.Tab.GetRowData(profile, cList, nil)
+			if err != nil {
+				t.Errorf("Error getting data for comparison: %s", err)
+				return
 			}
-		*/
+			v := ds.Vals
+			sort.SliceStable(v, func(i, j int) bool { return v[i][1].LessThan(v[j][1]) })
+			sort.SliceStable(v, func(i, j int) bool { return v[i][0].LessThan(v[j][0]) })
+			expVals := sqtypes.CreateValuesFromRaw(d.ExpData)
+			if !reflect.DeepEqual(v, expVals) {
+				t.Error("Expected data does not match actual data in table")
+				fmt.Printf("Actual: \n%v, \n\nExpected:\n%v", v, expVals)
+				return
+			}
+		}
+
 	}
 }
 

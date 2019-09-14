@@ -55,16 +55,12 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	// Optional Where clause processing goes here
 	if tkns.Test(tokens.Where) != "" {
 		tkns.Remove()
-		whereExpr, err = GetExpr(tkns, nil, 0, tokens.Order)
+		whereExpr, err = ParseWhereClause(tkns, tokens.Order)
 
 		if err != nil {
 			return
 		}
-		err = whereExpr.ValidateCols(profile, td)
-		if err != nil {
-			return
-		}
-		whereExpr, err = whereExpr.Reduce()
+		err = whereExpr.ValidateCols(profile, sqtables.NewTableListFromTableDef(profile, td))
 		if err != nil {
 			return
 		}

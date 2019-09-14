@@ -21,11 +21,11 @@ func (el *ExprList) Len() int {
 }
 
 //Evaluate evaluates all of the expressions given a row
-func (el *ExprList) Evaluate(profile *sqprofile.SQProfile, row *RowDef) ([]sqtypes.Value, error) {
+func (el *ExprList) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) ([]sqtypes.Value, error) {
 	var err error
 	vals := make([]sqtypes.Value, len(el.exprlist))
 	for i, e := range el.exprlist {
-		vals[i], err = e.Evaluate(profile, row)
+		vals[i], err = e.Evaluate(profile, partial, rows...)
 		if err != nil {
 			return nil, err
 		}
@@ -99,10 +99,10 @@ func (el *ExprList) FindName(name string) int {
 }
 
 // ValidateCols takes a column list and checks all potential columns against that list
-func (el *ExprList) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
+func (el *ExprList) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
 	for _, ex := range el.exprlist {
 		// Check for a ColExpr
-		err := ex.ValidateCols(profile, tab)
+		err := ex.ValidateCols(profile, tables)
 		if err != nil {
 			return err
 		}

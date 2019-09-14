@@ -165,7 +165,7 @@ func TestUpdate(t *testing.T) {
 		{
 			TestName:  "UPDATE Expressions Invalid col",
 			SQLStr:    "UPDATE testupdate SET col1 = colX+1, col2 = \"test \"+\"Expression\"",
-			ExpErr:    "Error: Table testupdate does not have a column named colX",
+			ExpErr:    "Error: Column \"colX\" not found in Table(s): testupdate",
 			TableName: "testupdate",
 			Cols:      []string{"col1", "col2"},
 			ExpData:   sqtypes.RawVals{{2, "test Expression"}, {3, "test Expression"}, {4, "test Expression"}, {5, "test Expression"}, {6, "test Expression"}, {7, "test Expression"}},

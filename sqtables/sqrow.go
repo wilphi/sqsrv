@@ -100,6 +100,9 @@ func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols 
 // GetColData -
 func (r *RowDef) GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Value, error) {
 
+	if r.isDeleted {
+		return nil, e.New("Referenced Row has been deleted")
+	}
 	idx, ctype := r.table.FindCol(profile, c.ColName)
 	if idx < 0 {
 		//error
@@ -120,4 +123,10 @@ func (r *RowDef) SetStorage(profile *sqprofile.SQProfile, offset, alloc, size in
 	r.offset = offset
 	r.alloc = alloc
 	r.size = size
+}
+
+//Delete soft deletes the row
+func (r *RowDef) Delete(profile *sqprofile.SQProfile) {
+	r.isDeleted = true
+	r.isModified = true
 }

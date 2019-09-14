@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -122,7 +123,8 @@ func (i SQInt) Len() int {
 // Equal - true if values are the same. type mismatch will return false
 func (i SQInt) Equal(v Value) bool {
 	vint, ok := v.(SQInt)
-	return ok && (i.Val == vint.Val)
+	comp := (i.Val == vint.Val)
+	return ok && comp
 }
 
 // LessThan -
@@ -702,4 +704,34 @@ func CreateValueArrayFromRaw(rawArray []Raw) []Value {
 		retVals[j] = RawValue(item)
 	}
 	return retVals
+}
+
+// Compare2DValue - returns "" is arrays match otherwise a string describing where the arrays do not match.
+func Compare2DValue(a, b [][]Value, aName, bName string) string {
+	if len(a) != len(b) {
+		return fmt.Sprintf("The number of rows does not match! %s(%d) %s(%d)", aName, len(a), bName, len(b))
+	}
+
+	for i := range a {
+		if len(a[i]) != len(b[i]) {
+			return fmt.Sprintf("The number of cols does not match! %s[%d](%d) %s[%d](%d)", aName, i, len(a[i]), bName, i, len(b[i]))
+		}
+	}
+	for x := range a[0] {
+		sort.SliceStable(a, func(i, j int) bool { return a[i][x].LessThan(a[j][x]) })
+		sort.SliceStable(b, func(i, j int) bool { return b[i][x].LessThan(b[j][x]) })
+
+	}
+
+	for i, row := range a {
+		for j, val := range row {
+			if val.Type() != b[i][j].Type() {
+				return fmt.Sprintf("Type Mismatch: %s[%d][%d] = %s Does not match %s[%d][%d] = %s", aName, i, j, a[i][j].Type(), bName, i, j, b[i][j].Type())
+			}
+			if !val.Equal(b[i][j]) {
+				return fmt.Sprintf("%s[%d][%d] = %s Does not match %s[%d][%d] = %s", aName, i, j, a[i][j].ToString(), bName, i, j, b[i][j].ToString())
+			}
+		}
+	}
+	return ""
 }

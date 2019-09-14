@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -311,6 +312,20 @@ func TestGetExpr(t *testing.T) {
 			ExpErr:     "",
 			ExpExpr:    "((8/(2+(((9-3)/1)*(2+1))))*2)",
 		},
+		{
+			TestName:   "TableName.Col ",
+			Terminator: tokens.From,
+			Command:    "tablea.col FROM",
+			ExpErr:     "",
+			ExpExpr:    "tablea.col",
+		},
+		{
+			TestName:   "TableName. missing col ",
+			Terminator: tokens.From,
+			Command:    "tablea. FROM",
+			ExpErr:     "Syntax Error: Expecting column after tablea.",
+			ExpExpr:    "tablea.col",
+		},
 	}
 
 	for i, row := range data {
@@ -431,6 +446,14 @@ func TestOrderBy(t *testing.T) {
 				{ColName: "col1", SortType: "ASC"},
 			},
 		},
+		{
+			TestName: "Order By tablename only",
+			Command:  "Order By tablea.  ",
+			ExpErr:   "Syntax Error: Column name must follow tablea.",
+			ExpOrder: []sqtables.OrderItem{
+				{ColName: "col1", SortType: "ASC"},
+			},
+		},
 	}
 
 	for i, row := range data {
@@ -478,8 +501,8 @@ func testGetExprListFunc(d GetExprListData) func(*testing.T) {
 			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
-		if tkns.Len() != 0 {
-			t.Error("All tokens should be consumed by test")
+		if tkns.Test(d.Terminator) == "" {
+			t.Error("Remaining token should be Terminator")
 			return
 		}
 
@@ -719,6 +742,185 @@ func TestGetExprList(t *testing.T) {
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
 			testGetExprListFunc(row))
+
+	}
+
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+
+type GetTableListData struct {
+	TestName       string
+	Terminators    []string
+	Command        string
+	ExpErr         string
+	ExpTab         *sqtables.TableList
+	ExpectedTables []string
+	ExpTokenLen    int
+}
+
+func testGetTableListFunc(d GetTableListData) func(*testing.T) {
+	return func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(d.TestName + " panicked unexpectedly")
+			}
+		}()
+		profile := sqprofile.CreateSQProfile()
+
+		tkns := tokens.Tokenize(d.Command)
+
+		rIdents, err := cmd.GetTableList(profile, tkns, d.Terminators...)
+		if err != nil {
+			log.Println(err.Error())
+			if d.ExpErr == "" {
+				t.Errorf("Unexpected Error in test: %s", err.Error())
+				return
+			}
+			if d.ExpErr != err.Error() {
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
+				return
+			}
+			return
+		}
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+			return
+		}
+		if tkns.Len() != d.ExpTokenLen {
+			t.Error("All tokens should be consumed by test")
+			return
+		}
+		if len(d.ExpectedTables) != rIdents.Len() {
+			t.Errorf("The length Expected TableNames (%d) and returned TableNames (%d) do not match", len(d.ExpectedTables), rIdents.Len())
+			return
+		}
+		sort.Strings(d.ExpectedTables)
+		if !reflect.DeepEqual(d.ExpectedTables, rIdents.TableNames()) {
+			t.Error("Expected Tables do not match actual Tables")
+			return
+		}
+
+	}
+}
+func TestGetTableList(t *testing.T) {
+	////////////////////////////////////////////
+	// Setup tables for tests
+	////////////////////////////////////////////
+	profile := sqprofile.CreateSQProfile()
+	tableData := []struct {
+		Name string
+		Col  sqtables.ColDef
+	}{
+		{Name: "gettablelistTable1", Col: sqtables.CreateColDef("col1", "INT", false)},
+		{Name: "gettablelistTable2", Col: sqtables.CreateColDef("col1", "INT", false)},
+		{Name: "gettablelistTable3", Col: sqtables.CreateColDef("col1", "INT", false)},
+		{Name: "gettablelistcountry", Col: sqtables.CreateColDef("col1", "INT", false)},
+		{Name: "gettablelistcity", Col: sqtables.CreateColDef("col1", "INT", false)},
+		{Name: "gettablelistperson", Col: sqtables.CreateColDef("col1", "INT", false)},
+	}
+	for _, tabDat := range tableData {
+		tab := sqtables.CreateTableDef(tabDat.Name, tabDat.Col)
+		err := sqtables.CreateTable(profile, tab)
+		if err != nil {
+			t.Errorf("Error setting up %s: %s", t.Name(), tabDat.Name)
+			return
+		}
+	}
+
+	data := []GetTableListData{
+		{
+			TestName:       "One Table",
+			Terminators:    []string{tokens.CloseBracket},
+			Command:        "gettablelistTable1",
+			ExpErr:         "",
+			ExpectedTables: []string{"gettablelistTable1"},
+		},
+		{
+			TestName:       "Expect another Table",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistTable1,",
+			ExpErr:         "Syntax Error: Unexpected ',' in From clause",
+			ExpectedTables: nil,
+		},
+		{
+			TestName:       "Two Tables",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistTable1, gettablelistTable2",
+			ExpErr:         "",
+			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2"},
+		},
+		{
+			TestName:       "Expect a third Table",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistTable1,gettablelistTable2,",
+			ExpErr:         "Syntax Error: Unexpected ',' in From clause",
+			ExpectedTables: nil,
+		},
+		{
+			TestName:       "Three Table",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistTable1, gettablelistTable2, gettablelistTable3",
+			ExpErr:         "",
+			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+		},
+		{
+			TestName:       "Complete Table definition with Where",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistTable1, gettablelistTable2, gettablelistTable3 Where",
+			ExpErr:         "",
+			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+			ExpTokenLen:    1,
+		},
+		{
+			TestName:       "Complete Table definition with Order",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistcountry, gettablelistcity,gettablelistperson ORDER",
+			ExpErr:         "",
+			ExpectedTables: []string{"gettablelistcountry", "gettablelistcity", "gettablelistperson"},
+			ExpTokenLen:    1,
+		},
+		{
+			TestName:       "Extra Comma in list",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistTable1, gettablelistTable2, gettablelistTable3, Where",
+			ExpErr:         "Syntax Error: Unexpected ',' in From clause",
+			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+		},
+		{
+			TestName:       "No Tables in list",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "Where",
+			ExpErr:         "Syntax Error: No Tables defined for query",
+			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+		},
+		{
+			TestName:       "Not a tablename",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistTable1, () Where",
+			ExpErr:         "Syntax Error: Expecting name of Table",
+			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+		},
+		{
+			TestName:       "Missing tablename",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        ", test Where",
+			ExpErr:         "Syntax Error: Expecting name of Table",
+			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+		},
+		{
+			TestName:       "Missing comma",
+			Terminators:    []string{tokens.Where, tokens.Order},
+			Command:        "gettablelistTable1  alias1 gettablelistTable2 Where",
+			ExpErr:         "Syntax Error: Comma is required to separate tables",
+			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testGetTableListFunc(row))
 
 	}
 

@@ -78,7 +78,7 @@ func SetDBDir(path string) {
 func WriteDB(profile *sqprofile.SQProfile) error {
 	// Make sure database is paused or stopped
 
-	// Get locks on tableList and each table
+	// Get locks on Catalog and each table
 	_tables.LockAll(profile)
 	defer _tables.UnlockAll(profile)
 
@@ -86,7 +86,7 @@ func WriteDB(profile *sqprofile.SQProfile) error {
 	id := transid.GetTransID()
 
 	// get the list of tables currently in use
-	tables := ListTables(profile)
+	tables := CatalogTables(profile)
 
 	info := DBInfo{LastTransID: id, Tables: tables}
 
@@ -96,7 +96,7 @@ func WriteDB(profile *sqprofile.SQProfile) error {
 	}
 
 	// now get all of the tables including those that have been dropped
-	tables = ListAllTables(profile)
+	tables = CatalogAllTables(profile)
 	for _, tableName := range tables {
 		err = writeDBTableInfo(profile, tableName)
 		if err != nil {
@@ -335,11 +335,11 @@ func ReadDB(profile *sqprofile.SQProfile) error {
 	log.Info("Opening Database...")
 	start := time.Now()
 
-	// Get locks on tableList and each table
+	// Get locks on Catalog and each table
 	_tables.LockAll(profile)
 	defer _tables.UnlockAll(profile)
 
-	if len(ListTables(profile)) != 0 {
+	if len(CatalogTables(profile)) != 0 {
 		log.Panic("To read the database from file, memory must be empty")
 	}
 

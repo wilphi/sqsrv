@@ -1,0 +1,3 @@
+CREATE TABLE seltest (col1 int, col2 string, col3 bool)
+CREATE TABLE selEmpty (col1 int, col2 string, col3 bool)
+INSERT INTO seltest (col1, col2, col3) VALUES (123, "With Cols Test", true), (456, "Seltest 2", true), (789,"Seltest 3", false)

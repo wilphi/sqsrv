@@ -98,15 +98,11 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 	// Optional Where Clause
 	if tkns.Len() > 0 && tkns.Test(tokens.Where) != "" {
 		tkns.Remove()
-		whereExpr, err = GetExpr(tkns, nil, 0)
+		whereExpr, err = ParseWhereClause(tkns)
 		if err != nil {
 			return "", nil, err
 		}
-		whereExpr, err = whereExpr.Reduce()
-		if err != nil {
-			return "", nil, err
-		}
-		err = whereExpr.ValidateCols(profile, tab)
+		err = whereExpr.ValidateCols(profile, sqtables.NewTableListFromTableDef(profile, tab))
 		if err != nil {
 			return "", nil, err
 		}
@@ -116,7 +112,7 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 		return "", nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
 	}
 
-	err = setExprs.ValidateCols(profile, tab)
+	err = setExprs.ValidateCols(profile, sqtables.NewTableListFromTableDef(profile, tab))
 	if err != nil {
 		return "", nil, err
 	}

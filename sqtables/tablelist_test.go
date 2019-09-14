@@ -5,12 +5,14 @@ import (
 	"log"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
+	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -18,322 +20,587 @@ func init() {
 	sqtest.TestInit("sqtables_test.log")
 }
 
-type CreateTableData struct {
+type AddTableData struct {
 	TestName  string
+	TL        *sqtables.TableList
 	TableName string
-	Cols      []sqtables.ColDef
-	Profile   *sqprofile.SQProfile
+	Alias     string
+	Table     *sqtables.TableDef
+	InitLen   int
+	PostLen   int
 	ExpErr    string
 }
 
-func TestCreateTable(t *testing.T) {
-	profile := sqprofile.CreateSQProfile()
-
-	data := []CreateTableData{
-		{
-			TestName:  "CREATE TABLE Underscore",
-			TableName: "_createtest1",
-			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("col1", tokens.TypeInt, false),
-				sqtables.CreateColDef("col2", tokens.TypeBool, false),
-			},
-			Profile: profile,
-			ExpErr:  "Error: Invalid Name: _createtest1 - Only system tables may begin with _",
-		},
-		{
-			TestName:  "CREATE TABLE test1",
-			TableName: "createtest1",
-			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("col1", tokens.TypeInt, false),
-				sqtables.CreateColDef("col2", tokens.TypeBool, false),
-			},
-			Profile: profile,
-			ExpErr:  "",
-		},
-		{
-			TestName:  "CREATE TABLE Duplicate",
-			TableName: "createtest1",
-			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("col1", tokens.TypeInt, false),
-				sqtables.CreateColDef("col2", tokens.TypeBool, false),
-			},
-			Profile: profile,
-			ExpErr:  "Error: Invalid Name: Table createtest1 already exists",
-		},
-		{
-			TestName:  "CREATE TABLE Different case Duplicate",
-			TableName: "CREATEtest1",
-			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("col1", tokens.TypeInt, false),
-				sqtables.CreateColDef("col2", tokens.TypeBool, false),
-			},
-			Profile: profile,
-			ExpErr:  "Error: Invalid Name: Table createtest1 already exists",
-		},
-		{
-			TestName:  "CREATE TABLE No Cols",
-			TableName: "createtest2",
-			Cols:      []sqtables.ColDef{},
-			Profile:   profile,
-			ExpErr:    "Error: Create Table: table must have at least one column",
-		},
-		{
-			TestName:  "CREATE TABLE Not Null",
-			TableName: "createtest2",
-			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("city", tokens.TypeString, true),
-				sqtables.CreateColDef("street", tokens.TypeString, false),
-				sqtables.CreateColDef("streetno", tokens.TypeInt, false),
-			},
-			Profile: profile,
-			ExpErr:  "",
-		},
-		{
-			TestName:  "CREATE TABLE all Not Null",
-			TableName: "createtest3",
-			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("city", tokens.TypeString, true),
-				sqtables.CreateColDef("street", tokens.TypeString, true),
-				sqtables.CreateColDef("streetno", tokens.TypeInt, true),
-			},
-			Profile: profile,
-			ExpErr:  "",
-		},
-	}
-
-	for i, row := range data {
-		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testCreateTableFunc(row))
-
-	}
-}
-
-func testCreateTableFunc(d CreateTableData) func(*testing.T) {
+func testAddTableFunc(d AddTableData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
 			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
+				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		originalList := sqtables.ListTables(d.Profile)
-		tab := sqtables.CreateTableDef(d.TableName, d.Cols...)
-		err := sqtables.CreateTable(d.Profile, tab)
+		if d.TL.Len() != d.InitLen {
+			t.Errorf("Expected Len (%d) Pre Add does not match actual len (%d) of TableList", d.InitLen, d.TL.Len())
+			return
+		}
+		profile := sqprofile.CreateSQProfile()
+		ft := sqtables.FromTable{TableName: d.TableName, Alias: d.Alias, Table: d.Table}
+		err := d.TL.Add(profile, ft)
 		if err != nil {
 			log.Println(err.Error())
 			if d.ExpErr == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
+				t.Errorf("Unexpected Error in test: %s", err.Error())
 				return
 			}
 			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
 				return
 			}
 			return
 		}
 		if err == nil && d.ExpErr != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
-		finalList := sqtables.ListTables(d.Profile)
-		originalList = append(originalList, d.TableName)
-		sort.Strings(originalList)
-		if !reflect.DeepEqual(originalList, finalList) {
-			t.Errorf("Table %s does not seem to be added to table list", d.TableName)
+		if d.TL.Len() != d.PostLen {
+			t.Errorf("Expected Len (%d) Post Add does not match actual len (%d) of TableList", d.PostLen, d.TL.Len())
+			return
 		}
 	}
 }
-
-type DropTableData struct {
-	TestName  string
-	TableName string
-	Profile   *sqprofile.SQProfile
-	ExpErr    string
-}
-
-func TestDropTable(t *testing.T) {
+func TestAddTable(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			t.Errorf(t.Name() + " panicked unexpectedly")
+		}
+	}()
+	var err error
 	profile := sqprofile.CreateSQProfile()
-	tkns := tokens.Tokenize("CREATE TABLE droptest1 (col1 string, col2 int, col3 bool)")
-	_, err := cmd.CreateTableFromTokens(profile, tkns)
-	if err != nil {
-		t.Error("Error setting up data for TestDropTable ", err)
-		return
+	tdata := []struct {
+		Name string
+		cols []string
+		Tab  *sqtables.TableDef
+	}{
+		{Name: "tlist1", cols: []string{"col1 INT", "col2 string"}},
+		{Name: "tlist2", cols: []string{"col1 INT", "col2 string"}},
+		{Name: "tlist3", cols: []string{"col1 INT", "col2 string"}},
 	}
-	data := []DropTableData{
+	for i := range tdata {
+		tdata[i].Tab, err = createTestTable(profile, tdata[i].Name, tdata[i].cols...)
+		if err != nil {
+			t.Errorf("Error setting up data for %s: %s", "tlist1", err)
+			return
+		}
+	}
+
+	tList := sqtables.NewTableList(profile, nil)
+
+	data := []AddTableData{
 		{
-			TestName:  "Drop TABLE Underscore",
-			TableName: "_droptest1",
-			Profile:   profile,
-			ExpErr:    "Error: Invalid Name: _droptest1 - Unable to drop system tables",
-		},
-		{
-			TestName:  "Drop TABLE invalid table",
-			TableName: "ZZTable",
-			Profile:   profile,
-			ExpErr:    "Error: Invalid Name: Table zztable does not exist",
-		},
-		{
-			TestName:  "Drop TABLE",
-			TableName: "droptest1",
-			Profile:   profile,
+			TestName:  "Empty List",
+			TL:        tList,
+			TableName: tdata[0].Name,
+			Alias:     "",
+			Table:     tdata[0].Tab,
+			InitLen:   0,
+			PostLen:   1,
 			ExpErr:    "",
 		},
 		{
-			TestName:  "Drop TABLE double drop",
-			TableName: "droptest1",
-			Profile:   profile,
-			ExpErr:    "Error: Invalid Name: Table droptest1 does not exist",
+			TestName:  "Dup Add to List",
+			TL:        tList,
+			TableName: tdata[0].Name,
+			Alias:     "",
+			Table:     tdata[0].Tab,
+			InitLen:   1,
+			PostLen:   1,
+			ExpErr:    "Error: Duplicate table name/alias \"tlist1\"",
+		},
+		{
+			TestName:  "Add to List - no table def",
+			TL:        tList,
+			TableName: tdata[1].Name,
+			Alias:     "",
+			Table:     nil,
+			InitLen:   1,
+			PostLen:   2,
+			ExpErr:    "",
+		},
+		{
+			TestName:  "Add to List - Invalid table",
+			TL:        tList,
+			TableName: "NotATable",
+			Alias:     "",
+			Table:     nil,
+			InitLen:   2,
+			PostLen:   2,
+			ExpErr:    "Error: Table \"NotATable\" does not exist",
+		},
+		{
+			TestName:  "Add to List a New table",
+			TL:        tList,
+			TableName: tdata[2].Name,
+			Alias:     "",
+			Table:     tdata[2].Tab,
+			InitLen:   2,
+			PostLen:   3,
+			ExpErr:    "",
+		},
+		{
+			TestName:  "Add to List -Add same table with Alias",
+			TL:        tList,
+			TableName: tdata[2].Name,
+			Alias:     "alias2",
+			Table:     tdata[2].Tab,
+			InitLen:   3,
+			PostLen:   4,
+			ExpErr:    "",
+		}}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testAddTableFunc(row))
+
+	}
+
+	// with the data nicely setup already, will run some one-off tests
+	t.Run("FindTableDef with Name", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		tab := tList.FindTableDef(profile, tdata[0].Name)
+		if tab != tdata[0].Tab {
+			t.Errorf("Unable to find TableDef for %s", tdata[0].Name)
+		}
+	})
+	t.Run("FindTableDef with Alias", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		tab := tList.FindTableDef(profile, "alias2")
+		if tab != tdata[2].Tab {
+			t.Errorf("Unable to find TableDef for %s", "alias2")
+		}
+	})
+	t.Run("FindTableDef invalid table", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		tab := tList.FindTableDef(profile, "NotATable")
+		if tab != nil {
+			t.Errorf("Unexpected table found %s", tab.GetName(profile))
+		}
+	})
+
+	t.Run("AllCols", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+		cols := tList.AllCols(profile)
+		sort.SliceStable(cols, func(i, j int) bool { return cols[i].Idx < cols[j].Idx })
+		sort.SliceStable(cols, func(i, j int) bool { return cols[i].TableName < cols[j].TableName })
+		expCols := []sqtables.ColDef{
+			{"col1", "INT", 0, false, "tlist1"},
+			{"col2", "STRING", 1, false, "tlist1"},
+			{"col1", "INT", 0, false, "tlist2"},
+			{"col2", "STRING", 1, false, "tlist2"},
+			{"col1", "INT", 0, false, "tlist3"},
+			{"col2", "STRING", 1, false, "tlist3"},
+		}
+		if !reflect.DeepEqual(expCols, cols) {
+			t.Errorf("Actual cols do not match expected\nActual:%v\nExpect:%v", cols, expCols)
+			return
+		}
+	})
+}
+func createTestTable(profile *sqprofile.SQProfile, tableName string, cols ...string) (*sqtables.TableDef, error) {
+	str := "CREATE TABLE " + tableName + " (" + strings.Join(cols, ", ") + ")"
+	_, err := cmd.CreateTableFromTokens(profile, tokens.Tokenize(str))
+	if err != nil {
+		return nil, err
+	}
+	return sqtables.GetTable(profile, tableName), err
+
+}
+
+func TestFindColDef(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			t.Errorf(t.Name() + " panicked unexpectedly")
+		}
+	}()
+	var err error
+
+	///////////////////////////////////////////////////////////////
+	// Data Setup
+	profile := sqprofile.CreateSQProfile()
+	tList := sqtables.NewTableList(profile, nil)
+	tdata := []struct {
+		Name  string
+		Alias string
+		cols  []string
+		Tab   *sqtables.TableDef
+	}{
+		{Name: "cdlist1", Alias: "", cols: []string{"col1 INT", "col2 string"}},
+		{Name: "cdlist2", Alias: "", cols: []string{"col123 INT", "col2 string"}},
+		{Name: "cdlist3", Alias: "alias2", cols: []string{"col1 INT", "col2 string"}},
+	}
+	for i := range tdata {
+		tdata[i].Tab, err = createTestTable(profile, tdata[i].Name, tdata[i].cols...)
+		if err != nil {
+			t.Errorf("Error setting up data for %s: %s", "tlist1", err)
+			return
+		}
+		ft := sqtables.FromTable{TableName: tdata[i].Name, Alias: tdata[i].Alias, Table: tdata[i].Tab}
+		err = tList.Add(profile, ft)
+		if err != nil {
+			t.Errorf("Error setting up data for %s: %s", tdata[i].Name, err)
+			return
+		}
+		if tdata[i].Alias != "" {
+			ft.Alias = ""
+			err = tList.Add(profile, ft)
+			if err != nil {
+				t.Errorf("Error setting up data for %s: %s", tdata[i].Name, err)
+				return
+			}
+		}
+	}
+
+	/////////////////////////////////////////////////////
+	data := []FindColDefData{
+		{
+			TestName:   "No Alias Valid Col",
+			TL:         tList,
+			ColName:    "col123",
+			TableAlias: "",
+			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist2"},
+			ExpErr:     "",
+		},
+		{
+			TestName:   "No Alias InValid Col",
+			TL:         tList,
+			ColName:    "colX",
+			TableAlias: "",
+			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist2"},
+			ExpErr:     "Error: Column \"colX\" not found in Table(s): cdlist1, cdlist2, cdlist3, cdlist3",
+		},
+		{
+			TestName:   "No Alias Muliple Table Col",
+			TL:         tList,
+			ColName:    "col2",
+			TableAlias: "",
+			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist2"},
+			ExpErr:     "Error: Column \"col2\" found in multiple tables, add tablename to differentiate",
+		},
+		{
+			TestName:   "Alias with Valid Col",
+			TL:         tList,
+			ColName:    "col1",
+			TableAlias: "alias2",
+			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist3"},
+			ExpErr:     "",
+		},
+		{
+			TestName:   "tableName with Valid Col",
+			TL:         tList,
+			ColName:    "col1",
+			TableAlias: "cdlist1",
+			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist1"},
+			ExpErr:     "",
+		},
+		{
+			TestName:   "Alias with InValid Col",
+			TL:         tList,
+			ColName:    "colX",
+			TableAlias: "cdlist1",
+			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist2"},
+			ExpErr:     "Error: Column \"colX\" not found in Table \"cdlist1\"",
+		},
+		{
+			TestName:   "Invalid Alias",
+			TL:         tList,
+			ColName:    "col1",
+			TableAlias: "NotATable",
+			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist3"},
+			ExpErr:     "Error: Table NotATable not found in table list",
 		},
 	}
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testDropTableFunc(row))
+			testFindColDefFunc(row))
 
 	}
+
 }
 
-func testDropTableFunc(d DropTableData) func(*testing.T) {
+type FindColDefData struct {
+	TestName   string
+	TL         *sqtables.TableList
+	ColName    string
+	TableAlias string
+	ExpCol     *sqtables.ColDef
+	ExpErr     string
+}
+
+func testFindColDefFunc(d FindColDefData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
 			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
+				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		originalList := sqtables.ListTables(d.Profile)
-		err := sqtables.DropTable(d.Profile, d.TableName)
+		profile := sqprofile.CreateSQProfile()
+		cd, err := d.TL.FindColDef(profile, d.ColName, d.TableAlias)
 		if err != nil {
 			log.Println(err.Error())
 			if d.ExpErr == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
+				t.Errorf("Unexpected Error in test: %s", err.Error())
 				return
 			}
 			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
 				return
 			}
 			return
 		}
 		if err == nil && d.ExpErr != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
-		finalList := sqtables.ListTables(d.Profile)
-		finalList = append(finalList, d.TableName)
-		sort.Strings(finalList)
-		if !reflect.DeepEqual(originalList, finalList) {
-			t.Errorf("Table %s was not dropped correctly from table list", d.TableName)
+		if !reflect.DeepEqual(cd, d.ExpCol) {
+			t.Errorf("Actual ColDef %v does not match expected ColDef %v", cd, d.ExpCol)
 		}
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func TestMiscTableList(t *testing.T) {
-	// Data Setup
+////////////////////////////////////////////////////////////////
+func TestTLGetRowData(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			t.Errorf(t.Name() + " panicked unexpectedly")
+		}
+	}()
+	//var err error
 	profile := sqprofile.CreateSQProfile()
-
-	originalList := sqtables.ListTables(profile)
-	originalAllList := sqtables.ListAllTables(profile)
-
-	tab := sqtables.CreateTableDef(
-		"tablea",
-		sqtables.CreateColDef("col1", tokens.TypeInt, false),
-		sqtables.CreateColDef("col2", tokens.TypeString, false),
+	sqtest.ProcessSQFile("./testdata/multitable.sq")
+	tList := sqtables.NewTableList(profile,
+		[]sqtables.FromTable{
+			{TableName: "Person"},
+			{TableName: "city"},
+			{TableName: "country"},
+		})
+	eList := sqtables.ColsToExpr(
+		sqtables.NewColListNames(
+			[]string{
+				"firstname",
+				"lastname",
+				"city.name",
+				"city.prov",
+				"country.short",
+			},
+		),
 	)
-	err := sqtables.CreateTable(profile, tab)
-	if err != nil {
-		t.Error("Error setting up data for TestDropTable ", err)
-		return
-	}
-	tab2 := sqtables.CreateTableDef(
-		"tableb",
-		sqtables.CreateColDef("col1", tokens.TypeInt, false),
-		sqtables.CreateColDef("col2", tokens.TypeString, false),
-	)
-	err = sqtables.CreateTable(profile, tab2)
-	if err != nil {
-		t.Error("Error setting up data for TestDropTable ", err)
-		return
-	}
-	tabdrop := sqtables.CreateTableDef(
-		"tabledrop",
-		sqtables.CreateColDef("col1", tokens.TypeInt, false),
-		sqtables.CreateColDef("col2", tokens.TypeString, false),
-	)
-	err = sqtables.CreateTable(profile, tabdrop)
-	if err != nil {
-		t.Error("Error setting up data for TestDropTable ", err)
-		return
-	}
-	err = sqtables.DropTable(profile, "tabledrop")
-	if err != nil {
-		t.Error("Error setting up data for TestDropTable ", err)
-		return
-	}
-	// \Data Setup
 
-	t.Run("Tables List", func(t *testing.T) {
+	whereExpr := sqtables.NewOpExpr(
+		sqtables.NewOpExpr(
+			sqtables.NewOpExpr(
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "country", ColType: "STRING", TableName: "city"}),
+				"=",
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "country"}),
+			),
+			"AND",
+			sqtables.NewOpExpr(
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "short", ColType: "STRING", TableName: "country"}),
+				"!=",
+				sqtables.NewValueExpr(sqtypes.NewSQString("USA")),
+			),
+		),
+		"AND",
+		sqtables.NewOpExpr(
+			sqtables.NewColExpr(sqtables.ColDef{ColName: "cityid", ColType: "INT", TableName: "city"}),
+			"=",
+			sqtables.NewColExpr(sqtables.ColDef{ColName: "cityid", ColType: "INT", TableName: "person"}),
+		),
+	)
+
+	data := []TLGetRowData{
+		{
+			TestName:  "Multitable Query",
+			TL:        tList,
+			ExprList:  eList,
+			WhereExpr: whereExpr,
+			ExpErr:    "",
+			ExpVals: sqtypes.RawVals{
+				{"Cornell", "Codilla", "Leeds", "Leeds", "GBR"},
+				{"Georgia", "Kuffa", "Leeds", "Leeds", "GBR"},
+				{"Sophie", "Schuh", "Leeds", "Leeds", "GBR"},
+				{"Jenna", "Merisier", "Leeds", "Leeds", "GBR"},
+				{"Ocie", "Capossela", "Hove", "Brighton and Hove", "GBR"},
+				{"Linda", "Calco", "Hove", "Brighton and Hove", "GBR"},
+				{"Svetlana", "Poirrier", "Sheffield", "Sheffield", "GBR"},
+				{"Rodrigo", "Higman", "Manchester", "Manchester", "GBR"},
+				{"Shelton", "Leggat", "Manchester", "Manchester", "GBR"},
+				{"Grisel", "Martindale", "Joliette", "Québec", "CAN"},
+				{"Elva", "Velten", "Joliette", "Québec", "CAN"},
+				{"Nedra", "Hanaway", "Joliette", "Québec", "CAN"},
+				{"Daron", "Whitcome", "Joliette", "Québec", "CAN"},
+				{"Yvone", "June", "Joliette", "Québec", "CAN"},
+				{"Tyrone", "Ringen", "Tofino", "British Columbia", "CAN"},
+				{"Eliana", "Peasel", "Tofino", "British Columbia", "CAN"},
+			},
+		},
+		{
+			TestName:  "Nil Expression List",
+			TL:        tList,
+			ExprList:  nil,
+			WhereExpr: whereExpr,
+			ExpErr:    "Internal Error: Expression List must have at least one item",
+		},
+		{
+			TestName:  "Empty Expression List",
+			TL:        tList,
+			ExprList:  sqtables.NewExprList(),
+			WhereExpr: whereExpr,
+			ExpErr:    "Internal Error: Expression List must have at least one item",
+		},
+		{
+			TestName:  "Invalid colName in Expression List",
+			TL:        tList,
+			ExprList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.ColDef{ColName: "colX"})),
+			WhereExpr: whereExpr,
+			ExpErr:    "Error: Column \"colX\" not found in Table(s): Person, city, country",
+		},
+		{
+			TestName:  "Invalid tablename in Expression List",
+			TL:        tList,
+			ExprList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.ColDef{ColName: "name", TableName: "NotATable"})),
+			WhereExpr: whereExpr,
+			ExpErr:    "Error: Table NotATable not found in table list",
+		},
+		{
+			TestName:  "Empty Table List",
+			TL:        sqtables.NewTableList(profile, nil),
+			ExprList:  eList,
+			WhereExpr: whereExpr,
+			ExpErr:    "Internal Error: TableList must not be empty in TableList.GetRowData",
+		},
+		{
+			TestName:  "Multitable Query No Where clause",
+			TL:        tList,
+			ExprList:  eList,
+			WhereExpr: nil,
+			ExpErr:    "Error: Multi table queries must have a valid where clause",
+		},
+		{
+			TestName:  "Multitable Query err in Where clause",
+			TL:        tList,
+			ExprList:  eList,
+			WhereExpr: sqtables.NewColExpr(sqtables.ColDef{ColName: "colX"}),
+			ExpErr:    "Error: Column \"colX\" not found in Table(s): Person, city, country",
+		},
+		{
+			TestName:  "Multitable Query Count()",
+			TL:        tList,
+			ExprList:  sqtables.NewExprList(sqtables.NewCountExpr()),
+			WhereExpr: whereExpr,
+			ExpErr:    "",
+			ExpVals: sqtypes.RawVals{
+				{16},
+			},
+		},
+		{
+			TestName:  "Single table Query",
+			TL:        sqtables.NewTableList(profile, []sqtables.FromTable{{TableName: "country"}}),
+			ExprList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.CreateColDef("short", "STRING", false))),
+			WhereExpr: nil,
+			ExpErr:    "",
+			ExpVals: sqtypes.RawVals{
+				{"GBR"},
+				{"USA"},
+				{"CAN"},
+			},
+		},
+		{
+			TestName:  "Single table Count() Query",
+			TL:        sqtables.NewTableList(profile, []sqtables.FromTable{{TableName: "country"}}),
+			ExprList:  sqtables.NewExprList(sqtables.NewCountExpr()),
+			WhereExpr: nil,
+			ExpErr:    "",
+			ExpVals: sqtypes.RawVals{
+				{3},
+			},
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testTLGetRowDataFunc(row))
+
+	}
+
+}
+
+type TLGetRowData struct {
+	TestName  string
+	TL        *sqtables.TableList
+	ExprList  *sqtables.ExprList
+	WhereExpr sqtables.Expr
+	ExpErr    string
+	ExpVals   sqtypes.RawVals
+}
+
+func testTLGetRowDataFunc(d TLGetRowData) func(*testing.T) {
+	return func(t *testing.T) {
 		defer func() {
 			r := recover()
 			if r != nil {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		tList := sqtables.ListTables(profile)
-
-		if len(originalList)+2 != len(tList) {
-			t.Error("Tables not added correctly to tables list")
+		profile := sqprofile.CreateSQProfile()
+		data, err := d.TL.GetRowData(profile, d.ExprList, d.WhereExpr)
+		if err != nil {
+			log.Println(err.Error())
+			if d.ExpErr == "" {
+				t.Errorf("Unexpected Error in test: %s", err.Error())
+				return
+			}
+			if d.ExpErr != err.Error() {
+				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
+				return
+			}
 			return
 		}
-	})
-
-	t.Run("Tables All List", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
-		tList := sqtables.ListAllTables(profile)
-
-		if len(originalAllList)+3 != len(tList) {
-			t.Error("Tables not added correctly to tables list")
+		if err == nil && d.ExpErr != "" {
+			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
-	})
-
-	t.Run("Lock All Tables", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
-		sqtables.LockAllTables(profile)
-	})
-	t.Run("UnLock All Tables", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
-		sqtables.UnlockAllTables(profile)
-	})
-	t.Run("underscore test", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
-		tab := sqtables.CreateTableDef("", sqtables.CreateColDef("col1", tokens.TypeString, false))
-		err := sqtables.CreateTable(profile, tab)
-		experr := "Error: Invalid Name: Table names can not be blank"
-		if err.Error() != experr {
-			t.Errorf("Expected error: %q, Actual Error: %q", experr, err)
+		expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
+		for x, _ := range data.Vals[0] {
+			sort.SliceStable(data.Vals, func(i, j int) bool { return data.Vals[i][x].LessThan(data.Vals[j][x]) })
+			sort.SliceStable(expVals, func(i, j int) bool { return expVals[i][x].LessThan(expVals[j][x]) })
 		}
-	})
+		if !reflect.DeepEqual(data.Vals, expVals) {
+			t.Errorf("Actual data does not match expected\nActual:%v\nExpect:%v", data.Vals, expVals)
+			return
+		}
+	}
 }

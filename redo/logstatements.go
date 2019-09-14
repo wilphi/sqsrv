@@ -151,12 +151,13 @@ func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 	if tab == nil {
 		return sqerr.New("Table " + i.TableName + " does not exist")
 	}
+	tables := sqtables.NewTableListFromTableDef(profile, tab)
 
 	colList := sqtables.NewColListNames(i.Cols)
-	if err := colList.ValidateTable(profile, tab); err != nil {
+	if err := colList.ValidateTable(profile, tables); err != nil {
 		return err
 	}
-	dataSet, err := sqtables.NewDataSet(profile, tab, colList)
+	dataSet, err := sqtables.NewDataSet(profile, tables, colList)
 	if err != nil {
 		return err
 	}

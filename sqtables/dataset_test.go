@@ -9,11 +9,16 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
-func testNewExprDataSetFunc(tab *sqtables.TableDef, eList *sqtables.ExprList, tobeCreated bool) func(*testing.T) {
+func init() {
+	sqtest.TestInit("sqtables_test.log")
+}
+
+func testNewExprDataSetFunc(tables *sqtables.TableList, eList *sqtables.ExprList, tobeCreated bool) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -22,7 +27,7 @@ func testNewExprDataSetFunc(tab *sqtables.TableDef, eList *sqtables.ExprList, to
 			}
 		}()
 
-		data := sqtables.NewExprDataSet(tab, eList)
+		data := sqtables.NewExprDataSet(tables, eList)
 		if tobeCreated {
 			if data == nil {
 				t.Error("Dataset not created")
@@ -49,7 +54,7 @@ func testNewExprDataSetFunc(tab *sqtables.TableDef, eList *sqtables.ExprList, to
 	}
 }
 
-func testNewDataSetFunc(tab *sqtables.TableDef, cols sqtables.ColList, colStr []string, tobeCreated bool, ExpErr string) func(*testing.T) {
+func testNewDataSetFunc(tables *sqtables.TableList, cols sqtables.ColList, colStr []string, tobeCreated bool, ExpErr string) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -58,7 +63,7 @@ func testNewDataSetFunc(tab *sqtables.TableDef, cols sqtables.ColList, colStr []
 			}
 		}()
 		profile := sqprofile.CreateSQProfile()
-		data, err := sqtables.NewDataSet(profile, tab, cols)
+		data, err := sqtables.NewDataSet(profile, tables, cols)
 		if err != nil {
 			log.Println(err.Error())
 			if ExpErr == "" {
@@ -102,52 +107,42 @@ func TestDataSet(t *testing.T) {
 		t.Error("Unable to create table for testing")
 		return
 	}
-	str = "CREATE TABLE dataset2 (col1 int, col2 string, col3 bool)"
-	tkns = tokens.Tokenize(str)
-	tableName2, err := cmd.CreateTableFromTokens(profile, tkns)
-	if err != nil {
-		t.Error("Unable to create table for testing")
-		return
-	}
-	str = "INSERT INTO dataset (col1, col2, col3) VALUES " +
-		fmt.Sprintf("(%d, %q, %v), ", 1, "ttt", true) +
-		fmt.Sprintf("(%d, %q, %v), ", 9, "ttt", true) +
-		fmt.Sprintf("(%d, %q, %v), ", 6, "aaa", true) +
-		fmt.Sprintf("(%d, %q, %v), ", 6, "aaa", true) +
-		fmt.Sprintf("(%d, %q, %v), ", 4, "qqq", false) +
-		fmt.Sprintf("(%d, %q, %v), ", 2, "qab", true) +
-		fmt.Sprintf("(%d, %q, %v), ", 8, "qxc", true) +
-		fmt.Sprintf("(%d, %q, %v) ", 1, "nnn", true)
-	_, _, err = cmd.InsertInto(profile, tokens.Tokenize(str))
-	if err != nil {
-		t.Errorf("Unable to insert data for testing: %s", err)
-		return
-	}
 
+	vals := sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{"ttt", 1},
+		{"ttt", 9},
+		{"aaa", 6},
+		{"aaa", 6},
+		{"qqq", 4},
+		{"qab", 2},
+		{"qxc", 8},
+		{"nnn", 1},
+	})
 	colStr := []string{"col2", "col1"}
 	colStrErr := []string{"col2", "col1", "colX"}
 
 	colds := []sqtables.ColDef{sqtables.ColDef{ColName: "col2", ColType: "STRING"}, sqtables.ColDef{ColName: "col1", ColType: "INT"}}
 	exprCols := sqtables.ColsToExpr(sqtables.NewColListDefs(colds))
 	emptyExprCols := &sqtables.ExprList{}
-	tab := sqtables.GetTable(profile, tableName)
-	if tab == nil {
+	tab1 := sqtables.GetTable(profile, tableName)
+	if tab1 == nil {
 		t.Error("Unable to get table for testing")
 		return
 	}
-	t.Run("New DataSet", testNewDataSetFunc(tab, sqtables.NewColListNames(colStr), colStr, true, ""))
-	t.Run("New DataSet with Validate Err", testNewDataSetFunc(tab,
+	tables := sqtables.NewTableListFromTableDef(profile, tab1)
+	t.Run("New DataSet", testNewDataSetFunc(tables, sqtables.NewColListNames(colStr), colStr, true, ""))
+	t.Run("New DataSet with Validate Err", testNewDataSetFunc(tables,
 		sqtables.NewColListNames(colStrErr),
 		colStr,
 		true,
-		"Error: Table dataset does not have a column named colX",
+		"Error: Column \"colX\" not found in Table(s): dataset",
 	))
 
-	t.Run("New DataSet no Cols", testNewDataSetFunc(tab, sqtables.NewColListNames([]string{}), []string{}, false, ""))
+	t.Run("New DataSet no Cols", testNewDataSetFunc(tables, sqtables.NewColListNames([]string{}), []string{}, false, ""))
 
-	t.Run("New Expr DataSet", testNewExprDataSetFunc(tab, exprCols, true))
+	t.Run("New Expr DataSet", testNewExprDataSetFunc(tables, exprCols, true))
 
-	t.Run("New Expr DataSet no Cols", testNewExprDataSetFunc(tab, emptyExprCols, false))
+	t.Run("New Expr DataSet no Cols", testNewExprDataSetFunc(tables, emptyExprCols, false))
 
 	t.Run("Len==0 from DataSet", func(t *testing.T) {
 		defer func() {
@@ -156,7 +151,7 @@ func TestDataSet(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		data := sqtables.NewExprDataSet(tab, exprCols)
+		data := sqtables.NewExprDataSet(tables, exprCols)
 		if data == nil {
 			t.Error("Dataset not created")
 			return
@@ -174,13 +169,13 @@ func TestDataSet(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		data := sqtables.NewExprDataSet(tab, exprCols)
+		data := sqtables.NewExprDataSet(tables, exprCols)
 		if data == nil {
 			t.Error("Dataset not created")
 			return
 		}
 
-		if tab.GetName(profile) != data.GetTable().GetName(profile) {
+		if tables != data.GetTables() {
 			t.Error("Tables do not match")
 		}
 	})
@@ -191,7 +186,7 @@ func TestDataSet(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		data := sqtables.NewExprDataSet(tab, exprCols)
+		data := sqtables.NewExprDataSet(tables, exprCols)
 		if data == nil {
 			t.Error("Dataset not created")
 			return
@@ -215,48 +210,54 @@ func TestDataSet(t *testing.T) {
 	data := []SortData{
 		{
 			TestName:        "Sort Dataset Invalid Order Col",
-			TableName:       tableName,
+			Tables:          tables,
 			DataCols:        exprCols,
+			InitVals:        vals,
 			Order:           []sqtables.OrderItem{{ColName: "colX", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
 			ExpVals:         [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
 			ExpSortOrderErr: true,
 		},
 		{
 			TestName:        "Sort Dataset skip Invalid Order Col",
-			TableName:       tableName,
+			Tables:          tables,
 			DataCols:        exprCols,
+			InitVals:        vals,
 			Order:           []sqtables.OrderItem{{ColName: "colX", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
 			ExpVals:         [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
 			ExpSortOrderErr: true,
 			ExpSortErr:      true,
 		},
 		{
-			TestName:  "Sort Dataset",
-			TableName: tableName,
-			DataCols:  exprCols,
-			Order:     []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
-			ExpVals:   [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
+			TestName: "Sort Dataset",
+			Tables:   tables,
+			DataCols: exprCols,
+			InitVals: vals,
+			Order:    []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
+			ExpVals:  [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
 		},
 		{
-			TestName:  "Sort Empty Dataset",
-			TableName: tableName2,
-			DataCols:  exprCols,
-			Order:     []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
-			ExpVals:   [][]sqtypes.Value{},
+			TestName: "Sort Empty Dataset",
+			Tables:   tables,
+			DataCols: exprCols,
+			InitVals: [][]sqtypes.Value{},
+			Order:    []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
+			ExpVals:  [][]sqtypes.Value{},
 		},
 		{
-			TestName:  "Sort Dataset desc",
-			TableName: tableName,
-			DataCols:  exprCols,
-			Order:     []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Desc}, {ColName: "col1", SortType: tokens.Desc}},
-			ExpVals:   [][]sqtypes.Value{rw7, rw6, rw5, rw4, rw3, rw2, rw1, rw1},
+			TestName: "Sort Dataset desc",
+			Tables:   tables,
+			DataCols: exprCols,
+			InitVals: vals,
+			Order:    []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Desc}, {ColName: "col1", SortType: tokens.Desc}},
+			ExpVals:  [][]sqtypes.Value{rw7, rw6, rw5, rw4, rw3, rw2, rw1, rw1},
 		},
 		{
-			TestName:  "Sort Dataset desc/asc",
-			TableName: tableName,
-			DataCols:  exprCols,
-			Order:     []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Desc}, {ColName: "col1", SortType: tokens.Asc}},
-			ExpVals:   [][]sqtypes.Value{rw6, rw7, rw5, rw4, rw3, rw2, rw1, rw1},
+			TestName: "Sort Dataset desc/asc",
+			Tables:   tables,
+			DataCols: exprCols,
+			InitVals: vals,
+			Order:    []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Desc}, {ColName: "col1", SortType: tokens.Asc}},
+			ExpVals:  [][]sqtypes.Value{rw6, rw7, rw5, rw4, rw3, rw2, rw1, rw1},
 		},
 	}
 
@@ -270,8 +271,9 @@ func TestDataSet(t *testing.T) {
 
 type SortData struct {
 	TestName        string
-	TableName       string
+	Tables          *sqtables.TableList
 	DataCols        *sqtables.ExprList
+	InitVals        [][]sqtypes.Value
 	Order           []sqtables.OrderItem
 	ExpVals         [][]sqtypes.Value
 	ExpSortOrderErr bool
@@ -286,19 +288,10 @@ func testSortFunc(d SortData) func(*testing.T) {
 				t.Errorf(d.TestName + " panicked unexpectedly")
 			}
 		}()
-		profile := sqprofile.CreateSQProfile()
+		data := sqtables.NewExprDataSet(d.Tables, d.DataCols)
+		data.Vals = d.InitVals
 
-		tab := sqtables.GetTable(profile, d.TableName)
-		if tab == nil {
-			t.Errorf("Error getting table %s for sort", d.TableName)
-			return
-		}
-		data, err := tab.GetRowData(profile, d.DataCols, nil)
-		if err != nil {
-			t.Errorf("Error getting data for sort: %s", err)
-			return
-		}
-		err = data.SetOrder(d.Order)
+		err := data.SetOrder(d.Order)
 		if !d.ExpSortErr && err != nil {
 			if !d.ExpSortOrderErr {
 				t.Errorf("Error using SetOrder")

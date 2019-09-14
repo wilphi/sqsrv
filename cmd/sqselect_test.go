@@ -3,6 +3,8 @@ package cmd_test
 import (
 	"fmt"
 	"reflect"
+	"runtime"
+	"sort"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -33,7 +35,8 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 		defer func() {
 			r := recover()
 			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
+				_, fn, line, _ := runtime.Caller(4)
+				t.Errorf("%s panicked unexpectedly: %s:%d %v", t.Name(), fn, line, r)
 			}
 		}()
 		tkns := tokens.Tokenize(d.Command)
@@ -68,16 +71,26 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 			t.Errorf("Number of columns returned (%d) does not match expected number of cols(%d)", data.NumCols(), len(d.ExpCols))
 			return
 		}
-		for i, colName := range data.GetColNames() {
-			if d.ExpCols[i] != colName {
-				t.Errorf("Expecting col named (%s) but returned (%s) instead", d.ExpCols[i], colName)
+		actCols := data.GetColNames()
+		sort.Strings(actCols)
+		sort.Strings(d.ExpCols)
+		if !reflect.DeepEqual(actCols, d.ExpCols) {
+			t.Errorf("Expected Cols (%v) do not match actual cols (%v)", d.ExpCols, actCols)
+			return
+		}
+
+		if len(data.Vals) == 0 {
+			if d.ExpVals == nil || len(d.ExpVals) == 0 {
 				return
 			}
+			t.Errorf("No actual values to test against Expected Vals")
+			return
 		}
 		if d.ExpVals != nil {
 			expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
-			if !reflect.DeepEqual(expVals, data.Vals) {
-				t.Error("Expected Values and Actual values do not match")
+			msg := sqtypes.Compare2DValue(data.Vals, expVals, "Actual", "Expect")
+			if msg != "" {
+				t.Error(msg)
 				return
 			}
 		}
@@ -89,30 +102,8 @@ func TestSelect(t *testing.T) {
 	// Make sure datasets are by default in RowID order
 	sqtables.RowOrder = true
 
-	//make sure table exists for testing
-	tkns := tokens.Tokenize("CREATE TABLE seltest (col1 int, col2 string, col3 bool)")
-	_, err := cmd.CreateTableFromTokens(profile, tkns)
-	if err != nil {
-		t.Errorf("Error setting up table for TestSelect: %s", err)
-		return
-	}
-
-	// Test to see what happens with empty table
-	tkns = tokens.Tokenize("CREATE TABLE selEmpty (col1 int, col2 string, col3 bool)")
-	_, err = cmd.CreateTableFromTokens(profile, tkns)
-	if err != nil {
-		t.Errorf("Error setting up table for TestSelect: %s", err)
-		return
-	}
-
-	testData := "INSERT INTO seltest (col1, col2, col3) VALUES " +
-		"(123, \"With Cols Test\", true), " +
-		"(456, \"Seltest 2\", true), " +
-		"(789, \"Seltest 3\", false)"
-	tkns = tokens.Tokenize(testData)
-	if _, _, err := cmd.InsertInto(profile, tkns); err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
+	sqtest.ProcessSQFile("./testdata/selecttests.sq")
+	sqtest.ProcessSQFile("./testdata/multitable.sq")
 
 	data := []SelectData{
 
@@ -159,7 +150,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT missing Table Name",
 			Command:  "SELECT col1, col2, col3 FROM",
-			ExpErr:   "Syntax Error: Expecting table name in select statement",
+			ExpErr:   "Syntax Error: No Tables defined for query",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -191,7 +182,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "Invalid table name",
 			Command:  "SELECT col1, col2 FROM NotATable",
-			ExpErr:   "Error: Table NotATable does not exist for select statement",
+			ExpErr:   "Error: Table \"NotATable\" does not exist",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -199,7 +190,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "Invalid column name",
 			Command:  "SELECT col1, col2, colx FROM seltest",
-			ExpErr:   "Error: Table seltest does not have a column named colx",
+			ExpErr:   "Error: Column \"colx\" not found in Table(s): seltest",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -215,7 +206,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "Select * from NotATable",
 			Command:  "Select * from NotATable",
-			ExpErr:   "Error: Table NotATable does not exist for select statement",
+			ExpErr:   "Error: Table \"NotATable\" does not exist",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -223,7 +214,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT too many columns",
 			Command:  "SELECT col1, col2, col3, colx FROM seltest",
-			ExpErr:   "Error: Table seltest does not have a column named colx",
+			ExpErr:   "Error: Column \"colx\" not found in Table(s): seltest",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -371,7 +362,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT + Extra stuff",
 			Command:  "SELECT * FROM seltest extra stuff",
-			ExpErr:   "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
+			ExpErr:   "Syntax Error: Comma is required to separate tables",
 			ExpRows:  2,
 			ExpCols:  []string{"col1", "col2", "col3"},
 			ExpVals: sqtypes.RawVals{
@@ -384,7 +375,7 @@ func TestSelect(t *testing.T) {
 			Command:  "SELECT col1*10, col2, col3 FROM seltest",
 			ExpErr:   "",
 			ExpRows:  3,
-			ExpCols:  []string{"(col1*10)", "col2", "col3"},
+			ExpCols:  []string{"(seltest.col1*10)", "col2", "col3"},
 			ExpVals: sqtypes.RawVals{
 				{1230, "With Cols Test", true},
 				{4560, "Seltest 2", true},
@@ -430,7 +421,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT Where expression err invalid col ",
 			Command:  "SELECT col1 FROM seltest Where colX<5",
-			ExpErr:   "Error: Table seltest does not have a column named colX",
+			ExpErr:   "Error: Column \"colX\" not found in Table(s): seltest",
 			ExpRows:  3,
 			ExpCols:  []string{"col1"},
 			ExpVals: sqtypes.RawVals{
@@ -499,6 +490,91 @@ func TestSelect(t *testing.T) {
 				{7890, "Seltest 3", false},
 			},
 		},
+		{
+			TestName: "SELECT Join country city ",
+			Command:  "SELECT city.name, country.short FROM city, country where city.country = country.name and country.name != \"United States\"",
+			ExpErr:   "",
+			ExpRows:  6,
+			ExpCols:  []string{"city.name", "country.short"},
+			ExpVals: sqtypes.RawVals{
+				{"Joliette", "CAN"},
+				{"Tofino", "CAN"},
+				{"Hove", "GBR"},
+				{"Leeds", "GBR"},
+				{"Manchester", "GBR"},
+				{"Sheffield", "GBR"},
+			},
+		},
+		{
+			TestName: "SELECT Join country city person ",
+			Command:  "select firstname, lastname, city.name, city.prov, country.short from city, country, person where city.country = country.name and country.short!=\"USA\" and city.cityid = person.cityid",
+			ExpErr:   "",
+			ExpRows:  16,
+			ExpCols:  []string{"firstname", "lastname", "city.name", "city.prov", "country.short"},
+			ExpVals: sqtypes.RawVals{
+				{"Eliana", "Peasel", "Tofino", "British Columbia", "CAN"},
+				{"Tyrone", "Ringen", "Tofino", "British Columbia", "CAN"},
+				{"Nedra", "Hanaway", "Joliette", "Québec", "CAN"},
+				{"Yvone", "June", "Joliette", "Québec", "CAN"},
+				{"Grisel", "Martindale", "Joliette", "Québec", "CAN"},
+				{"Elva", "Velten", "Joliette", "Québec", "CAN"},
+				{"Daron", "Whitcome", "Joliette", "Québec", "CAN"},
+				{"Linda", "Calco", "Hove", "Brighton and Hove", "GBR"},
+				{"Ocie", "Capossela", "Hove", "Brighton and Hove", "GBR"},
+				{"Cornell", "Codilla", "Leeds", "Leeds", "GBR"},
+				{"Georgia", "Kuffa", "Leeds", "Leeds", "GBR"},
+				{"Jenna", "Merisier", "Leeds", "Leeds", "GBR"},
+				{"Sophie", "Schuh", "Leeds", "Leeds", "GBR"},
+				{"Rodrigo", "Higman", "Manchester", "Manchester", "GBR"},
+				{"Shelton", "Leggat", "Manchester", "Manchester", "GBR"},
+				{"Svetlana", "Poirrier", "Sheffield", "Sheffield", "GBR"},
+			},
+		},
+		{
+			TestName: "Multi Table Order By with * ",
+			Command:  "SELECT * FROM city, country where city.country = country.name and country.name != \"United States\" order by city.name",
+			ExpErr:   "",
+			ExpRows:  6,
+			ExpCols:  []string{"country.name", "country.short", "city.cityid", "city.name", "city.country", "city.prov", "city.lat", "city.long"},
+			ExpVals: sqtypes.RawVals{
+				{5, "Hove", "United Kingdom", "Brighton and Hove", 50.8333, -0.1833, "United Kingdom", "GBR"},
+				{1, "Joliette", "Canada", "Québec", 46.0333, -73.4333, "Canada", "CAN"},
+				{3, "Leeds", "United Kingdom", "Leeds", 53.83, -1.58, "United Kingdom", "GBR"},
+				{4, "Manchester", "United Kingdom", "Manchester", 53.5004, -2.248, "United Kingdom", "GBR"},
+				{2, "Sheffield", "United Kingdom", "Sheffield", 53.3667, -1.5, "United Kingdom", "GBR"},
+				{0, "Tofino", "Canada", "British Columbia", 49.1521, -125.9031, "Canada", "CAN"},
+			},
+		},
+		{
+			TestName: "Multi Table Order By with alias ",
+			Command:  "SELECT city.cityid, city.name cname, lat,long, short  FROM city, country where city.country = country.name and country.name != \"United States\" order by cname",
+			ExpErr:   "",
+			ExpRows:  6,
+			ExpCols:  []string{"city.cityid", "cname", "lat", "long", "short"},
+			ExpVals: sqtypes.RawVals{
+				{5, "Hove", 50.8333, -0.1833, "GBR"},
+				{1, "Joliette", 46.0333, -73.4333, "CAN"},
+				{3, "Leeds", 53.83, -1.58, "GBR"},
+				{4, "Manchester", 53.5004, -2.248, "GBR"},
+				{2, "Sheffield", 53.3667, -1.5, "GBR"},
+				{0, "Tofino", 49.1521, -125.9031, "CAN"},
+			},
+		},
+		/*		{
+				TestName: "Multi Table Order By with table alias ",
+				Command:  "SELECT cn.short,city.cityid, city.name cname, lat,long  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",
+				ExpErr:   "",
+				ExpRows:  6,
+				ExpCols:  []string{"city.cityid", "cname", "lat", "long", "cn.short"},
+				ExpVals: sqtypes.RawVals{
+					{5, "Hove", 50.8333, -0.1833, "GBR"},
+					{1, "Joliette", 46.0333, -73.4333, "CAN"},
+					{3, "Leeds", 53.83, -1.58, "GBR"},
+					{4, "Manchester", 53.5004, -2.248, "GBR"},
+					{2, "Sheffield", 53.3667, -1.5, "GBR"},
+					{0, "Tofino", 49.1521, -125.9031, "CAN"},
+				},
+			}*/
 	}
 
 	for i, row := range data {
@@ -506,27 +582,4 @@ func TestSelect(t *testing.T) {
 			testSelectFunc(profile, row))
 
 	}
-}
-
-func TestSelectExecute(t *testing.T) {
-	profile := sqprofile.CreateSQProfile()
-
-	t.Run("Invalid Table", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
-		data, err := cmd.SelectExecute(profile, "NotATable", &sqtables.ExprList{}, nil, nil)
-		if err != nil && err.Error() != "Error: Table NotATable does not exist for select statement" {
-			t.Errorf("Unexpected Error: %s", err)
-			return
-
-		}
-		// Avoids unused variable
-		if data != nil {
-			data.Len()
-		}
-	})
 }

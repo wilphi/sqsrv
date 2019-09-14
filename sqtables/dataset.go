@@ -15,7 +15,7 @@ type DataSet struct {
 	Vals       [][]sqtypes.Value
 	usePtrs    bool
 	Ptrs       []int64
-	table      *TableDef
+	tables     *TableList
 	order      []OrderItem
 	validOrder bool
 	eList      *ExprList
@@ -35,24 +35,24 @@ func (d *DataSet) GetColNames() []string {
 }
 
 // NewDataSet -
-func NewDataSet(profile *sqprofile.SQProfile, tab *TableDef, cols ColList) (*DataSet, error) {
+func NewDataSet(profile *sqprofile.SQProfile, tables *TableList, cols ColList) (*DataSet, error) {
 	if cols.Len() == 0 {
 		return nil, nil
 	}
-	err := cols.ValidateTable(profile, tab)
+	err := cols.ValidateTable(profile, tables)
 	if err != nil {
 		return nil, err
 	}
 	eList := ColsToExpr(cols)
-	return &DataSet{eList: eList, table: tab}, nil
+	return &DataSet{eList: eList, tables: tables}, nil
 }
 
 // NewExprDataSet creates a dataset based on expressions
-func NewExprDataSet(tab *TableDef, eList *ExprList) *DataSet {
-	if eList.Len() == 0 {
-		return nil
+func NewExprDataSet(tables *TableList, eList *ExprList) *DataSet {
+	if eList == nil || eList.Len() == 0 {
+		return nil //&DataSet{tables: tables}
 	}
-	return &DataSet{eList: eList, table: tab}
+	return &DataSet{eList: eList, tables: tables}
 }
 
 // NumCols -
@@ -69,9 +69,9 @@ func (d *DataSet) GetColList() ColList {
 	return NewColListDefs(cols)
 }
 
-// GetTable -
-func (d *DataSet) GetTable() *TableDef {
-	return d.table
+// GetTables -
+func (d *DataSet) GetTables() *TableList {
+	return d.tables
 }
 
 // SetOrder -

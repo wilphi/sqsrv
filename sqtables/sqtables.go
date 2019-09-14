@@ -45,9 +45,11 @@ func CreateTableDef(name string, cols ...ColDef) *TableDef {
 	tab.SQMutex = sqmutex.NewSQMutex("Table: " + tab.tableName)
 
 	log.Debugln("TableName: ", tab.tableName)
-	for i, col := range cols {
-		col.Idx = i
+	for i := range tab.tableCols {
+		// set the order for the cols based on the order passed in
 		tab.tableCols[i].Idx = i
+		// set the tablename for the cols
+		tab.tableCols[i].TableName = tab.tableName
 	}
 
 	log.Debugln("Cols: ", tab.tableCols)
@@ -147,8 +149,7 @@ func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
 		if soft == SoftDelete {
-			t.rowm[idx].isDeleted = true
-			t.rowm[idx].isModified = true
+			t.rowm[idx].Delete(profile)
 		} else {
 			delete(t.rowm, idx)
 		}
@@ -158,7 +159,8 @@ func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 
 // GetRowDataFromPtrs returns data based on the rowIDs passed
 func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64) (*DataSet, error) {
-	ds, err := NewDataSet(profile, t, t.GetCols(profile))
+	tables := NewTableListFromTableDef(profile, t)
+	ds, err := NewDataSet(profile, tables, t.GetCols(profile))
 	if err != nil {
 		return nil, err
 	}
@@ -182,13 +184,15 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 	t.RLock(profile)
 	defer t.RUnlock(profile)
 
+	tables := NewTableListFromTableDef(profile, t)
+
 	// Verify all cols exist in table
-	if err = eList.ValidateCols(profile, t); err != nil {
+	if err = eList.ValidateCols(profile, tables); err != nil {
 		return nil, err
 	}
 
 	// Setup the dataset for the results
-	ret := NewExprDataSet(t, eList)
+	ret := NewExprDataSet(tables, eList)
 	ret.usePtrs = !eList.HasCount()
 
 	// Get the pointers to the rows based on the conditions
@@ -211,7 +215,7 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 				log.Panic("rowID does not match Map index")
 			}
 
-			ret.Vals[i], err = eList.Evaluate(profile, t.rowm[ptr])
+			ret.Vals[i], err = eList.Evaluate(profile, EvalFull, t.rowm[ptr])
 			if err != nil {
 				return nil, err
 			}
@@ -242,8 +246,16 @@ func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *ColDef
 	defer t.RUnlock(profile)
 
 	for _, col = range t.tableCols {
-		if col.ColName == name {
-			return &col
+		parts := strings.Split(name, ".")
+		switch len(parts) {
+		case 1:
+			if col.ColName == name {
+				return &col
+			}
+		case 2:
+			if col.ColName == parts[1] {
+				return &col
+			}
 		}
 	}
 	return nil
@@ -290,13 +302,17 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted boo
 			continue
 		}
 		if exp != nil {
-			val, err = exp.Evaluate(profile, row)
+			val, err = exp.Evaluate(profile, EvalPartial, row)
 			if err != nil {
 				return nil, err
 			}
-			boolVal, ok := val.(sqtypes.SQBool)
-			if ok {
-				includeRow = boolVal.Val
+			if val != nil {
+				boolVal, ok := val.(sqtypes.SQBool)
+				if ok {
+					includeRow = boolVal.Val
+				}
+			} else {
+				includeRow = true
 			}
 
 		}
@@ -321,7 +337,7 @@ func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 		if row == nil || !ok {
 			return sqerr.NewInternalf("Row %d does not exist for update", idx)
 		}
-		vals, err := eList.Evaluate(profile, row)
+		vals, err := eList.Evaluate(profile, EvalFull, row)
 		if err != nil {
 			return err
 		}

@@ -16,26 +16,8 @@ import (
 type InsertStmt struct {
 	tkns      *tokens.TokenList
 	tableName string
-	//cols      []string
-	//vals      [][]sqtypes.Value
-	data *sqtables.DataSet
+	data      *sqtables.DataSet
 }
-
-/*
-// InsertIntoOld -
-func InsertIntoOld(profile *sqprofile.SQProfile, tl *tokens.TokenList) (int, error) {
-	ins, err := CreateInsertStmt(tl)
-	if err != nil {
-		return -1, err
-	}
-	err = ins.Decode(profile)
-	if err != nil {
-		return -1, err
-	}
-	i, err := ins.insertIntoTables(profile)
-	return i, err
-}
-*/
 
 // InsertInto -
 func InsertInto(profile *sqprofile.SQProfile, tl *tokens.TokenList) (string, *sqtables.DataSet, error) {
@@ -96,7 +78,7 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 		return sqerr.New("Table " + ins.tableName + " does not exist")
 	}
 
-	ins.data, err = sqtables.NewDataSet(profile, tab, sqtables.NewColListNames(colNames))
+	ins.data, err = sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.NewColListNames(colNames))
 	if err != nil {
 		return err
 	}
@@ -155,6 +137,12 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 	if err != nil {
 		return nil, err
 	}
+	if ins.tkns.Test(tokens.CloseBracket) != "" {
+		ins.tkns.Remove()
+	} else {
+		return nil, sqerr.NewSyntax("Expecting ) to finish row of VALUES")
+	}
+
 	vals, err = eList.GetValues()
 	return vals, err
 }

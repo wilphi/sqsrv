@@ -247,7 +247,7 @@ func cmdUnLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Res
 }
 
 func cmdShowTables(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
-	tables := sqtables.ListTables(profile)
+	tables := sqtables.CatalogTables(profile)
 	str := "Table List\n----------------------\n"
 	for _, tab := range tables {
 		str += fmt.Sprintf("  %-20s\n", tab)

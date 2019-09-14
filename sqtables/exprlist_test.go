@@ -17,7 +17,8 @@ type EvalListData struct {
 	TestName string
 	List     []sqtables.Expr
 	profile  *sqprofile.SQProfile
-	row      *sqtables.RowDef
+	Tables   *sqtables.TableList
+	rows     []*sqtables.RowDef
 	ExpVals  []sqtypes.Raw
 	ExpErr   string
 }
@@ -31,7 +32,8 @@ func testEvalListFunc(d EvalListData) func(*testing.T) {
 			}
 		}()
 		eList := sqtables.NewExprList(d.List...)
-		retVals, err := eList.Evaluate(d.profile, d.row)
+		eList.ValidateCols(d.profile, d.Tables)
+		retVals, err := eList.Evaluate(d.profile, sqtables.EvalFull, d.rows...)
 
 		if err != nil {
 			log.Println(err.Error())
@@ -78,12 +80,15 @@ func TestEvalListExpr(t *testing.T) {
 		return
 	}
 	row := tab.GetRow(profile, 1)
+	rows := []*sqtables.RowDef{row}
+	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	data := []EvalListData{
 		{
 			TestName: "Value Expr Int",
 			List:     []sqtables.Expr{sqtables.NewValueExpr(sqtypes.NewSQInt(1234))},
 			profile:  profile,
-			row:      nil,
+			Tables:   tables,
+			rows:     nil,
 			ExpVals:  []sqtypes.Raw{1234},
 			ExpErr:   "",
 		},
@@ -91,7 +96,8 @@ func TestEvalListExpr(t *testing.T) {
 			TestName: "Value Expr String",
 			List:     []sqtables.Expr{sqtables.NewValueExpr(sqtypes.NewSQString("Test STring"))},
 			profile:  profile,
-			row:      nil,
+			Tables:   tables,
+			rows:     nil,
 			ExpVals:  []sqtypes.Raw{"Test STring"},
 			ExpErr:   "",
 		},
@@ -99,7 +105,8 @@ func TestEvalListExpr(t *testing.T) {
 			TestName: "Col Expr",
 			List:     []sqtables.Expr{sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false))},
 			profile:  profile,
-			row:      row,
+			Tables:   tables,
+			rows:     rows,
 			ExpVals:  []sqtypes.Raw{1},
 			ExpErr:   "",
 		},
@@ -110,12 +117,13 @@ func TestEvalListExpr(t *testing.T) {
 				sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false)),
 			},
 			profile: profile,
-			row:     row,
+			Tables:  tables,
+			rows:    rows,
 			ExpVals: []sqtypes.Raw{
 				"Test STring",
 				12,
 			},
-			ExpErr: "Error: colX not found in table elisttest",
+			ExpErr: "Error: Column \"colX\" not found in Table(s): elisttest",
 		},
 	}
 	for i, row := range data {
@@ -194,7 +202,7 @@ func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.
 	}
 }
 
-func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqprofile.SQProfile, tab *sqtables.TableDef) func(*testing.T) {
+func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqprofile.SQProfile, tables *sqtables.TableList) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -202,7 +210,7 @@ func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqpr
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		err := eList.ValidateCols(profile, tab)
+		err := eList.ValidateCols(profile, tables)
 		if err != nil {
 			log.Println(err.Error())
 			if ExpErr == "" {
@@ -365,14 +373,14 @@ func TestValidateColsExprList(t *testing.T) {
 		t.Error("Unable to get setup table")
 		return
 	}
-
+	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	cols := sqtables.NewColListNames([]string{"col1", "col4", "col3", "col2"})
 	eList := sqtables.ColsToExpr(cols)
 
-	t.Run("Validate eList", testValidateColsFunc(eList, "", profile, tab))
+	t.Run("Validate eList", testValidateColsFunc(eList, "", profile, tables))
 	eList.Add(sqtables.NewValueExpr(sqtypes.NewSQInt(1)))
-	t.Run("Validate eList with ValueExpr", testValidateColsFunc(eList, "", profile, tab))
+	t.Run("Validate eList with ValueExpr", testValidateColsFunc(eList, "", profile, tables))
 	eList.Add(sqtables.NewColExpr(sqtables.ColDef{ColName: "colx"}))
-	t.Run("Validate eList with Error", testValidateColsFunc(eList, "Error: Table elistvalidatetest does not have a column named colx", profile, tab))
+	t.Run("Validate eList with Error", testValidateColsFunc(eList, "Error: Column \"colx\" not found in Table(s): elistvalidatetest", profile, tables))
 
 }

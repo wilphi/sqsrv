@@ -18,6 +18,12 @@ const (
 	IDNegateExpr = 204
 )
 
+// Evaluate constants. Full means all parts must be valid to get a value, Partial means only parts that match current table matter
+const (
+	EvalFull    = false
+	EvalPartial = true
+)
+
 // Expr interface maintains a tree structure of expressions that will eventually evaluate to a single value
 type Expr interface {
 	Left() Expr
@@ -27,9 +33,10 @@ type Expr interface {
 	ToString() string
 	Name() string
 	ColDef() ColDef
-	Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Value, error)
+	ColDefs(tables ...*TableDef) []ColDef
+	Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error)
 	Reduce() (Expr, error)
-	ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error
+	ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error
 	Encode() *sqbin.Codec
 	Decode(*sqbin.Codec)
 	SetAlias(alias string)
@@ -86,8 +93,13 @@ func (e *ValueExpr) ColDef() ColDef {
 	return ColDef{ColName: e.Name(), ColType: e.v.Type()}
 }
 
+// ColDefs returns a list of all actual columns in the expression
+func (e *ValueExpr) ColDefs(tables ...*TableDef) []ColDef {
+	return nil
+}
+
 // Evaluate -
-func (e *ValueExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Value, error) {
+func (e *ValueExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
 	return e.v, nil
 }
 
@@ -97,7 +109,7 @@ func (e *ValueExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *ValueExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
+func (e *ValueExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
 	return nil
 }
 
@@ -166,10 +178,15 @@ func (e *ColExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *ColExpr) ToString() string {
-	str := e.col.ColName
+	if e.alias == e.col.ColName {
+		return e.alias
+	}
+	str := Ternary(e.col.TableName != "", e.col.TableName+".", "") + e.col.ColName
+	//str := e.col.ColName
 	if e.alias != "" {
 		str += " " + e.alias
 	}
+
 	return str
 }
 
@@ -186,9 +203,42 @@ func (e *ColExpr) ColDef() ColDef {
 	return e.col
 }
 
+// ColDefs returns a list of all actual columns in the expression, filtered by the given tables
+func (e *ColExpr) ColDefs(tables ...*TableDef) []ColDef {
+	var ret []ColDef
+	if tables == nil {
+		return []ColDef{e.col}
+	}
+	for _, tab := range tables {
+		if e.col.TableName == tab.tableName {
+			ret = append(ret, e.col)
+		}
+	}
+	return ret
+}
+
 // Evaluate -
-func (e *ColExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Value, error) {
-	// Get row value
+func (e *ColExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
+	var row *RowDef
+
+	// Find the row with the proper table name
+	for _, rw := range rows {
+		if e.col.TableName == rw.table.GetName(profile) {
+			row = rw
+			break
+		}
+	}
+	if row == nil {
+		// no table found
+		if !partial {
+			str := ""
+			for _, rw := range rows {
+				str += rw.table.GetName(profile) + ", "
+			}
+			return nil, sqerr.Newf("Column %q not found in Table(s): %s", e.col.ColName, str[:len(str)-2])
+		}
+		return nil, nil
+	}
 	rowValue, err := row.GetColData(profile, &e.col)
 	if err != nil {
 		log.Error(err)
@@ -204,10 +254,10 @@ func (e *ColExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
-	cd := tab.FindColDef(profile, e.col.ColName)
-	if cd == nil {
-		return sqerr.Newf("Table %s does not have a column named %s", tab.GetName(profile), e.col.ColName)
+func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+	cd, err := tables.FindColDef(profile, e.col.ColName, e.col.TableName)
+	if err != nil {
+		return err
 	}
 	e.col = *cd
 
@@ -300,22 +350,56 @@ func (e *OpExpr) ColDef() ColDef {
 	return ColDef{ColName: e.Name(), ColType: col.ColType}
 }
 
+// ColDefs returns a list of all actual columns in the expression
+func (e *OpExpr) ColDefs(tables ...*TableDef) []ColDef {
+	colsL := e.exL.ColDefs(tables...)
+	colsR := e.exR.ColDefs(tables...)
+	if colsL == nil {
+		return colsR
+	}
+	if colsR == nil {
+		return colsL
+	}
+	ret := append(colsL, colsR...)
+	return ret
+}
+
 // Evaluate -
-func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Value, error) {
-	vL, err := e.exL.Evaluate(profile, row)
+func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
+
+	boolresult := e.Operator == tokens.And || e.Operator == tokens.Or
+
+	vL, err := e.exL.Evaluate(profile, partial, rows...)
 	if err != nil {
 		return nil, err
 	}
-	if vL == nil {
-		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
+	if vL == nil && !partial {
+		return nil, nil
+		//return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
 	}
 
-	vR, err := e.exR.Evaluate(profile, row)
+	vR, err := e.exR.Evaluate(profile, partial, rows...)
 	if err != nil {
 		return nil, err
 	}
-	if vR == nil {
-		return nil, sqerr.Newf("Unable to evaluate %q", e.exR.Name())
+	if vR == nil && !partial {
+		return nil, nil
+		//		return nil, sqerr.Newf("Unable to evaluate %q", e.exR.Name())
+	}
+
+	if partial {
+		if boolresult {
+			if vL == nil {
+				return vR, nil
+			}
+			if vR == nil {
+				return vL, nil
+			}
+		}
+		if vL == nil || vR == nil {
+			return nil, nil
+		}
+
 	}
 
 	return vL.Operation(e.Operator, vR)
@@ -349,12 +433,12 @@ func (e *OpExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *OpExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
-	err := e.exL.ValidateCols(profile, tab)
+func (e *OpExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+	err := e.exL.ValidateCols(profile, tables)
 	if err != nil {
 		return err
 	}
-	err = e.exR.ValidateCols(profile, tab)
+	err = e.exR.ValidateCols(profile, tables)
 	return err
 }
 
@@ -455,8 +539,13 @@ func (e *CountExpr) ColDef() ColDef {
 	return ColDef{ColName: e.Name(), ColType: "INT"}
 }
 
+// ColDefs returns a list of all actual columns in the expression
+func (e *CountExpr) ColDefs(tables ...*TableDef) []ColDef {
+	return nil
+}
+
 // Evaluate -
-func (e *CountExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Value, error) {
+func (e *CountExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
 
 	e.cnt++
 	return nil, nil
@@ -468,7 +557,7 @@ func (e *CountExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *CountExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
+func (e *CountExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
 	return nil
 }
 
@@ -547,16 +636,23 @@ func (e *NegateExpr) ColDef() ColDef {
 	return ColDef{ColName: e.Name(), ColType: col.ColType}
 }
 
+// ColDefs returns a list of all actual columns in the expression
+func (e *NegateExpr) ColDefs(tables ...*TableDef) []ColDef {
+	colsL := e.exL.ColDefs(tables...)
+	return colsL
+}
+
 // Evaluate -
-func (e *NegateExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (sqtypes.Value, error) {
+func (e *NegateExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
 	var retVal sqtypes.Value
 
-	vL, err := e.exL.Evaluate(profile, row)
+	vL, err := e.exL.Evaluate(profile, partial, rows...)
 	if err != nil {
 		return nil, err
 	}
 	if vL == nil {
-		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
+		return nil, nil
+		//return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
 	}
 
 	switch tp := vL.(type) {
@@ -599,8 +695,8 @@ func (e *NegateExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *NegateExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
-	err := e.exL.ValidateCols(profile, tab)
+func (e *NegateExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+	err := e.exL.ValidateCols(profile, tables)
 
 	return err
 }
@@ -691,16 +787,23 @@ func (e *FuncExpr) ColDef() ColDef {
 	return ColDef{ColName: e.Name(), ColType: "FUNC"}
 }
 
+// ColDefs returns a list of all actual columns in the expression
+func (e *FuncExpr) ColDefs(tables ...*TableDef) []ColDef {
+	colsL := e.exL.ColDefs(tables...)
+	return colsL
+}
+
 // Evaluate takes the current Expression and calculates the results based on the given row
-func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, row *RowDef) (retVal sqtypes.Value, err error) {
+func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (retVal sqtypes.Value, err error) {
 	var vL sqtypes.Value
 
-	vL, err = e.exL.Evaluate(profile, row)
+	vL, err = e.exL.Evaluate(profile, partial, rows...)
 	if err != nil {
 		return
 	}
 	if vL == nil {
-		return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
+		return nil, nil
+		//return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
 	}
 
 	retVal, err = evalFunc(e.Cmd, vL)
@@ -740,8 +843,8 @@ func (e *FuncExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *FuncExpr) ValidateCols(profile *sqprofile.SQProfile, tab *TableDef) error {
-	return e.exL.ValidateCols(profile, tab)
+func (e *FuncExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+	return e.exL.ValidateCols(profile, tables)
 }
 
 // NewFuncExpr creates a new CountExpr object

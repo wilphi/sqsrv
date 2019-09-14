@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/wilphi/sqsrv/sqerr"
+	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -72,6 +73,16 @@ func OrderByClause(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
 				return nil, sqerr.NewSyntax("Missing comma in ORDER BY clause")
 			}
 			tkns.Remove()
+			if tkns.Test(tokens.Period) != "" {
+				tkns.Remove()
+				sortCol2 := tkns.Test(tokens.Ident)
+				if sortCol2 == "" {
+					//Must be and Ident after TableName.
+					return nil, sqerr.NewSyntaxf("Column name must follow %s.", sortCol)
+				}
+				sortCol += "." + sortCol2
+				tkns.Remove()
+			}
 			hangingComma = false
 			if sortType = tkns.Test(tokens.Asc, tokens.Desc); sortType != "" {
 				tkns.Remove()
@@ -99,6 +110,7 @@ func OrderByClause(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
 func getValCol(tkns *tokens.TokenList) (exp sqtables.Expr, err error) {
 	var mSign bool
 	var v sqtypes.Value
+	var cName, tName string
 
 	if tkns.Test(tokens.Minus) != "" {
 		mSign = true
@@ -127,9 +139,19 @@ func getValCol(tkns *tokens.TokenList) (exp sqtables.Expr, err error) {
 			return exp, nil
 		}
 		// is token a ColName
-		if cName := tkns.Test(tokens.Ident); cName != "" {
-			exp = sqtables.NewColExpr(sqtables.ColDef{ColName: cName})
+		if cName = tkns.Test(tokens.Ident); cName != "" {
+			tName = ""
 			tkns.Remove()
+			if tkns.Test(tokens.Period) != "" {
+				tkns.Remove()
+				tName = cName
+				if cName = tkns.Test(tokens.Ident); cName == "" {
+					//Not the expected table name
+					return nil, sqerr.NewSyntaxf("Expecting column after %s.", tName)
+				}
+				tkns.Remove()
+			}
+			exp = sqtables.NewColExpr(sqtables.ColDef{ColName: cName, TableName: tName})
 			if mSign {
 				exp = sqtables.NewNegateExpr(exp)
 			}
@@ -291,6 +313,16 @@ func GetExprList(tkns *tokens.TokenList, terminator string, valuesOnly bool) (*s
 		if alias := tkns.Test(tokens.Ident); alias != "" {
 			tkns.Remove()
 			exp2.SetAlias(alias)
+		} else {
+			//If no alias but is a col
+			colE, ok := exp2.(*sqtables.ColExpr)
+			if ok {
+				col := colE.ColDef()
+				// it is a col
+				if col.TableName == "" {
+					exp2.SetAlias(col.ColName)
+				}
+			}
 		}
 		eList.Add(exp2)
 		// Is token the terminator
@@ -319,8 +351,77 @@ func GetExprList(tkns *tokens.TokenList, terminator string, valuesOnly bool) (*s
 		return nil, sqerr.NewSyntax("Expecting " + ifte(valuesOnly, "value", "name of column") + " or a valid expression")
 
 	}
-	// eat terminator
-	tkns.Remove()
 
 	return &eList, nil
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// GetTableList - get a comma separated list of Tables ended by a terminator token.
+func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminators ...string) (*sqtables.TableList, error) {
+	var err error
+	isHangingComma := false
+	tables := sqtables.NewTableList(profile, nil)
+	// loop to get the table names
+	for {
+		if tkns.IsEmpty() || tkns.Test(terminators...) != "" {
+			if isHangingComma {
+				return nil, sqerr.NewSyntax("Unexpected ',' in From clause")
+			}
+			break
+		}
+		if tables.Len() > 0 && !isHangingComma {
+			return nil, sqerr.NewSyntax("Comma is required to separate tables")
+		}
+		// Ident(tableName),  opt comma
+		if tName := tkns.Test(tokens.Ident); tName != "" {
+			tkns.Remove()
+
+			// Check for an Alias
+			if aName := tkns.Test(tokens.Ident); aName != "" {
+				err = tables.Add(profile, sqtables.FromTable{TableName: tName, Alias: aName})
+				tkns.Remove()
+			} else {
+				err = tables.Add(profile, sqtables.FromTable{TableName: tName})
+			}
+			if err != nil {
+				return nil, err
+			}
+			// check for optional comma
+			if tkns.Test(tokens.Comma) != "" {
+				isHangingComma = true
+				tkns.Remove()
+			} else {
+				isHangingComma = false
+			}
+		} else {
+			return nil, sqerr.NewSyntax("Expecting name of Table")
+
+		}
+	}
+	if tables.Len() <= 0 {
+		return nil, sqerr.NewSyntax("No Tables defined for query")
+	}
+
+	return tables, nil
+}
+
+// ParseWhereClause takes a token list and extracts the where clause
+func ParseWhereClause(tkns *tokens.TokenList, terminators ...string) (whereExpr sqtables.Expr, err error) {
+
+	whereExpr, err = GetExpr(tkns, nil, 0, terminators...)
+	if err != nil {
+		return nil, err
+	}
+	// Make sure that count is not used in where clause
+	if strings.Contains(whereExpr.ToString(), "count()") {
+		return nil, sqerr.New("Unable to evaluate \"count()\"")
+	}
+
+	whereExpr, err = whereExpr.Reduce()
+	if err != nil {
+		return nil, err
+	}
+
+	return
 }

@@ -466,7 +466,7 @@ func TestDelete(t *testing.T) {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}
 	cl := sqtables.NewColListDefs(cols)
-	ds, err := sqtables.NewDataSet(profile, tab, cl)
+	ds, err := sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), cl)
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}
@@ -657,7 +657,7 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 
 		// Test recreate
 		profile := sqprofile.CreateSQProfile()
-		originalList := sqtables.ListTables(profile)
+		originalList := sqtables.CatalogTables(profile)
 		err := s.Recreate(profile)
 		if err != nil {
 			if err.Error() != d.ExpErr {
@@ -675,7 +675,7 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 			t.Errorf("Table %s has not been Dropped", d.TableName)
 			return
 		}
-		afterList := sqtables.ListTables(profile)
+		afterList := sqtables.CatalogTables(profile)
 		afterList = append(afterList, d.TableName)
 		sort.Strings(afterList)
 

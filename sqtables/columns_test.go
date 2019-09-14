@@ -10,8 +10,13 @@ import (
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
+
+func init() {
+	sqtest.TestInit("sqtables_test.log")
+}
 
 func TestColDef(t *testing.T) {
 	t.Run("CreateColDef Null", func(t *testing.T) {
@@ -52,7 +57,7 @@ func TestColDef(t *testing.T) {
 			t.Errorf("Created ColDef does not match expected")
 			return
 		}
-		str := "{" + colName + ", " + colType + ", NOT NULL}"
+		str := "{" + colName + ", " + colType + " NOT NULL}"
 		if str != cd.ToString() {
 			t.Errorf("ToString %q does not match expected: %q", cd.ToString(), str)
 
@@ -90,7 +95,7 @@ func testColListValidateFunc(d ColListValidateData) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		err := d.CList.ValidateTable(d.profile, d.tab)
+		err := d.CList.ValidateTable(d.profile, d.tables)
 		if err != nil {
 			log.Println(err.Error())
 			if d.ExpErr == "" {
@@ -112,7 +117,7 @@ type ColListValidateData struct {
 	CList    sqtables.ColList
 	ExpErr   string
 	profile  *sqprofile.SQProfile
-	tab      *sqtables.TableDef
+	tables   *sqtables.TableList
 }
 
 func TestColListValidate(t *testing.T) {
@@ -136,35 +141,35 @@ func TestColListValidate(t *testing.T) {
 			CList:    sqtables.NewColListNames([]string{"col1", "col4", "col3", "col2"}),
 			ExpErr:   "",
 			profile:  profile,
-			tab:      tab,
+			tables:   sqtables.NewTableListFromTableDef(profile, tab),
 		},
 		{
 			TestName: "Invalid Col",
 			CList:    sqtables.NewColListNames([]string{"col1", "col4", "col3", "col2", "colX"}),
-			ExpErr:   "Error: Table collistvalidatetest does not have a column named colX",
+			ExpErr:   "Error: Column \"colX\" not found in Table(s): collistvalidatetest",
 			profile:  profile,
-			tab:      tab,
+			tables:   sqtables.NewTableListFromTableDef(profile, tab),
 		},
 		{
 			TestName: "Count Col",
 			CList:    sqtables.NewColListNames([]string{"COUNT"}),
 			ExpErr:   "",
 			profile:  profile,
-			tab:      tab,
+			tables:   sqtables.NewTableListFromTableDef(profile, tab),
 		},
 		{
 			TestName: "Count Col + extra col",
 			CList:    sqtables.NewColListNames([]string{"COUNT", "col1"}),
 			ExpErr:   "Error: The function Count can not be used with Columns",
 			profile:  profile,
-			tab:      tab,
+			tables:   sqtables.NewTableListFromTableDef(profile, tab),
 		},
 		{
 			TestName: "Coldef ColList Cols",
 			CList:    sqtables.NewColListDefs([]sqtables.ColDef{sqtables.CreateColDef("col1", tokens.TypeInt, false), sqtables.CreateColDef("col2", tokens.TypeString, false)}),
 			ExpErr:   "",
 			profile:  profile,
-			tab:      tab,
+			tables:   sqtables.NewTableListFromTableDef(profile, tab),
 		},
 	}
 

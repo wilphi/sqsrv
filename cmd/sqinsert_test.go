@@ -249,12 +249,12 @@ func TestInsertInto(t *testing.T) {
 		{
 			TestName: "More Cols than in table",
 			Command:  "INSERT INTO instest (col1,col2,col3, colx) VALUES (123, \"With Cols Test\", true, \"Col does not exist\")",
-			ExpErr:   "Error: Table instest does not have a column named colx",
+			ExpErr:   "Error: Column \"colx\" not found in Table(s): instest",
 		},
 		{
 			TestName: "Col does not exist in table",
 			Command:  "INSERT INTO instest (col1,col2, colx) VALUES (123, \"With Cols Test\", \"Col does not exist\")",
-			ExpErr:   "Error: Table instest does not have a column named colx",
+			ExpErr:   "Error: Column \"colx\" not found in Table(s): instest",
 		},
 		{
 			TestName: "Integer too large - tests invalid converion",
