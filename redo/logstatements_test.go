@@ -9,6 +9,7 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -119,7 +120,7 @@ type InsertData struct {
 	TableName string
 	Cols      []string
 	Data      sqtypes.RawVals
-	RowPtrs   []int64
+	RowPtrs   sqptr.SQPtrs
 	ID        uint64
 	Identstr  string
 	ExpErr    string
@@ -138,7 +139,7 @@ func TestInsert(t *testing.T) {
 			TableName: "testInsertRedo",
 			Cols:      []string{"col1", "col2"},
 			Data:      sqtypes.RawVals{{1, "Row 1"}, {2, "Row 2"}, {3, "Row 3"}},
-			RowPtrs:   []int64{0, 1, 2},
+			RowPtrs:   sqptr.SQPtrs{0, 1, 2},
 			ID:        123,
 			Identstr:  "#123 - INSERT INTO testInsertRedo : Rows = 3",
 			ExpData:   sqtypes.RawVals{{1, "Row 1"}, {2, "Row 2"}, {3, "Row 3"}},
@@ -148,7 +149,7 @@ func TestInsert(t *testing.T) {
 			TableName: "testInsertRedo2",
 			Cols:      []string{"col1", "col2"},
 			Data:      sqtypes.RawVals{{1, "Row 1"}, {2, "Row 2"}, {3, "Row 3"}},
-			RowPtrs:   []int64{0, 1, 2},
+			RowPtrs:   sqptr.SQPtrs{0, 1, 2},
 			ID:        123,
 			Identstr:  "#123 - INSERT INTO testInsertRedo2 : Rows = 3",
 			ExpErr:    "Error: Table testInsertRedo2 does not exist",
@@ -171,7 +172,7 @@ func testInsertFunc(d InsertData) func(*testing.T) {
 			}
 		}()
 		var err error
-		var initPtrs []int64
+		var initPtrs sqptr.SQPtrs
 
 		data := sqtypes.CreateValuesFromRaw(d.Data)
 		s := redo.NewInsertRows(d.TableName, d.Cols, data, d.RowPtrs)
@@ -249,8 +250,8 @@ func testInsertFunc(d InsertData) func(*testing.T) {
 }
 
 // NotIn returns all items in A that are not in B
-func NotIn(a, b []int64) []int64 {
-	var ret []int64
+func NotIn(a, b sqptr.SQPtrs) sqptr.SQPtrs {
+	var ret sqptr.SQPtrs
 	for _, x := range a {
 		if !Contain(b, x) {
 			ret = append(ret, x)
@@ -258,7 +259,7 @@ func NotIn(a, b []int64) []int64 {
 	}
 	return ret
 }
-func Contain(arr []int64, item int64) bool {
+func Contain(arr sqptr.SQPtrs, item sqptr.SQPtr) bool {
 	for _, x := range arr {
 		if x == item {
 			return true
@@ -272,7 +273,7 @@ type UpdateData struct {
 	TableName string
 	Cols      []string
 	Vals      []sqtypes.Raw
-	RowPtrs   []int64
+	RowPtrs   sqptr.SQPtrs
 	ID        uint64
 	Identstr  string
 	ExpErr    string
@@ -287,7 +288,7 @@ func TestUpdate(t *testing.T) {
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2"},
 			Vals:      []sqtypes.Raw{1, "Row X"},
-			RowPtrs:   []int64{1, 2, 5},
+			RowPtrs:   sqptr.SQPtrs{1, 2, 5},
 			ID:        123,
 			Identstr:  "#123 - UPDATE  testUpdateRedo : Rows = 3",
 			ExpVals: sqtypes.RawVals{
@@ -300,7 +301,7 @@ func TestUpdate(t *testing.T) {
 			TableName: "testUpdateRedo2",
 			Cols:      []string{"col1", "col2"},
 			Vals:      []sqtypes.Raw{1, "Row X"},
-			RowPtrs:   []int64{1, 2, 5},
+			RowPtrs:   sqptr.SQPtrs{1, 2, 5},
 			ID:        123,
 			Identstr:  "#123 - UPDATE  testUpdateRedo2 : Rows = 3",
 			ExpErr:    "Error: Table testUpdateRedo2 does not exist",
@@ -310,7 +311,7 @@ func TestUpdate(t *testing.T) {
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2"},
 			Vals:      []sqtypes.Raw{nil, "Row X"},
-			RowPtrs:   []int64{1, 2, 5},
+			RowPtrs:   sqptr.SQPtrs{1, 2, 5},
 			ID:        123,
 			Identstr:  "#123 - UPDATE  testUpdateRedo : Rows = 3",
 			ExpErr:    "Error: Column \"col1\" in Table \"testupdateredo\" can not be NULL",
@@ -320,7 +321,7 @@ func TestUpdate(t *testing.T) {
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2", "col3"},
 			Vals:      []sqtypes.Raw{10, "Row X", nil},
-			RowPtrs:   []int64{1, 2, 5},
+			RowPtrs:   sqptr.SQPtrs{1, 2, 5},
 			ID:        123,
 			Identstr:  "#123 - UPDATE  testUpdateRedo : Rows = 3",
 			ExpErr:    "Error: Column (col3) does not exist in table (testupdateredo)",
@@ -330,7 +331,7 @@ func TestUpdate(t *testing.T) {
 			TableName: "testUpdateRedo",
 			Cols:      []string{"col1", "col2", "col3"},
 			Vals:      []sqtypes.Raw{10, "Row X", nil},
-			RowPtrs:   []int64{999, 2, 5},
+			RowPtrs:   sqptr.SQPtrs{999, 2, 5},
 			ID:        123,
 			Identstr:  "#123 - UPDATE  testUpdateRedo : Rows = 3",
 			ExpErr:    "Internal Error: Row 999 does not exist for update",
@@ -447,7 +448,7 @@ type DeleteData struct {
 	TestName  string
 	Function  string
 	TableName string
-	RowPtrs   []int64
+	RowPtrs   sqptr.SQPtrs
 	ID        uint64
 	Identstr  string
 	ExpErr    string
@@ -489,7 +490,7 @@ func TestDelete(t *testing.T) {
 			TestName:  "Delete Recreate",
 			Function:  "REDO",
 			TableName: "testDeleteRedo",
-			RowPtrs:   []int64{1, 5, 10},
+			RowPtrs:   sqptr.SQPtrs{1, 5, 10},
 			ID:        123,
 			Identstr:  "#123 - DELETE FROM  testDeleteRedo : Rows = 3",
 		},
@@ -497,7 +498,7 @@ func TestDelete(t *testing.T) {
 			TestName:  "Delete Recreate Invalid table",
 			Function:  "REDO",
 			TableName: "testDeleteRedo2",
-			RowPtrs:   []int64{1, 5, 10},
+			RowPtrs:   sqptr.SQPtrs{1, 5, 10},
 			ID:        123,
 			Identstr:  "#123 - DELETE FROM  testDeleteRedo2 : Rows = 3",
 			ExpErr:    "Error: Table testDeleteRedo2 does not exist",
@@ -689,7 +690,7 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 
 func TestDecodeErr(t *testing.T) {
 	s := redo.NewDropDDL("ErrTest")
-	s2 := redo.NewDeleteRows("test", []int64{1, 2, 3})
+	s2 := redo.NewDeleteRows("test", sqptr.SQPtrs{1, 2, 3})
 
 	t.Run("Create", func(t *testing.T) {
 		defer func() {

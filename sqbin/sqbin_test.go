@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/wilphi/sqsrv/sqbin"
+	"github.com/wilphi/sqsrv/sqptr"
 )
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -33,6 +34,9 @@ func TestIntegers(t *testing.T) {
 		{TestName: "ReadEmpty Uint64", Codec: encdec, CodecReset: true, Type: sqbin.Uint64Marker, ExpPanic: true, ReadOp: true},
 		{TestName: "Write Uint64", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.Uint64Marker, ExpPanic: false, ReadOp: false},
 		{TestName: "Read Uint64", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.Uint64Marker, ExpPanic: false, ReadOp: true},
+		{TestName: "ReadEmpty SQPtr", Codec: encdec, CodecReset: true, Type: sqbin.SQPtrMarker, ExpPanic: true, ReadOp: true},
+		{TestName: "Write SQPtr", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.SQPtrMarker, ExpPanic: false, ReadOp: false},
+		{TestName: "Read SQPtr", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.SQPtrMarker, ExpPanic: false, ReadOp: true},
 		{TestName: "ReadEmpty int64", Codec: encdec, CodecReset: true, Type: sqbin.Int64Marker, ExpPanic: true, ReadOp: true},
 		{TestName: "Write int64", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.Int64Marker, ExpPanic: false, ReadOp: false},
 		{TestName: "Read int64", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.Int64Marker, ExpPanic: false, ReadOp: true},
@@ -76,6 +80,12 @@ func testIntTypesFunc(d dataInt) func(*testing.T) {
 				ret = d.Codec.ReadUint64()
 			} else {
 				d.Codec.WriteUint64(d.Val)
+			}
+		case sqbin.SQPtrMarker:
+			if d.ReadOp {
+				ret = uint64(d.Codec.ReadSQPtr())
+			} else {
+				d.Codec.WriteSQPtr(sqptr.SQPtr(d.Val))
 			}
 		case sqbin.Int64Marker:
 			if d.ReadOp {
@@ -445,6 +455,17 @@ func TestInt64Array(t *testing.T) {
 
 }
 
+func TestSQPtrsArray(t *testing.T) {
+	encdec := sqbin.NewCodec(nil)
+
+	warray := sqptr.SQPtrs{1, 2, 3, 4, 5, 6, 7, 123456789012345}
+	encdec.WriteSQPtrs(warray)
+	rarray := encdec.ReadSQPtrs()
+	if !reflect.DeepEqual(warray, rarray) {
+		t.Error("The Written array does not match the Read array")
+	}
+
+}
 func TestInsertInt64(t *testing.T) {
 	testArray := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 	encdec := sqbin.NewCodec(testArray)

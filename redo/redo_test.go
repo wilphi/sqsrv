@@ -11,6 +11,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 	"github.com/wilphi/sqsrv/transid"
@@ -471,10 +472,10 @@ func createTransLog(testFileName string, tableName string) error {
 
 	data := []LogStatement{
 		NewCreateDDL(tableName, []sqtables.ColDef{sqtables.CreateColDef("col1", tokens.TypeInt, false)}),
-		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1}, {2}, {3}}), []int64{1, 2, 3}),
-		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{4}, {5}, {6}}), []int64{4, 5, 6}),
-		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{7}, {8}, {9}}), []int64{7, 8, 9}),
-		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{10}, {11}, {12}}), []int64{10, 11, 12}),
+		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1}, {2}, {3}}), sqptr.SQPtrs{1, 2, 3}),
+		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{4}, {5}, {6}}), sqptr.SQPtrs{4, 5, 6}),
+		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{7}, {8}, {9}}), sqptr.SQPtrs{7, 8, 9}),
+		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{10}, {11}, {12}}), sqptr.SQPtrs{10, 11, 12}),
 	}
 
 	// If the file doesn't exist, create it. Append to the file as write only

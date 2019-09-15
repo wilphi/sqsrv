@@ -7,6 +7,7 @@ import (
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -182,7 +183,7 @@ func TestUpdateRow(t *testing.T) {
 
 type CreateRowData struct {
 	TestName string
-	RowNum   int64
+	RowPtr   sqptr.SQPtr
 	Tab      *sqtables.TableDef
 	Cols     []string
 	Vals     []sqtypes.Raw
@@ -199,7 +200,7 @@ func testCreateRowFunc(profile *sqprofile.SQProfile, r *CreateRowData) func(*tes
 			}
 		}()
 		ExpVals := sqtypes.CreateValueArrayFromRaw(r.ExpVals)
-		row, err := sqtables.CreateRow(profile, r.RowNum, r.Tab, r.Cols, sqtypes.CreateValueArrayFromRaw(r.Vals))
+		row, err := sqtables.CreateRow(profile, r.RowPtr, r.Tab, r.Cols, sqtypes.CreateValueArrayFromRaw(r.Vals))
 		if err != nil {
 			log.Println(err.Error())
 			if r.ExpErr == "" {
@@ -263,7 +264,7 @@ func TestCreateRow(t *testing.T) {
 	testData := []CreateRowData{
 		{
 			TestName: "Disordered Columns",
-			RowNum:   4,
+			RowPtr:   4,
 			Tab:      testT,
 			Cols:     []string{"col2", "col1", "col4", "col3"},
 			Vals:     []sqtypes.Raw{"test Five2", 5, "test Five4", 25},
@@ -272,7 +273,7 @@ func TestCreateRow(t *testing.T) {
 		},
 		{
 			TestName: "Null in Null Columns",
-			RowNum:   4,
+			RowPtr:   4,
 			Tab:      testT,
 			Cols:     []string{"col1", "col2", "col3", "col4"},
 			Vals:     []sqtypes.Raw{5, nil, 25, "test Five4"},
@@ -281,7 +282,7 @@ func TestCreateRow(t *testing.T) {
 		},
 		{
 			TestName: "Null in Not Null Columns",
-			RowNum:   4,
+			RowPtr:   4,
 			Tab:      testT,
 			Cols:     []string{"col1", "col2", "col3", "col4"},
 			Vals:     []sqtypes.Raw{nil, nil, 25, "test Five4"},
@@ -290,7 +291,7 @@ func TestCreateRow(t *testing.T) {
 		},
 		{
 			TestName: "To many Columns",
-			RowNum:   4,
+			RowPtr:   4,
 			Tab:      testT,
 			Cols:     []string{"col1", "col2", "col3", "col4", "col5"},
 			Vals:     []sqtypes.Raw{5, "test Five2", 25, "test Five4", nil},
@@ -299,7 +300,7 @@ func TestCreateRow(t *testing.T) {
 		},
 		{
 			TestName: "Unknown Columns",
-			RowNum:   4,
+			RowPtr:   4,
 			Tab:      testT,
 			Cols:     []string{"col1", "col2", "col3", "col5"},
 			Vals:     []sqtypes.Raw{5, "test Five2", 25, nil},
@@ -308,7 +309,7 @@ func TestCreateRow(t *testing.T) {
 		},
 		{
 			TestName: "Only Not Null Columns",
-			RowNum:   4,
+			RowPtr:   4,
 			Tab:      testT,
 			Cols:     []string{"col1", "col4"},
 			Vals:     []sqtypes.Raw{5, "test Five4"},
@@ -317,7 +318,7 @@ func TestCreateRow(t *testing.T) {
 		},
 		{
 			TestName: "Type Mismatch",
-			RowNum:   4,
+			RowPtr:   4,
 			Tab:      testT,
 			Cols:     []string{"col1", "col2", "col3", "col4"},
 			Vals:     []sqtypes.Raw{true, nil, 25, "test Five4"},
@@ -326,7 +327,7 @@ func TestCreateRow(t *testing.T) {
 		},
 		{
 			TestName: "No Value for Not Null Columns",
-			RowNum:   4,
+			RowPtr:   4,
 			Tab:      testT,
 			Cols:     []string{"col2", "col3", "col4"},
 			Vals:     []sqtypes.Raw{nil, 25, "test Five4"},

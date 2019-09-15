@@ -5,6 +5,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -14,7 +15,7 @@ type DataSet struct {
 	//cols       ColList
 	Vals       [][]sqtypes.Value
 	usePtrs    bool
-	Ptrs       []int64
+	Ptrs       sqptr.SQPtrs
 	tables     *TableList
 	order      []OrderItem
 	validOrder bool

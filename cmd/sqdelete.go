@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/wilphi/sqsrv/sqptr"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqerr"
@@ -77,7 +79,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 
 // DeleteFromTable -
 func DeleteFromTable(profile *sqprofile.SQProfile, tableName string, whereExpr sqtables.Expr) (numRows int, err error) {
-	var rowsDeleted []int64
+	var rowsDeleted sqptr.SQPtrs
 	numRows = -1
 
 	tab := sqtables.GetTable(profile, tableName)

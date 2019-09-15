@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/wilphi/sqsrv/sqbin"
+	"github.com/wilphi/sqsrv/sqptr"
 
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
@@ -105,7 +106,7 @@ type InsertRows struct {
 	TableName string
 	Cols      []string
 	Data      [][]sqtypes.Value
-	RowPtrs   []int64
+	RowPtrs   sqptr.SQPtrs
 	ID        uint64
 }
 
@@ -121,7 +122,7 @@ func (i *InsertRows) Encode() *sqbin.Codec {
 
 	// encode the Cols
 	enc.WriteArrayString(i.Cols)
-	enc.WriteArrayInt64(i.RowPtrs)
+	enc.WriteSQPtrs(i.RowPtrs)
 	encodeData(enc, i.Data)
 	return enc
 }
@@ -140,7 +141,7 @@ func (i *InsertRows) Decode(dec *sqbin.Codec) {
 
 	// encode the Cols
 	i.Cols = dec.ReadArrayString()
-	i.RowPtrs = dec.ReadArrayInt64()
+	i.RowPtrs = dec.ReadSQPtrs()
 	i.Data = decodeData(dec)
 }
 
@@ -187,7 +188,7 @@ func (i *InsertRows) GetID() uint64 {
 }
 
 // NewInsertRows -  returns a logstatement that is a INSERT INTO
-func NewInsertRows(TableName string, cols []string, data [][]sqtypes.Value, ptrs []int64) *InsertRows {
+func NewInsertRows(TableName string, cols []string, data [][]sqtypes.Value, ptrs sqptr.SQPtrs) *InsertRows {
 	val := &InsertRows{TableName: TableName, Cols: cols, Data: data, RowPtrs: ptrs}
 	return val
 }
@@ -197,7 +198,7 @@ type UpdateRows struct {
 	TableName string
 	Cols      []string
 	EList     *sqtables.ExprList
-	RowPtrs   []int64
+	RowPtrs   sqptr.SQPtrs
 	ID        uint64
 }
 
@@ -213,7 +214,7 @@ func (u *UpdateRows) Encode() *sqbin.Codec {
 
 	// encode the Cols
 	enc.WriteArrayString(u.Cols)
-	enc.WriteArrayInt64(u.RowPtrs)
+	enc.WriteSQPtrs(u.RowPtrs)
 	tmp := u.EList.Encode()
 	enc.Write(tmp.Bytes())
 	//	data := [][]sqtypes.Value{u.Vals}
@@ -235,7 +236,7 @@ func (u *UpdateRows) Decode(dec *sqbin.Codec) {
 
 	// encode the Cols
 	u.Cols = dec.ReadArrayString()
-	u.RowPtrs = dec.ReadArrayInt64()
+	u.RowPtrs = dec.ReadSQPtrs()
 	u.EList = sqtables.DecodeExprList(dec)
 	//	data := decodeData(dec)
 	//	u.Vals = data[0]
@@ -269,7 +270,7 @@ func (u *UpdateRows) GetID() uint64 {
 }
 
 // NewUpdateRows -  returns a logstatement that is a UPDATE statement
-func NewUpdateRows(TableName string, cols []string, eList *sqtables.ExprList, ptrs []int64) *UpdateRows {
+func NewUpdateRows(TableName string, cols []string, eList *sqtables.ExprList, ptrs sqptr.SQPtrs) *UpdateRows {
 	val := &UpdateRows{TableName: TableName, Cols: cols, EList: eList, RowPtrs: ptrs}
 	return val
 
@@ -278,7 +279,7 @@ func NewUpdateRows(TableName string, cols []string, eList *sqtables.ExprList, pt
 // DeleteRows - Redo recording for Delete statement
 type DeleteRows struct {
 	TableName string
-	RowPtrs   []int64
+	RowPtrs   sqptr.SQPtrs
 	ID        uint64
 }
 
@@ -293,7 +294,7 @@ func (d *DeleteRows) Encode() *sqbin.Codec {
 	enc.WriteString(d.TableName)
 
 	// encode the Cols
-	enc.WriteArrayInt64(d.RowPtrs)
+	enc.WriteSQPtrs(d.RowPtrs)
 
 	return enc
 }
@@ -311,7 +312,7 @@ func (d *DeleteRows) Decode(dec *sqbin.Codec) {
 	d.TableName = dec.ReadString()
 
 	// encode the Cols
-	d.RowPtrs = dec.ReadArrayInt64()
+	d.RowPtrs = dec.ReadSQPtrs()
 }
 
 // Recreate - reprocess the recorded transaction log SQL statement to restore the database
@@ -345,7 +346,7 @@ func (d *DeleteRows) GetID() uint64 {
 }
 
 // NewDeleteRows -
-func NewDeleteRows(TableName string, ptrs []int64) *DeleteRows {
+func NewDeleteRows(TableName string, ptrs sqptr.SQPtrs) *DeleteRows {
 	val := &DeleteRows{TableName: TableName, RowPtrs: ptrs}
 	return val
 }

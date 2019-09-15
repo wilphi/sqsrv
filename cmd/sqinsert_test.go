@@ -9,6 +9,7 @@ import (
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
@@ -30,7 +31,8 @@ func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*te
 
 		var tab *sqtables.TableDef
 		var err error
-		var initPtrs []int64
+		var initPtrs sqptr.SQPtrs
+
 		// Snapshot of data if we need to do comparison
 		if d.TableName != "" {
 			tab = sqtables.GetTable(profile, d.TableName)
@@ -82,8 +84,8 @@ func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*te
 }
 
 // NotIn returns all items in A that are not in B
-func NotIn(a, b []int64) []int64 {
-	var ret []int64
+func NotIn(a, b sqptr.SQPtrs) sqptr.SQPtrs {
+	var ret sqptr.SQPtrs
 	for _, x := range a {
 		if !Contain(b, x) {
 			ret = append(ret, x)
@@ -91,7 +93,7 @@ func NotIn(a, b []int64) []int64 {
 	}
 	return ret
 }
-func Contain(arr []int64, item int64) bool {
+func Contain(arr sqptr.SQPtrs, item sqptr.SQPtr) bool {
 	for _, x := range arr {
 		if x == item {
 			return true

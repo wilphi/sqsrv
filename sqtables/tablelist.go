@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtypes"
 )
 
@@ -212,17 +213,17 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 		return tmpData[i].Len() < tmpData[j].Len()
 	})
 	// Join the datasets together
-	var result [][]int64
+	var result [][]sqptr.SQPtr
 	for i, tabInfo := range tabs {
 		if result == nil {
-			result = make([][]int64, len(tmpData[i].Ptrs))
+			result = make([][]sqptr.SQPtr, len(tmpData[i].Ptrs))
 			for i, ptr := range tmpData[i].Ptrs {
-				result[i] = make([]int64, 1)
+				result[i] = make(sqptr.SQPtrs, 1)
 				result[i][0] = ptr
 			}
 			continue
 		}
-		var intermRes [][]int64
+		var intermRes [][]sqptr.SQPtr
 
 		log.Printf("%d rows to be processed to join table %s", len(result)*len(tmpData[i].Ptrs), tabInfo.TableName)
 		cnt := 0

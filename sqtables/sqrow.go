@@ -3,12 +3,13 @@ package sqtables
 import (
 	e "github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtypes"
 )
 
 // RowDef - in memory construct for rows
 type RowDef struct {
-	RowID      int64
+	RowPtr     sqptr.SQPtr
 	Data       []sqtypes.Value
 	isModified bool
 	isDeleted  bool
@@ -47,10 +48,10 @@ func (r *RowDef) UpdateRow(profile *sqprofile.SQProfile, cols []string, vals []s
 }
 
 // CreateRow -
-func CreateRow(profile *sqprofile.SQProfile, rowID int64, table *TableDef, cols []string, vals []sqtypes.Value) (*RowDef, error) {
+func CreateRow(profile *sqprofile.SQProfile, rowPtr sqptr.SQPtr, table *TableDef, cols []string, vals []sqtypes.Value) (*RowDef, error) {
 	colNum := len(table.tableCols)
 	row := RowDef{
-		RowID:      rowID,
+		RowPtr:     rowPtr,
 		Data:       make([]sqtypes.Value, colNum),
 		isModified: true,
 		isDeleted:  false,

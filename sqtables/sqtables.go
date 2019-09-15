@@ -10,6 +10,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqmutex"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	sqtypes "github.com/wilphi/sqsrv/sqtypes"
 )
 
@@ -23,9 +24,9 @@ const (
 type TableDef struct {
 	tableName  string
 	tableCols  []ColDef
-	rowm       map[int64]*RowDef
+	rowm       map[sqptr.SQPtr]*RowDef
 	nextOffset int64
-	nextRowID  *int64
+	nextRowID  *uint64
 	isDropped  bool
 	sqmutex.SQMutex
 }
@@ -53,9 +54,9 @@ func CreateTableDef(name string, cols ...ColDef) *TableDef {
 	}
 
 	log.Debugln("Cols: ", tab.tableCols)
-	tab.rowm = make(map[int64]*RowDef)
+	tab.rowm = make(map[sqptr.SQPtr]*RowDef)
 	tab.nextOffset = 0
-	tab.nextRowID = new(int64)
+	tab.nextRowID = new(uint64)
 	return &tab
 }
 
@@ -101,11 +102,11 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 
 	// Create all of the rows before locking and adding them to the table
 	newRows := make([]*RowDef, data.Len())
-	data.Ptrs = make([]int64, data.Len())
+	data.Ptrs = make(sqptr.SQPtrs, data.Len())
 
 	for cnt, val := range data.Vals {
-		rowID := atomic.AddInt64(t.nextRowID, 1)
-		row, err := CreateRow(profile, rowID, t, data.GetColNames(), val)
+		rowID := atomic.AddUint64(t.nextRowID, 1)
+		row, err := CreateRow(profile, sqptr.SQPtr(rowID), t, data.GetColNames(), val)
 		if err != nil {
 			return -1, err
 		}
@@ -114,8 +115,8 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 
 	t.Lock(profile)
 	for i, r := range newRows {
-		t.rowm[r.RowID] = r
-		data.Ptrs[i] = r.RowID
+		t.rowm[r.RowPtr] = r
+		data.Ptrs[i] = r.RowPtr
 	}
 	t.Unlock(profile)
 
@@ -128,7 +129,7 @@ func GetTable(profile *sqprofile.SQProfile, name string) *TableDef {
 }
 
 // DeleteRows - Delete rows based on where expression
-func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptrs []int64, err error) {
+func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptrs sqptr.SQPtrs, err error) {
 
 	t.Lock(profile)
 	defer t.Unlock(profile)
@@ -144,7 +145,7 @@ func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptr
 }
 
 //DeleteRowsFromPtrs deletes rows from a table based on the given list of pointers
-func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64, soft bool) error {
+func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs, soft bool) error {
 	t.Lock(profile)
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
@@ -158,7 +159,7 @@ func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 }
 
 // GetRowDataFromPtrs returns data based on the rowIDs passed
-func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs []int64) (*DataSet, error) {
+func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs) (*DataSet, error) {
 	tables := NewTableListFromTableDef(profile, t)
 	ds, err := NewDataSet(profile, tables, t.GetCols(profile))
 	if err != nil {
@@ -211,8 +212,8 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 
 		for i, ptr := range ptrs {
 			// make sure the ptr points to the correct row
-			if t.rowm[ptr].RowID != ptr {
-				log.Panic("rowID does not match Map index")
+			if t.rowm[ptr].RowPtr != ptr {
+				log.Panic("rowPtr does not match Map index")
 			}
 
 			ret.Vals[i], err = eList.Evaluate(profile, EvalFull, t.rowm[ptr])
@@ -290,7 +291,7 @@ func (t *TableDef) NumCol(profile *sqprofile.SQProfile) int {
 // GetRowPtrs returns the list of rowIDs for the table based on the expression.
 //    If the expression is nil, then all rows are returned. The list can be sorted or not.
 //    By default the table is Read Locked, to have a write lock the calling function must do it.
-func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted bool) (ptrs []int64, err error) {
+func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted bool) (ptrs sqptr.SQPtrs, err error) {
 	var val sqtypes.Value
 
 	includeRow := (exp == nil)
@@ -329,7 +330,7 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted boo
 }
 
 //UpdateRowsFromPtrs updates rows in the table based on the given list of pointers, columns to be changed and values to be set
-func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64, cols []string, eList *ExprList) error {
+func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs, cols []string, eList *ExprList) error {
 	t.Lock(profile)
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
@@ -351,8 +352,8 @@ func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs []int64
 }
 
 // GetRow -
-func (t *TableDef) GetRow(profile *sqprofile.SQProfile, RowID int64) *RowDef {
-	row, ok := t.rowm[RowID]
+func (t *TableDef) GetRow(profile *sqprofile.SQProfile, RowPtr sqptr.SQPtr) *RowDef {
+	row, ok := t.rowm[RowPtr]
 	if !ok || row == nil || row.isDeleted {
 		return nil
 	}

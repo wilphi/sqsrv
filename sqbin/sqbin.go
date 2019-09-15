@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	"github.com/wilphi/sqsrv/sqptr"
 )
 
 // IntSize is the number of bytes in an Int including it's marker
@@ -25,6 +27,8 @@ const (
 	ArrayStringMarker
 	ArrayInt64Marker
 	FloatMarker
+	SQPtrMarker
+	SQPtrsMarker
 )
 
 // TypeMarkerStrings translates the marker to a string
@@ -38,6 +42,8 @@ var TypeMarkerStrings = map[byte]string{
 	ArrayStringMarker: "ArrayStringMarker",
 	ArrayInt64Marker:  "ArrayInt64Marker",
 	FloatMarker:       "FloatMarker",
+	SQPtrMarker:       "SQPtrMarker",
+	SQPtrsMarker:      "SQPtrsMarker",
 }
 
 // Codec - binary encoding and decoding. All encodings are LittleEndian
@@ -64,6 +70,18 @@ func (c *Codec) WriteUint64(i uint64) {
 func (c *Codec) ReadUint64() uint64 {
 	c.getTypeMarker(Uint64Marker)
 	return c.getIntType()
+}
+
+// WriteSQPtr writes an SQPtr to the codec buffer
+func (c *Codec) WriteSQPtr(p sqptr.SQPtr) {
+	c.setTypeMarker(SQPtrMarker)
+	c.storeIntType(uint64(p))
+}
+
+//ReadSQPtr decodes an SQPtr from the codec buffer
+func (c *Codec) ReadSQPtr() sqptr.SQPtr {
+	c.getTypeMarker(SQPtrMarker)
+	return sqptr.SQPtr(c.getIntType())
 }
 
 //WriteInt64 writes an int64 to the codec buffer
@@ -212,7 +230,7 @@ func (c *Codec) ReadArrayString() []string {
 	return strs
 }
 
-// WriteArrayInt64 writes an []int64 fromthe codec buffer
+// WriteArrayInt64 writes an []int64 to the codec buffer
 func (c *Codec) WriteArrayInt64(nArray []int64) {
 	c.setTypeMarker(ArrayInt64Marker)
 	// write the length first
@@ -231,6 +249,30 @@ func (c *Codec) ReadArrayInt64() []int64 {
 	nArray := make([]int64, l)
 	for i := 0; i < l; i++ {
 		nArray[i] = c.ReadInt64()
+
+	}
+	return nArray
+}
+
+// WriteSQPtrs writes an []SQPtr to the codec buffer
+func (c *Codec) WriteSQPtrs(nArray sqptr.SQPtrs) {
+	c.setTypeMarker(SQPtrsMarker)
+	// write the length first
+	c.WriteInt(len(nArray))
+
+	for _, item := range nArray {
+		c.WriteSQPtr(item)
+	}
+}
+
+// ReadSQPtrs read an []SQPtr from the codec buffer
+func (c *Codec) ReadSQPtrs() sqptr.SQPtrs {
+	c.getTypeMarker(SQPtrsMarker)
+	l := c.ReadInt()
+
+	nArray := make(sqptr.SQPtrs, l)
+	for i := 0; i < l; i++ {
+		nArray[i] = c.ReadSQPtr()
 
 	}
 	return nArray

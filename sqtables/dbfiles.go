@@ -10,6 +10,7 @@ import (
 
 	"github.com/wilphi/sqsrv/files"
 	"github.com/wilphi/sqsrv/sqbin"
+	"github.com/wilphi/sqsrv/sqptr"
 
 	log "github.com/sirupsen/logrus"
 
@@ -32,16 +33,16 @@ type DBInfo struct {
 
 // DBTable stores table information
 type DBTable struct {
-	TableName string
-	Cols      []ColDef
-	NRows     int
-	NextRowID int64
+	TableName  string
+	Cols       []ColDef
+	NRows      int
+	NextRowPtr uint64
 }
 
 // DBRow -
 type DBRow struct {
-	RowID int64
-	Data  []sqtypes.Value
+	RowPtr sqptr.SQPtr
+	Data   []sqtypes.Value
 }
 
 // the number times a file can be renumbered
@@ -138,7 +139,7 @@ func writeDBTableInfo(profile *sqprofile.SQProfile, tName string) error {
 		return nil
 	}
 
-	tab := DBTable{TableName: tName, Cols: td.tableCols, NRows: len(td.rowm), NextRowID: *td.nextRowID}
+	tab := DBTable{TableName: tName, Cols: td.tableCols, NRows: len(td.rowm), NextRowPtr: *td.nextRowID}
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//	log.Fatal(err)
@@ -161,7 +162,7 @@ func deleteBlock(file *os.File, offset, alloc int64) error {
 }
 func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 	var err error
-	var deletePtrs []int64
+	var deletePtrs sqptr.SQPtrs
 	fileName := dbDirectory + "/" + tName + ".sqd"
 	td := GetTable(profile, tName)
 	if td == nil {
@@ -183,11 +184,11 @@ func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 
 	nextOffset := td.nextOffset
 
-	// get the ordered list of RowIDs
+	// get the ordered list of RowPtrs
 	list, _ := td.GetRowPtrs(profile, nil, true)
 
-	for _, rowid := range list {
-		row := td.rowm[int64(rowid)]
+	for _, RowPtr := range list {
+		row := td.rowm[sqptr.SQPtr(RowPtr)]
 
 		if !row.isModified {
 			continue
@@ -195,10 +196,10 @@ func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 		if row.isDeleted {
 			// mark the row as deleted if it exists
 			deleteBlock(datafile, row.offset, row.alloc)
-			deletePtrs = append(deletePtrs, row.RowID)
+			deletePtrs = append(deletePtrs, row.RowPtr)
 			continue
 		}
-		dbrow := DBRow{RowID: row.RowID, Data: row.Data}
+		dbrow := DBRow{RowPtr: row.RowPtr, Data: row.Data}
 		databuff = writeRow(&dbrow)
 		bufflen := databuff.Len()
 
@@ -290,7 +291,7 @@ func readCodecAt(file *os.File, offset int64) (int64, int64, *sqbin.Codec, error
 func writeRow(row *DBRow) *sqbin.Codec {
 	var enc sqbin.Codec
 	// Write the ID first
-	enc.WriteInt64(row.RowID)
+	enc.WriteUint64(uint64(row.RowPtr))
 
 	// Write the number of values
 	enc.WriteInt(len(row.Data))
@@ -303,7 +304,7 @@ func writeRow(row *DBRow) *sqbin.Codec {
 func readRow(dec *sqbin.Codec) *DBRow {
 	row := &DBRow{}
 	// Get the ID
-	row.RowID = dec.ReadInt64()
+	row.RowPtr = sqptr.SQPtr(dec.ReadUint64())
 
 	// Get the number of Values
 	vlen := dec.ReadInt()
@@ -415,7 +416,7 @@ func readDBTableInfo(profile *sqprofile.SQProfile, tName string) (*TableDef, err
 	}
 
 	tabDef := CreateTableDef(tName, tab.Cols...)
-	nn := tab.NextRowID
+	nn := tab.NextRowPtr
 	tabDef.nextRowID = &nn
 	return tabDef, err
 
@@ -447,14 +448,14 @@ func readDBTableData(profile *sqprofile.SQProfile, tab *TableDef) error {
 		// valid disk block if size >0, otherwise skip this block
 		if size > 0 {
 			dbrow := readRow(databuff)
-			log.Debugf("RowID = %d", dbrow.RowID)
-			row, err := CreateRow(profile, dbrow.RowID, tab, colNames, dbrow.Data)
+			log.Debugf("RowPtr = %d", dbrow.RowPtr)
+			row, err := CreateRow(profile, dbrow.RowPtr, tab, colNames, dbrow.Data)
 			if err != nil {
 				return err
 			}
 			row.SetStorage(profile, offset, alloc, size)
 			row.isModified = false
-			tab.rowm[row.RowID] = row
+			tab.rowm[row.RowPtr] = row
 		}
 		offset += alloc
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
@@ -31,7 +32,7 @@ type RowDataTest struct {
 	Cols     *sqtables.ExprList
 	WhereStr string
 	ExpErr   string
-	ExpRows  []int
+	ExpPtrs  []int
 }
 
 func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*testing.T) {
@@ -75,15 +76,15 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 			return
 		}
 
-		if len(d.ExpRows) != data.Len() {
-			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", data.Len(), len(d.ExpRows))
+		if len(d.ExpPtrs) != data.Len() {
+			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", data.Len(), len(d.ExpPtrs))
 			return
 		}
 
 		// make sure the row numbers match
 		for i := range data.Vals {
-			if !data.Vals[i][0].Equal(sqtypes.NewSQInt(d.ExpRows[i])) {
-				t.Errorf("Returned Row num (%d) does not match expected (%d)", data.Vals[i][0], d.ExpRows[i])
+			if !data.Vals[i][0].Equal(sqtypes.NewSQInt(d.ExpPtrs[i])) {
+				t.Errorf("Returned Row num (%d) does not match expected (%d)", data.Vals[i][0], d.ExpPtrs[i])
 			}
 		}
 	}
@@ -118,18 +119,18 @@ func TestGetRowData(t *testing.T) {
 	}
 
 	testData := []RowDataTest{
-		{TestName: "col1(5) = 5 ->1", Tab: testT, Cols: cols, WhereStr: "col1=5", ExpErr: "", ExpRows: []int{1}},
-		{TestName: "col1(6) = 5 ->0", Tab: testT, Cols: cols, WhereStr: "col1 = 6", ExpErr: "", ExpRows: []int{}},
-		{TestName: "col1 < 5 ->0", Tab: testT, Cols: cols, WhereStr: "col1 < 5", ExpErr: "", ExpRows: []int{}},
-		{TestName: "col1 < 7 ->1", Tab: testT, Cols: cols, WhereStr: "col1<6", ExpErr: "", ExpRows: []int{1}},
-		{TestName: "Where Error", Tab: testT, Cols: cols, WhereStr: "col2=6", ExpErr: "Error: Type Mismatch: 6 is not a String", ExpRows: []int{1}},
+		{TestName: "col1(5) = 5 ->1", Tab: testT, Cols: cols, WhereStr: "col1=5", ExpErr: "", ExpPtrs: []int{1}},
+		{TestName: "col1(6) = 5 ->0", Tab: testT, Cols: cols, WhereStr: "col1 = 6", ExpErr: "", ExpPtrs: []int{}},
+		{TestName: "col1 < 5 ->0", Tab: testT, Cols: cols, WhereStr: "col1 < 5", ExpErr: "", ExpPtrs: []int{}},
+		{TestName: "col1 < 7 ->1", Tab: testT, Cols: cols, WhereStr: "col1<6", ExpErr: "", ExpPtrs: []int{1}},
+		{TestName: "Where Error", Tab: testT, Cols: cols, WhereStr: "col2=6", ExpErr: "Error: Type Mismatch: 6 is not a String", ExpPtrs: []int{1}},
 		{
 			TestName: "Count Expression",
 			Tab:      testT,
 			Cols:     sqtables.NewExprList(sqtables.NewCountExpr()),
 			WhereStr: "",
 			ExpErr:   "",
-			ExpRows:  []int{2}, //does not return a pointer only the count of rows
+			ExpPtrs:  []int{2}, //does not return a pointer only the count of rows
 		},
 		{
 			TestName: "Invalid Col in Expression",
@@ -140,7 +141,7 @@ func TestGetRowData(t *testing.T) {
 			),
 			WhereStr: "",
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): rowdatatest",
-			ExpRows:  []int{2},
+			ExpPtrs:  []int{2},
 		},
 		{
 			TestName: "Invalid function in Expression on Evaluate",
@@ -154,7 +155,7 @@ func TestGetRowData(t *testing.T) {
 			),
 			WhereStr: "col2=\"d test string\"",
 			ExpErr:   "strconv.ParseFloat: parsing \"d test string\": invalid syntax",
-			ExpRows:  []int{2},
+			ExpPtrs:  []int{2},
 		},
 	}
 
@@ -168,7 +169,7 @@ type RowPtrsTest struct {
 	Tab      *sqtables.TableDef
 	WhereStr string
 	ExpErr   string
-	ExpRows  []int64
+	ExpPtrs  sqptr.SQPtrs
 	Sort     bool
 }
 
@@ -216,16 +217,16 @@ func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*test
 			return
 		}
 
-		if len(d.ExpRows) != len(ptrs) {
-			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", len(ptrs), len(d.ExpRows))
+		if len(d.ExpPtrs) != len(ptrs) {
+			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", len(ptrs), len(d.ExpPtrs))
 			return
 		}
 
 		// make sure the row numbers match
-		sort.Slice(d.ExpRows, func(i, j int) bool { return ptrs[i] < ptrs[j] })
+		sort.Slice(d.ExpPtrs, func(i, j int) bool { return ptrs[i] < ptrs[j] })
 		for i := range ptrs {
-			if ptrs[i] != d.ExpRows[i] {
-				t.Errorf("Returned Row num (%d) does not match expected (%d)", ptrs[i], d.ExpRows[i])
+			if ptrs[i] != d.ExpPtrs[i] {
+				t.Errorf("Returned Row num (%d) does not match expected (%d)", ptrs[i], d.ExpPtrs[i])
 			}
 		}
 	}
@@ -262,13 +263,13 @@ func TestGetRowPtrs(t *testing.T) {
 	}
 
 	data := []RowPtrsTest{
-		{TestName: "All Rows no Cond", Tab: testT, WhereStr: "", ExpErr: "", ExpRows: []int64{1, 2, 3, 4, 5, 6}, Sort: true},
-		{TestName: "All Rows with Cond", Tab: testT, WhereStr: "rowid < 50", ExpErr: "", ExpRows: []int64{1, 2, 3, 4, 5, 6}, Sort: true},
-		{TestName: "No Rows", Tab: testT, WhereStr: "rowid=26", ExpErr: "", ExpRows: []int64{}, Sort: true},
-		{TestName: "First Row", Tab: testT, WhereStr: "rowid=1", ExpErr: "", ExpRows: []int64{1}, Sort: true},
-		{TestName: "Last Row", Tab: testT, WhereStr: "active=false", ExpErr: "", ExpRows: []int64{6}, Sort: true},
-		{TestName: "Half the Rows", Tab: testT, WhereStr: "rowid=1 or rowid=3 or active=false", ExpErr: "", ExpRows: []int64{1, 3, 6}, Sort: true},
-		{TestName: "Condition type mismatch", Tab: testT, WhereStr: "rowid=\"TEST\"", ExpErr: "Error: Type Mismatch: TEST is not an Int", ExpRows: []int64{}, Sort: true},
+		{TestName: "All Rows no Cond", Tab: testT, WhereStr: "", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1, 2, 3, 4, 5, 6}, Sort: true},
+		{TestName: "All Rows with Cond", Tab: testT, WhereStr: "rowid < 50", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1, 2, 3, 4, 5, 6}, Sort: true},
+		{TestName: "No Rows", Tab: testT, WhereStr: "rowid=26", ExpErr: "", ExpPtrs: sqptr.SQPtrs{}, Sort: true},
+		{TestName: "First Row", Tab: testT, WhereStr: "rowid=1", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1}, Sort: true},
+		{TestName: "Last Row", Tab: testT, WhereStr: "active=false", ExpErr: "", ExpPtrs: sqptr.SQPtrs{6}, Sort: true},
+		{TestName: "Half the Rows", Tab: testT, WhereStr: "rowid=1 or rowid=3 or active=false", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1, 3, 6}, Sort: true},
+		{TestName: "Condition type mismatch", Tab: testT, WhereStr: "rowid=\"TEST\"", ExpErr: "Error: Type Mismatch: TEST is not an Int", ExpPtrs: sqptr.SQPtrs{}, Sort: true},
 	}
 
 	for i, row := range data {
@@ -361,7 +362,7 @@ func TestMisc(t *testing.T) {
 			}
 		}()
 
-		row := tab.GetRow(profile, -1)
+		row := tab.GetRow(profile, 0)
 		if row != nil {
 			t.Errorf("GetRow returned a row when it should be nil")
 			return
@@ -373,7 +374,7 @@ type DeleteRowsData struct {
 	TestName string
 	WhereStr string
 	ExpErr   string
-	ExpPtrs  []int64
+	ExpPtrs  sqptr.SQPtrs
 }
 
 func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
@@ -469,12 +470,12 @@ func TestDeleteRows(t *testing.T) {
 	tableName := "rowdeletetest"
 	//	col1Def := sqtables.NewColExpr(*testT.FindColDef(profile, "col1"))
 	testData := []DeleteRowsData{
-		{TestName: "col1(5) = 5 ->1", WhereStr: "col1=5", ExpErr: "", ExpPtrs: []int64{1}},
-		{TestName: "col1(6) = 5 ->0", WhereStr: "col1 = 6", ExpErr: "", ExpPtrs: []int64{}},
-		{TestName: "col1 < 5 ->0", WhereStr: "col1 < 5", ExpErr: "", ExpPtrs: []int64{}},
-		{TestName: "col1 < 7 ->1", WhereStr: "col1<6", ExpErr: "", ExpPtrs: []int64{1}},
-		{TestName: "Delete where=nil", WhereStr: "", ExpErr: "", ExpPtrs: []int64{1, 2}},
-		{TestName: "Delete where error", WhereStr: "col2 = 5", ExpErr: "Error: Type Mismatch: 5 is not a String", ExpPtrs: []int64{1, 2}},
+		{TestName: "col1(5) = 5 ->1", WhereStr: "col1=5", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1}},
+		{TestName: "col1(6) = 5 ->0", WhereStr: "col1 = 6", ExpErr: "", ExpPtrs: sqptr.SQPtrs{}},
+		{TestName: "col1 < 5 ->0", WhereStr: "col1 < 5", ExpErr: "", ExpPtrs: sqptr.SQPtrs{}},
+		{TestName: "col1 < 7 ->1", WhereStr: "col1<6", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1}},
+		{TestName: "Delete where=nil", WhereStr: "", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1, 2}},
+		{TestName: "Delete where error", WhereStr: "col2 = 5", ExpErr: "Error: Type Mismatch: 5 is not a String", ExpPtrs: sqptr.SQPtrs{1, 2}},
 	}
 
 	for i, row := range testData {
@@ -493,7 +494,7 @@ func TestDeleteRows(t *testing.T) {
 
 		tab := sqtables.GetTable(profile, tableName)
 
-		err := tab.DeleteRowsFromPtrs(profile, []int64{1, 2, 3}, sqtables.HardDelete)
+		err := tab.DeleteRowsFromPtrs(profile, sqptr.SQPtrs{1, 2, 3}, sqtables.HardDelete)
 		if err != nil {
 			t.Errorf("Unable to hard delete from table")
 			return
@@ -508,7 +509,7 @@ type GetRowDataFromPtrsData struct {
 	TestName string
 	Tab      *sqtables.TableDef
 	ExpErr   string
-	Ptrs     []int64
+	Ptrs     sqptr.SQPtrs
 }
 
 func testGetRowDataFromPtrsFunc(d *GetRowDataFromPtrsData) func(*testing.T) {
@@ -576,8 +577,8 @@ func TestGetRowDataFromPtrs(t *testing.T) {
 	}
 	//	col1Def := sqtables.NewColExpr(*testT.FindColDef(profile, "col1"))
 	testData := []GetRowDataFromPtrsData{
-		{TestName: "All Rows", Tab: tab, ExpErr: "", Ptrs: []int64{1, 2, 3, 4, 5, 6}},
-		{TestName: "Invalid Ptr", Tab: tab, ExpErr: "Error: Row 11 does not exist", Ptrs: []int64{11, 2, 3, 4, 5, 6}},
+		{TestName: "All Rows", Tab: tab, ExpErr: "", Ptrs: sqptr.SQPtrs{1, 2, 3, 4, 5, 6}},
+		{TestName: "Invalid Ptr", Tab: tab, ExpErr: "Error: Row 11 does not exist", Ptrs: sqptr.SQPtrs{11, 2, 3, 4, 5, 6}},
 	}
 
 	for i, row := range testData {
@@ -591,7 +592,7 @@ type UpdateRowsFromPtrsData struct {
 	TestName string
 	Tab      *sqtables.TableDef
 	ExpErr   string
-	Ptrs     []int64
+	Ptrs     sqptr.SQPtrs
 	Cols     []string
 	ExpList  *sqtables.ExprList
 	ExpData  sqtypes.RawVals
@@ -677,7 +678,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 			TestName: "All Rows col4",
 			Tab:      tab,
 			ExpErr:   "",
-			Ptrs:     []int64{1, 2, 3, 4, 5, 6},
+			Ptrs:     sqptr.SQPtrs{1, 2, 3, 4, 5, 6},
 			Cols:     []string{"col4"},
 			ExpList:  sqtables.NewExprList(sqtables.NewValueExpr(sqtypes.NewSQBool(true))),
 			ExpData: sqtypes.RawVals{
@@ -693,7 +694,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 			TestName: "Invalid Ptr",
 			Tab:      tab,
 			ExpErr:   "Internal Error: Row 11 does not exist for update",
-			Ptrs:     []int64{11, 2, 3, 4, 5, 6},
+			Ptrs:     sqptr.SQPtrs{11, 2, 3, 4, 5, 6},
 			Cols:     []string{"col4"},
 			ExpList:  sqtables.NewExprList(sqtables.NewValueExpr(sqtypes.NewSQBool(true))),
 		},
@@ -701,7 +702,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 			TestName: "UpdateRow Error:Type Mismatch",
 			Tab:      tab,
 			ExpErr:   "Error: Type Mismatch: Column col4 in Table updaterowsfromptrstest has a type of BOOL, Unable to set value of type INT",
-			Ptrs:     []int64{1},
+			Ptrs:     sqptr.SQPtrs{1},
 			Cols:     []string{"col4"},
 			ExpList:  sqtables.NewExprList(sqtables.NewValueExpr(sqtypes.NewSQInt(55))),
 			ExpData: sqtypes.RawVals{
@@ -717,7 +718,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 			TestName: "Evaluate Error",
 			Tab:      tab,
 			ExpErr:   "Error: Column \"ColX\" not found in Table(s): updaterowsfromptrstest",
-			Ptrs:     []int64{1},
+			Ptrs:     sqptr.SQPtrs{1},
 			Cols:     []string{"col4"},
 			ExpList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.CreateColDef("ColX", tokens.TypeFloat, false))),
 			ExpData: sqtypes.RawVals{
