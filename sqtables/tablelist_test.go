@@ -2,11 +2,12 @@ package sqtables_test
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
@@ -398,6 +399,7 @@ func TestTLGetRowData(t *testing.T) {
 			t.Errorf(t.Name() + " panicked unexpectedly")
 		}
 	}()
+
 	//var err error
 	profile := sqprofile.CreateSQProfile()
 	sqtest.ProcessSQFile("./testdata/multitable.sq")
@@ -524,6 +526,83 @@ func TestTLGetRowData(t *testing.T) {
 			ExpErr:    "",
 			ExpVals: sqtypes.RawVals{
 				{16},
+			},
+		},
+		{
+			TestName: "Multitable Query Cross Join Count()",
+			TL:       tList,
+			ExprList: sqtables.NewExprList(sqtables.NewCountExpr()),
+			WhereExpr: sqtables.NewOpExpr(
+				sqtables.NewOpExpr(
+					sqtables.NewOpExpr(
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
+						"=",
+						sqtables.NewValueExpr(sqtypes.NewSQString("Ava")),
+					),
+					"OR",
+					sqtables.NewOpExpr(
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
+						"=",
+						sqtables.NewValueExpr(sqtypes.NewSQString("Luna")),
+					),
+				),
+				"AND",
+				sqtables.NewOpExpr(
+					sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "city"}),
+					"=",
+					sqtables.NewValueExpr(sqtypes.NewSQString("Springfield")),
+				),
+			),
+			ExpErr: "",
+			ExpVals: sqtypes.RawVals{
+				{12},
+			},
+		},
+		{
+			TestName: "Multitable Query Cross Join with Cols",
+			TL:       tList,
+			ExprList: sqtables.NewExprList(
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname", ColType: "STRING", TableName: "person"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "city"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "country", ColType: "STRING", TableName: "city"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "country"}),
+			),
+			WhereExpr: sqtables.NewOpExpr(
+				sqtables.NewOpExpr(
+					sqtables.NewOpExpr(
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
+						"=",
+						sqtables.NewValueExpr(sqtypes.NewSQString("Ava")),
+					),
+					"OR",
+					sqtables.NewOpExpr(
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
+						"=",
+						sqtables.NewValueExpr(sqtypes.NewSQString("Luna")),
+					),
+				),
+				"AND",
+				sqtables.NewOpExpr(
+					sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "city"}),
+					"=",
+					sqtables.NewValueExpr(sqtypes.NewSQString("Springfield")),
+				),
+			),
+			ExpErr: "",
+			ExpVals: sqtypes.RawVals{
+				{"Ava", "Beilfuss", "Springfield", "United States", "Canada"},
+				{"Ava", "Beilfuss", "Springfield", "United States", "Canada"},
+				{"Ava", "Beilfuss", "Springfield", "United States", "United Kingdom"},
+				{"Ava", "Beilfuss", "Springfield", "United States", "United Kingdom"},
+				{"Ava", "Beilfuss", "Springfield", "United States", "United States"},
+				{"Ava", "Beilfuss", "Springfield", "United States", "United States"},
+				{"Luna", "Swantak", "Springfield", "United States", "Canada"},
+				{"Luna", "Swantak", "Springfield", "United States", "Canada"},
+				{"Luna", "Swantak", "Springfield", "United States", "United Kingdom"},
+				{"Luna", "Swantak", "Springfield", "United States", "United Kingdom"},
+				{"Luna", "Swantak", "Springfield", "United States", "United States"},
+				{"Luna", "Swantak", "Springfield", "United States", "United States"},
 			},
 		},
 		{

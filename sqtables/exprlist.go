@@ -21,7 +21,7 @@ func (el *ExprList) Len() int {
 }
 
 //Evaluate evaluates all of the expressions given a row
-func (el *ExprList) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) ([]sqtypes.Value, error) {
+func (el *ExprList) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) ([]sqtypes.Value, error) {
 	var err error
 	vals := make([]sqtypes.Value, len(el.exprlist))
 	for i, e := range el.exprlist {

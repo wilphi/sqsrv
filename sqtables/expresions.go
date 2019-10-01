@@ -34,7 +34,7 @@ type Expr interface {
 	Name() string
 	ColDef() ColDef
 	ColDefs(tables ...*TableDef) []ColDef
-	Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error)
+	Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error)
 	Reduce() (Expr, error)
 	ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error
 	Encode() *sqbin.Codec
@@ -99,7 +99,7 @@ func (e *ValueExpr) ColDefs(tables ...*TableDef) []ColDef {
 }
 
 // Evaluate -
-func (e *ValueExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
+func (e *ValueExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error) {
 	return e.v, nil
 }
 
@@ -218,12 +218,12 @@ func (e *ColExpr) ColDefs(tables ...*TableDef) []ColDef {
 }
 
 // Evaluate -
-func (e *ColExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
-	var row *RowDef
+func (e *ColExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error) {
+	var row RowInterface
 
 	// Find the row with the proper table name
 	for _, rw := range rows {
-		if e.col.TableName == rw.table.GetName(profile) {
+		if e.col.TableName == rw.GetTableName(profile) {
 			row = rw
 			break
 		}
@@ -233,7 +233,7 @@ func (e *ColExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*
 		if !partial {
 			str := ""
 			for _, rw := range rows {
-				str += rw.table.GetName(profile) + ", "
+				str += rw.GetTableName(profile) + ", "
 			}
 			return nil, sqerr.Newf("Column %q not found in Table(s): %s", e.col.ColName, str[:len(str)-2])
 		}
@@ -365,7 +365,7 @@ func (e *OpExpr) ColDefs(tables ...*TableDef) []ColDef {
 }
 
 // Evaluate -
-func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
+func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error) {
 
 	boolresult := e.Operator == tokens.And || e.Operator == tokens.Or
 
@@ -545,7 +545,7 @@ func (e *CountExpr) ColDefs(tables ...*TableDef) []ColDef {
 }
 
 // Evaluate -
-func (e *CountExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
+func (e *CountExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error) {
 
 	e.cnt++
 	return nil, nil
@@ -643,7 +643,7 @@ func (e *NegateExpr) ColDefs(tables ...*TableDef) []ColDef {
 }
 
 // Evaluate -
-func (e *NegateExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (sqtypes.Value, error) {
+func (e *NegateExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error) {
 	var retVal sqtypes.Value
 
 	vL, err := e.exL.Evaluate(profile, partial, rows...)
@@ -794,7 +794,7 @@ func (e *FuncExpr) ColDefs(tables ...*TableDef) []ColDef {
 }
 
 // Evaluate takes the current Expression and calculates the results based on the given row
-func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...*RowDef) (retVal sqtypes.Value, err error) {
+func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (retVal sqtypes.Value, err error) {
 	var vL sqtypes.Value
 
 	vL, err = e.exL.Evaluate(profile, partial, rows...)

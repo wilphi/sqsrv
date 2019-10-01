@@ -26,7 +26,14 @@ func TestInit(logname string) {
 		if err != nil {
 			panic(err)
 		}
-		log.SetOutput(logFile)
+		mode := os.Getenv("SQSRV_MODE")
+		if mode == "DEBUG" {
+			log.SetLevel(log.DebugLevel)
+			log.SetOutput(os.Stdout)
+		} else {
+			log.SetOutput(logFile)
+
+		}
 	})
 }
 

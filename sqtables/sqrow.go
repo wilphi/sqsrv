@@ -1,6 +1,7 @@
 package sqtables
 
 import (
+	"github.com/wilphi/sqsrv/sqerr"
 	e "github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
@@ -20,7 +21,36 @@ type RowDef struct {
 	ColNum     int
 }
 
+//RowInterface allows multiple types of rows to be Evaluted by expressions
+type RowInterface interface {
+	GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Value, error)
+	GetTableName(profile *sqprofile.SQProfile) string
+	GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error)
+	GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr
+}
+
 // Methods
+
+// GetIdxVal gets the value of the col at the index idx
+func (r *RowDef) GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
+	if r.isDeleted {
+		return nil, sqerr.NewInternalf("Deleted row can't return a value from GetIdxVal. Table: %s, ptr:%d", r.table.tableName, r.RowPtr)
+	}
+	if idx < 0 || idx >= len(r.Data) {
+		return nil, sqerr.Newf("Invalid index (%d) for row. Data len = %d", idx, len(r.Data))
+	}
+	return r.Data[idx], nil
+}
+
+// GetTableName returns the table for the row
+func (r *RowDef) GetTableName(profile *sqprofile.SQProfile) string {
+	return r.table.GetName(profile)
+}
+
+// GetPtr returns the pointer to the given row
+func (r *RowDef) GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr {
+	return r.RowPtr
+}
 
 // UpdateRow updates the values of the row
 func (r *RowDef) UpdateRow(profile *sqprofile.SQProfile, cols []string, vals []sqtypes.Value) error {

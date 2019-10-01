@@ -466,7 +466,7 @@ type EvalData struct {
 	Partial    bool
 	profile    *sqprofile.SQProfile
 	Tables     *sqtables.TableList
-	rows       []*sqtables.RowDef
+	rows       []sqtables.RowInterface
 	ExpVal     sqtypes.Value
 	ExpErr     string
 	NoValidate bool
@@ -493,7 +493,7 @@ func TestEvaluateExpr(t *testing.T) {
 		t.Error("Unable to setup table")
 		return
 	}
-	rows := []*sqtables.RowDef{row}
+	rows := []sqtables.RowInterface{row}
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	data := []EvalData{
 		{

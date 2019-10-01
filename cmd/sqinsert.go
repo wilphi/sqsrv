@@ -148,12 +148,6 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 }
 
 func (ins *InsertStmt) insertIntoTables(profile *sqprofile.SQProfile) (int, error) {
-	/*
-		// make sure cols, vals, valtypes are the same len
-		if len(cols) != len(vals) {
-			return sqerr.New("cols, vals are not equal length")
-		}
-	*/
 	// make sure there is a valid table
 	tab := sqtables.GetTable(profile, ins.tableName)
 	if tab == nil {

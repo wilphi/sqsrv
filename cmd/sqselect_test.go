@@ -560,6 +560,7 @@ func TestSelect(t *testing.T) {
 				{0, "Tofino", 49.1521, -125.9031, "CAN"},
 			},
 		},
+
 		/*		{
 				TestName: "Multi Table Order By with table alias ",
 				Command:  "SELECT cn.short,city.cityid, city.name cname, lat,long  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",

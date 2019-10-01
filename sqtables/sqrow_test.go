@@ -457,3 +457,143 @@ func TestSetStorage(t *testing.T) {
 	row1.SetStorage(profile, 1024, 4096, 256)
 
 }
+
+func TestMiscRowFunctions(t *testing.T) {
+	profile := sqprofile.CreateSQProfile()
+	// Setup Data
+	stmt := "CREATE TABLE miscrowtest (col1 int not null, col2 string null, col3 int, col4 string not null)"
+	tkList := tokens.Tokenize(stmt)
+	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+
+	testT := sqtables.GetTable(profile, tableName)
+	stmt = "INSERT INTO " + tableName + "(col1, col2, col3, col4) VALUES "
+	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 1, "test one2", 21, "test one4")
+	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 2, "test two2", 22, "test two4")
+	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 3, "test three2", 23, "test three4")
+	stmt += fmt.Sprintf("(%d, %q, %d, %q) ", 4, "test four2", 24, "test four4")
+	tkList = tokens.Tokenize(stmt)
+	_, _, err = cmd.InsertInto(profile, tkList)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+	ptr12 := sqptr.SQPtr(12)
+	row1, err := sqtables.CreateRow(profile, ptr12, testT, testT.GetColNames(profile), sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{5, "Test Data 0", nil, "Original"}))
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+	rowD, err := sqtables.CreateRow(profile, 0, testT, testT.GetColNames(profile), sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{6, "Test Data 0", nil, "Originald"}))
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
+	rowD.Delete(profile)
+
+	t.Run("Row is valid RowInterface", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+				return
+			}
+		}()
+		var i sqtables.RowInterface
+		i = row1
+		_, ok := i.(sqtables.RowInterface)
+		if !ok {
+			t.Error("Row1 is not a RowInterface")
+			return
+		}
+	})
+
+	t.Run("GetPtr", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+				return
+			}
+		}()
+		if row1.GetPtr(profile) != ptr12 {
+			t.Error("GetPtr did not match expected value")
+			return
+		}
+	})
+	t.Run("GetIdxVal idx=-1", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+				return
+			}
+		}()
+		errTxt := "Error: Invalid index (-1) for row. Data len = 4"
+		_, err := row1.GetIdxVal(profile, -1)
+
+		if err.Error() != errTxt {
+			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
+			return
+		}
+	})
+	t.Run("GetIdxVal idx=4", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+				return
+			}
+		}()
+		errTxt := "Error: Invalid index (4) for row. Data len = 4"
+		_, err := row1.GetIdxVal(profile, 4)
+
+		if err.Error() != errTxt {
+			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
+			return
+		}
+	})
+	t.Run("GetIdxVal idx=1", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+				return
+			}
+		}()
+		errTxt := ""
+		expVal := sqtypes.NewSQString("Test Data 0")
+		v, err := row1.GetIdxVal(profile, 1)
+
+		if err != nil && err.Error() != errTxt {
+			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
+			return
+		}
+		if !v.Equal(expVal) {
+			t.Errorf("Expected Value %s does not match actual value %s", expVal.ToString(), v.ToString())
+		}
+	})
+	t.Run("GetIdxVal deleted row", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+				return
+			}
+		}()
+		errTxt := "Internal Error: Deleted row can't return a value from GetIdxVal. Table: miscrowtest, ptr:0"
+		expVal := sqtypes.NewSQString("Test Data 0")
+		v, err := rowD.GetIdxVal(profile, 1)
+
+		if err != nil {
+			if err.Error() != errTxt {
+				t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
+				return
+			}
+			return
+		}
+		if !v.Equal(expVal) {
+			t.Errorf("Expected Value %s does not match actual value %s", expVal.ToString(), v.ToString())
+		}
+	})
+
+}

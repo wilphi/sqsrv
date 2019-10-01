@@ -18,7 +18,7 @@ type EvalListData struct {
 	List     []sqtables.Expr
 	profile  *sqprofile.SQProfile
 	Tables   *sqtables.TableList
-	rows     []*sqtables.RowDef
+	rows     []sqtables.RowInterface
 	ExpVals  []sqtypes.Raw
 	ExpErr   string
 }
@@ -80,7 +80,7 @@ func TestEvalListExpr(t *testing.T) {
 		return
 	}
 	row := tab.GetRow(profile, 1)
-	rows := []*sqtables.RowDef{row}
+	rows := []sqtables.RowInterface{row}
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	data := []EvalListData{
 		{
