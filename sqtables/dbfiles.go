@@ -87,17 +87,22 @@ func WriteDB(profile *sqprofile.SQProfile) error {
 	id := transid.GetTransID()
 
 	// get the list of tables currently in use
-	tables := CatalogTables(profile)
-
+	tables, err := CatalogTables(profile)
+	if err != nil {
+		return err
+	}
 	info := DBInfo{LastTransID: id, Tables: tables}
 
-	err := writeDBInfo(profile, info)
+	err = writeDBInfo(profile, info)
 	if err != nil {
 		log.Error("Unable to write to info file", err)
 	}
 
 	// now get all of the tables including those that have been dropped
-	tables = CatalogAllTables(profile)
+	tables, err = CatalogAllTables(profile)
+	if err != nil {
+		return err
+	}
 	for _, tableName := range tables {
 		err = writeDBTableInfo(profile, tableName)
 		if err != nil {
@@ -130,9 +135,12 @@ func writeDBInfo(profile *sqprofile.SQProfile, d DBInfo) error {
 func writeDBTableInfo(profile *sqprofile.SQProfile, tName string) error {
 	fileName := dbDirectory + "/" + tName + ".sqt"
 
-	td := GetTable(profile, tName)
+	td, err := GetTable(profile, tName)
+	if err != nil {
+		return err
+	}
 	if td == nil {
-		err := files.NumberFile(fileName, maxFiles)
+		err = files.NumberFile(fileName, maxFiles)
 		if err != nil {
 			return err
 		}
@@ -164,7 +172,10 @@ func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 	var err error
 	var deletePtrs sqptr.SQPtrs
 	fileName := dbDirectory + "/" + tName + ".sqd"
-	td := GetTable(profile, tName)
+	td, err := GetTable(profile, tName)
+	if err != nil {
+		return err
+	}
 	if td == nil {
 		err := files.NumberFile(fileName, maxFiles)
 		if err != nil {
@@ -340,7 +351,11 @@ func ReadDB(profile *sqprofile.SQProfile) error {
 	_tables.LockAll(profile)
 	defer _tables.UnlockAll(profile)
 
-	if len(CatalogTables(profile)) != 0 {
+	catTables, err := CatalogTables(profile)
+	if err != nil {
+		return err
+	}
+	if len(catTables) != 0 {
 		log.Panic("To read the database from file, memory must be empty")
 	}
 
@@ -369,7 +384,10 @@ func ReadDB(profile *sqprofile.SQProfile) error {
 		if err != nil {
 			log.Panicf("Unable to create table %s: %s", tableName, err)
 		}
-		tab.Lock(profile)
+		err = tab.Lock(profile)
+		if err != nil {
+			return err
+		}
 		err = readDBTableData(profile, tab)
 		if err != nil && err != io.EOF {
 			log.Panicf("Unable to read table data for %s: %s", tableName, err)

@@ -35,7 +35,12 @@ func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*te
 
 		// Snapshot of data if we need to do comparison
 		if d.TableName != "" {
-			tab = sqtables.GetTable(profile, d.TableName)
+			tab, err = sqtables.GetTable(profile, d.TableName)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
 			initPtrs, err = tab.GetRowPtrs(profile, nil, true)
 			if err != nil {
 				t.Errorf("Unable to get table data for %s", d.TableName)

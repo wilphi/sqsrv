@@ -48,7 +48,10 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	tkns.Remove()
 
 	// get the TableDef
-	td = sqtables.GetTable(profile, tableName)
+	td, err = sqtables.GetTable(profile, tableName)
+	if err != nil {
+		return -1, err
+	}
 	if td == nil {
 		err = sqerr.New("Table " + tableName + " does not exist for delete statement")
 		return
@@ -82,7 +85,10 @@ func DeleteFromTable(profile *sqprofile.SQProfile, tableName string, whereExpr s
 	var rowsDeleted sqptr.SQPtrs
 	numRows = -1
 
-	tab := sqtables.GetTable(profile, tableName)
+	tab, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		return 0, err
+	}
 	if tab == nil {
 		err = sqerr.New("Table " + tableName + " does not exist for Delete statement")
 		return

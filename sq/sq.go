@@ -19,7 +19,7 @@ import (
 )
 
 // SQVersion  - version of software
-const SQVersion = "SQSRV v0.7.0"
+const SQVersion = "SQSRV v0.10.0"
 
 const (
 	cHost = "localhost"
@@ -133,7 +133,7 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 		if sqprotocol.IsShutdown() {
 			return
 		}
-		profile.VerifyNoLocks()
+		//profile.VerifyNoLocks()
 		req, err := srv.ReceiveRequest()
 		if err != nil {
 			return

@@ -233,7 +233,7 @@ func createTestTable(profile *sqprofile.SQProfile, tableName string, cols ...str
 	if err != nil {
 		return nil, err
 	}
-	return sqtables.GetTable(profile, tableName), err
+	return sqtables.GetTable(profile, tableName)
 
 }
 

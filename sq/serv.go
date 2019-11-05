@@ -188,7 +188,7 @@ func cmdStatsMem(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.R
 }
 
 func cmdStatsLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
-	resp := sqprotocol.ResponseToClient{Msg: sqmutex.GetStats(), IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
+	resp := sqprotocol.ResponseToClient{Msg: sqmutex.GetMtxStats(), IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	return resp, NoAction, nil
 }
 
@@ -208,13 +208,20 @@ func cmdLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Respo
 	tkns.Remove()
 	if tkns.Test(tk.Ident) != "" {
 		tableName := tkns.Peek().GetValue()
-		td := sqtables.GetTable(profile, tableName)
-		if td == nil {
+		td, err := sqtables.GetTable(profile, tableName)
+		if td == nil || err != nil {
 			resp.IsErr = true
 			resp.Msg = "Table not found"
+			if err != nil {
+				resp.Msg = err.Error()
+			}
 		} else {
 			resp.Msg = "Locking table " + td.GetName(profile)
-			td.Lock(profile)
+			err := td.Lock(profile)
+			if err != nil {
+				resp.IsErr = true
+				resp.Msg = err.Error()
+			}
 		}
 
 	} else {
@@ -229,10 +236,13 @@ func cmdUnLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Res
 	tkns.Remove()
 	if tkns.Test(tk.Ident) != "" {
 		tableName := tkns.Peek().GetValue()
-		td := sqtables.GetTable(profile, tableName)
-		if td == nil {
+		td, err := sqtables.GetTable(profile, tableName)
+		if td == nil || err != nil {
 			resp.IsErr = true
 			resp.Msg = "Table not found"
+			if err != nil {
+				resp.Msg = err.Error()
+			}
 		} else {
 			td.Unlock(profile)
 			resp.Msg = "Unlocked table " + td.GetName(profile)
@@ -247,7 +257,11 @@ func cmdUnLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Res
 }
 
 func cmdShowTables(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
-	tables := sqtables.CatalogTables(profile)
+	tables, err := sqtables.CatalogTables(profile)
+	if err != nil {
+		resp := sqprotocol.ResponseToClient{Msg: err.Error(), IsErr: true, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
+		return resp, NoAction, nil
+	}
 	str := "Table List\n----------------------\n"
 	for _, tab := range tables {
 		str += fmt.Sprintf("  %-20s\n", tab)
@@ -262,10 +276,13 @@ func cmdShowTable(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.
 	tkns.Remove()
 	if tkns.Test(tk.Ident) != "" {
 		tableName := tkns.Peek().GetValue()
-		td := sqtables.GetTable(profile, tableName)
-		if td == nil {
+		td, err := sqtables.GetTable(profile, tableName)
+		if td == nil || err != nil {
 			resp.IsErr = true
 			resp.Msg = "Table \"" + tableName + "\" not found"
+			if err != nil {
+				resp.Msg = err.Error()
+			}
 		} else {
 			resp.Msg = td.ToString(profile)
 		}

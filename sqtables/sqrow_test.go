@@ -80,7 +80,12 @@ func TestUpdateRow(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	testT := sqtables.GetTable(profile, tableName)
+	testT, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	//cols := testT.GetCols(false)
 	stmt = "INSERT INTO " + tableName + "(col1, col2, col3, col4) VALUES "
 	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 1, "test one2", 21, "test one4")
@@ -248,7 +253,12 @@ func TestCreateRow(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	testT := sqtables.GetTable(profile, tableName)
+	testT, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	//cols := testT.GetCols(false)
 	stmt = "INSERT INTO " + tableName + "(col1, col2, col3, col4) VALUES "
 	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 1, "test one2", 21, "test one4")
@@ -399,7 +409,11 @@ func TestGetColData(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	testT := sqtables.GetTable(profile, tableName)
+	testT, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	row1, err := sqtables.CreateRow(profile, 0, testT, testT.GetColNames(profile), sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{5, "Test Data 0", nil, true}))
 	if err != nil {
@@ -448,7 +462,10 @@ func TestSetStorage(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	testT := sqtables.GetTable(profile, tableName)
+	testT, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+	}
 
 	row1, err := sqtables.CreateRow(profile, 0, testT, testT.GetColNames(profile), sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{5, "Test Data 0", nil, true}))
 	if err != nil {
@@ -468,7 +485,12 @@ func TestMiscRowFunctions(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	testT := sqtables.GetTable(profile, tableName)
+	testT, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	stmt = "INSERT INTO " + tableName + "(col1, col2, col3, col4) VALUES "
 	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 1, "test one2", 21, "test one4")
 	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 2, "test two2", 22, "test two4")

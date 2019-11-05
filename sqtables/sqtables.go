@@ -22,13 +22,13 @@ const (
 
 // TableDef -  table definition
 type TableDef struct {
-	tableName  string
-	tableCols  []ColDef
+	tableName  string   // immutable
+	tableCols  []ColDef // immutable
 	rowm       map[sqptr.SQPtr]*RowDef
 	nextOffset int64
 	nextRowID  *uint64
 	isDropped  bool
-	sqmutex.SQMutex
+	*sqmutex.SQMtx
 }
 
 // RowOrder sets the default sort for a dataset. If true then all rows are sorted by the RowID
@@ -43,7 +43,7 @@ func CreateTableDef(name string, cols ...ColDef) *TableDef {
 	tab.tableName = strings.ToLower(name)
 	tab.tableCols = cols
 
-	tab.SQMutex = sqmutex.NewSQMutex("Table: " + tab.tableName)
+	tab.SQMtx = sqmutex.NewSQMtx("Table: " + tab.tableName)
 
 	log.Debugln("TableName: ", tab.tableName)
 	for i := range tab.tableCols {
@@ -62,15 +62,16 @@ func CreateTableDef(name string, cols ...ColDef) *TableDef {
 
 // GetName - Name of the table
 func (t *TableDef) GetName(profile *sqprofile.SQProfile) string {
-	t.RLock(profile)
-	defer t.RUnlock(profile)
 	return t.tableName
 }
 
 // RowCount -
-func (t *TableDef) RowCount(profile *sqprofile.SQProfile) int {
+func (t *TableDef) RowCount(profile *sqprofile.SQProfile) (int, error) {
 	cnt := 0
-	t.RLock(profile)
+	err := t.RLock(profile)
+	if err != nil {
+		return -1, err
+	}
 	defer t.RUnlock(profile)
 	if t.rowm != nil {
 
@@ -81,13 +82,11 @@ func (t *TableDef) RowCount(profile *sqprofile.SQProfile) int {
 
 		}
 	}
-	return cnt
+	return cnt, nil
 }
 
-// ToString - Thread safe version of ToString for a tabledef
+// ToString -
 func (t *TableDef) ToString(profile *sqprofile.SQProfile) string {
-	t.RLock(profile)
-	defer t.RUnlock(profile)
 	cs := t.tableName + "\n--------------------------------------\n"
 
 	for _, col := range t.tableCols {
@@ -113,7 +112,10 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 		newRows[cnt] = row
 	}
 
-	t.Lock(profile)
+	err := t.Lock(profile)
+	if err != nil {
+		return -1, err
+	}
 	for i, r := range newRows {
 		t.rowm[r.RowPtr] = r
 		data.Ptrs[i] = r.RowPtr
@@ -124,14 +126,17 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 }
 
 // GetTable - Get a pointer to the named table if it exists
-func GetTable(profile *sqprofile.SQProfile, name string) *TableDef {
+func GetTable(profile *sqprofile.SQProfile, name string) (*TableDef, error) {
 	return _tables.FindTableDef(profile, name)
 }
 
 // DeleteRows - Delete rows based on where expression
 func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptrs sqptr.SQPtrs, err error) {
 
-	t.Lock(profile)
+	err = t.Lock(profile)
+	if err != nil {
+		return
+	}
 	defer t.Unlock(profile)
 
 	ptrs, err = t.GetRowPtrs(profile, whereExpr, false)
@@ -146,7 +151,10 @@ func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptr
 
 //DeleteRowsFromPtrs deletes rows from a table based on the given list of pointers
 func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs, soft bool) error {
-	t.Lock(profile)
+	err := t.Lock(profile)
+	if err != nil {
+		return err
+	}
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
 		if soft == SoftDelete {
@@ -166,7 +174,10 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 		return nil, err
 	}
 	ds.Vals = make([][]sqtypes.Value, len(ptrs))
-	t.RLock(profile)
+	err = t.RLock(profile)
+	if err != nil {
+		return nil, err
+	}
 	defer t.RUnlock(profile)
 	for i, idx := range ptrs {
 		row, ok := t.rowm[idx]
@@ -182,7 +193,11 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr) (*DataSet, error) {
 	var err error
 
-	t.RLock(profile)
+	err = t.RLock(profile)
+	if err != nil {
+		return nil, err
+	}
+
 	defer t.RUnlock(profile)
 
 	tables := NewTableListFromTableDef(profile, t)
@@ -230,8 +245,6 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, string) {
 	var i int
 	var col ColDef
-	t.RLock(profile)
-	defer t.RUnlock(profile)
 	for i, col = range t.tableCols {
 		if col.ColName == name {
 			return i, col.ColType
@@ -243,8 +256,6 @@ func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, stri
 // FindColDef - Returns coldef based on name
 func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *ColDef {
 	var col ColDef
-	t.RLock(profile)
-	defer t.RUnlock(profile)
 
 	for _, col = range t.tableCols {
 		parts := strings.Split(name, ".")
@@ -264,16 +275,12 @@ func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *ColDef
 
 // GetCols - Returns the list of col TypeDef for the table
 func (t *TableDef) GetCols(profile *sqprofile.SQProfile) ColList {
-	t.RLock(profile)
-	defer t.RUnlock(profile)
 	return NewColListDefs(t.tableCols)
 }
 
 // GetColNames - returns cols names for the table
 func (t *TableDef) GetColNames(profile *sqprofile.SQProfile) []string {
 	cols := make([]string, len(t.tableCols))
-	t.RLock(profile)
-	defer t.RUnlock(profile)
 
 	for i, col := range t.tableCols {
 		cols[i] = col.ColName
@@ -283,8 +290,6 @@ func (t *TableDef) GetColNames(profile *sqprofile.SQProfile) []string {
 
 // NumCol - The number of columns in the table
 func (t *TableDef) NumCol(profile *sqprofile.SQProfile) int {
-	t.RLock(profile)
-	defer t.RUnlock(profile)
 	return len(t.tableCols)
 }
 
@@ -295,7 +300,11 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted boo
 	var val sqtypes.Value
 
 	includeRow := (exp == nil)
-	t.RLock(profile)
+	err = t.RLock(profile)
+	if err != nil {
+		return nil, err
+	}
+
 	defer t.RUnlock(profile)
 
 	for rowID, row := range t.rowm {
@@ -331,7 +340,10 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted boo
 
 //UpdateRowsFromPtrs updates rows in the table based on the given list of pointers, columns to be changed and values to be set
 func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs, cols []string, eList *ExprList) error {
-	t.Lock(profile)
+	err := t.Lock(profile)
+	if err != nil {
+		return err
+	}
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
 		row, ok := t.rowm[idx]

@@ -92,7 +92,12 @@ func testCreateFunc(d CreateData) func(*testing.T) {
 			t.Errorf("Error recreating LogStatement: %s", err)
 			return
 		}
-		tab := sqtables.GetTable(profile, d.TableName)
+		tab, err := sqtables.GetTable(profile, d.TableName)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		if tab == nil {
 			t.Errorf("Table %s has not been recreated", d.TableName)
 			return
@@ -207,7 +212,12 @@ func testInsertFunc(d InsertData) func(*testing.T) {
 		}
 		// test recreate
 		profile := sqprofile.CreateSQProfile()
-		tab := sqtables.GetTable(profile, d.TableName)
+		tab, err := sqtables.GetTable(profile, d.TableName)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		if tab != nil {
 			initPtrs, err = tab.GetRowPtrs(profile, nil, true)
 			if err != nil {
@@ -407,9 +417,18 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 		// Recreate the statement
 		initRowCount := 0
 
-		tab := sqtables.GetTable(profile, d.TableName)
+		tab, err := sqtables.GetTable(profile, d.TableName)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		if tab != nil {
-			initRowCount = tab.RowCount(profile)
+			initRowCount, err = tab.RowCount(profile)
+			if err != nil {
+				t.Error(err)
+				return
+			}
 
 		}
 		err = s.Recreate(profile)
@@ -420,7 +439,12 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			// error matches expected err so return
 			return
 		}
-		if tab.RowCount(profile) != initRowCount {
+		rc, err := tab.RowCount(profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if rc != initRowCount {
 			t.Errorf("RowCount is off for recreate of UpdateRows")
 			return
 		}
@@ -520,7 +544,7 @@ func testDeleteFunc(d DeleteData) func(*testing.T) {
 				t.Errorf(d.TestName + " panicked unexpectedly")
 			}
 		}()
-
+		var err error
 		s := redo.NewDeleteRows(d.TableName, d.RowPtrs)
 		// Test Set/Get ID
 		s.SetID(d.ID)
@@ -555,19 +579,32 @@ func testDeleteFunc(d DeleteData) func(*testing.T) {
 		// test recreate
 		initRowCount := 0
 		profile := sqprofile.CreateSQProfile()
-		tab := sqtables.GetTable(profile, d.TableName)
-		if tab != nil {
-			initRowCount = tab.RowCount(profile)
+		tab, err := sqtables.GetTable(profile, d.TableName)
+		if err != nil {
+			t.Error(err)
+			return
 		}
-		err := s.Recreate(profile)
+
+		if tab != nil {
+			initRowCount, err = tab.RowCount(profile)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+		}
+		err = s.Recreate(profile)
 		if err != nil {
 			if err.Error() != d.ExpErr {
 				t.Errorf("Error recreating LogStatement: %s", err)
 			}
 			return
 		}
-
-		if tab.RowCount(profile) != initRowCount-len(d.RowPtrs) {
+		rc, err := tab.RowCount(profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if rc != initRowCount-len(d.RowPtrs) {
 			t.Errorf("RowCount is off for recreate of DeleteRows")
 			return
 		}
@@ -658,8 +695,13 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 
 		// Test recreate
 		profile := sqprofile.CreateSQProfile()
-		originalList := sqtables.CatalogTables(profile)
-		err := s.Recreate(profile)
+		originalList, err := sqtables.CatalogTables(profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		err = s.Recreate(profile)
 		if err != nil {
 			if err.Error() != d.ExpErr {
 				t.Errorf("Error recreating LogStatement: %s", err)
@@ -671,12 +713,22 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 			return
 		}
 
-		tab := sqtables.GetTable(profile, d.TableName)
+		tab, err := sqtables.GetTable(profile, d.TableName)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		if tab != nil {
 			t.Errorf("Table %s has not been Dropped", d.TableName)
 			return
 		}
-		afterList := sqtables.CatalogTables(profile)
+		afterList, err := sqtables.CatalogTables(profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		afterList = append(afterList, d.TableName)
 		sort.Strings(afterList)
 

@@ -238,7 +238,12 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 		}
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(sqtables.NewColListNames(d.Cols))
-			tab := sqtables.GetTable(profile, d.TableName)
+			tab, err := sqtables.GetTable(profile, d.TableName)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
 			ds, err := tab.GetRowData(profile, cList, nil)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)

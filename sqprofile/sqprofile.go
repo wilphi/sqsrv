@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
@@ -15,6 +16,7 @@ var profileID = new(int64)
 type SQProfile struct {
 	id    int64
 	locks map[string]int
+	mux   sync.Mutex
 }
 
 // CreateSQProfile initializes a new profile
@@ -24,16 +26,22 @@ func CreateSQProfile() *SQProfile {
 
 // GetID returns the profile ID number
 func (p *SQProfile) GetID() int64 {
+	p.mux.Lock()
+	defer p.mux.Unlock()
 	return p.id
 }
 
 // CheckLock returns the number of times the lockname has been locked
 func (p *SQProfile) CheckLock(lck string) int {
+	p.mux.Lock()
+	defer p.mux.Unlock()
 	return p.locks[lck]
 }
 
 // AddLock adds indicators to the locks map
 func (p *SQProfile) AddLock(locks ...string) {
+	p.mux.Lock()
+	defer p.mux.Unlock()
 	for _, lck := range locks {
 		p.locks[lck]++
 	}
@@ -41,10 +49,12 @@ func (p *SQProfile) AddLock(locks ...string) {
 
 //RemoveLock removes indicators from the locks map
 func (p *SQProfile) RemoveLock(locks ...string) {
+	p.mux.Lock()
+	defer p.mux.Unlock()
 	for _, lck := range locks {
 		if p.locks[lck] <= 0 {
 			// We are trying to unlock something that is unlocked
-			log.Panicf("%s is not locked but we are tring to unlock it", lck)
+			log.Panicf("Profile %d - %s is not locked but we are tring to unlock it", p.id, lck)
 		}
 		p.locks[lck]--
 	}
@@ -53,6 +63,8 @@ func (p *SQProfile) RemoveLock(locks ...string) {
 // VerifyNoLocks checks to make sure that the number of calls to lock are balanced with calls to unlock
 //	This is for both Read & Write locks. The program will panic if this check fails
 func (p *SQProfile) VerifyNoLocks() {
+	p.mux.Lock()
+	defer p.mux.Unlock()
 	keys := ""
 	for k, v := range p.locks {
 		if v > 0 {
@@ -62,7 +74,7 @@ func (p *SQProfile) VerifyNoLocks() {
 	if keys != "" {
 		frame := getFrame(1)
 		keys = keys[:len(keys)-2]
-		log.Panicf("Mismatched locks are: (%s) at: %s,:%d %s", keys, stripPath(frame.File), frame.Line, frame.Function)
+		log.Panicf("Profile %d - Mismatched locks are: (%s) at: %s,:%d %s", p.id, keys, stripPath(frame.File), frame.Line, frame.Function)
 	}
 
 	return

@@ -84,10 +84,14 @@ func (tl *TableList) Len() int {
 // Add  a new table to the list. Will return an error if a duplicate
 // tableName/Alias pair is added. If the TableDef is not provided it will be found
 func (tl *TableList) Add(profile *sqprofile.SQProfile, ft FromTable) error {
+	var err error
 
 	if ft.Table == nil {
 		// Get the TableDef
-		ft.Table = GetTable(profile, ft.TableName)
+		ft.Table, err = GetTable(profile, ft.TableName)
+		if err != nil {
+			return err
+		}
 		if ft.Table == nil {
 			return sqerr.Newf("Table %q does not exist", ft.TableName)
 		}
@@ -124,10 +128,21 @@ func (tl *TableList) AllCols(profile *sqprofile.SQProfile) []ColDef {
 }
 
 // RLock read locks all tables in the list
-func (tl *TableList) RLock(profile *sqprofile.SQProfile) {
+func (tl *TableList) RLock(profile *sqprofile.SQProfile) error {
+	var err error
+	var locklist []*TableDef
+
 	for _, tab := range tl.tables {
-		tab.Table.RLock(profile)
+		err = tab.Table.RLock(profile)
+		if err != nil {
+			for _, tDef := range locklist {
+				tDef.RUnlock(profile)
+			}
+			return err
+		}
+		locklist = append(locklist, tab.Table)
 	}
+	return nil
 }
 
 // RUnlock unloack read lock from all tables in list
@@ -154,7 +169,10 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 	var err error
 	var whereList *ExprList
 
-	tl.RLock(profile)
+	err = tl.RLock(profile)
+	if err != nil {
+		return nil, err
+	}
 	defer tl.RUnlock(profile)
 
 	if eList == nil || eList.Len() < 1 {

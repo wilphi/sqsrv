@@ -100,7 +100,12 @@ func TestGetRowData(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	testT := sqtables.GetTable(profile, tableName)
+	testT, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	cols := sqtables.ColsToExpr(testT.GetCols(profile))
 	stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES " +
 		"(1,5,\"d test string\", 10, true), " +
@@ -242,7 +247,12 @@ func TestGetRowPtrs(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	testT := sqtables.GetTable(profile, tableName)
+	testT, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	stmt = "INSERT INTO " + tableName + "(rowid, firstname, active) VALUES " +
 		"(1, \"Tim\", true), " +
 		"(2, \"Ted\", true), " +
@@ -290,7 +300,11 @@ func TestMisc(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	tab := sqtables.GetTable(profile, tableName)
+	tab, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	t.Run("RowCount:No Rows", func(t *testing.T) {
 		defer func() {
@@ -299,7 +313,11 @@ func TestMisc(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		num := tab.RowCount(profile)
+		num, err := tab.RowCount(profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		if num != 0 {
 			t.Errorf("RowCount = %d when it should be zero", num)
 			return
@@ -332,7 +350,11 @@ func TestMisc(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		num := tab.RowCount(profile)
+		num, err := tab.RowCount(profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		if num != 6 {
 			t.Errorf("RowCount = %d when it should be 6", num)
 			return
@@ -402,7 +424,12 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 			t.Fatalf("Unexpected Error setting up test: %s", err)
 		}
 
-		tab := sqtables.GetTable(profile, tableName)
+		tab, err := sqtables.GetTable(profile, tableName)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		tables := sqtables.NewTableListFromTableDef(profile, tab)
 		stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES (1,5,\"d test string\", 10, true), (2,7,\"f test string\", 100, false), (3,17,\"A test string\", 500, false) "
 		tkList = tokens.Tokenize(stmt)
@@ -492,9 +519,13 @@ func TestDeleteRows(t *testing.T) {
 		}()
 		profile := sqprofile.CreateSQProfile()
 
-		tab := sqtables.GetTable(profile, tableName)
+		tab, err := sqtables.GetTable(profile, tableName)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
-		err := tab.DeleteRowsFromPtrs(profile, sqptr.SQPtrs{1, 2, 3}, sqtables.HardDelete)
+		err = tab.DeleteRowsFromPtrs(profile, sqptr.SQPtrs{1, 2, 3}, sqtables.HardDelete)
 		if err != nil {
 			t.Errorf("Unable to hard delete from table")
 			return
@@ -561,7 +592,12 @@ func TestGetRowDataFromPtrs(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err)
 	}
 
-	tab := sqtables.GetTable(profile, tableName)
+	tab, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES " +
 		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 1, 5, "d test string", 10, true) +
 		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 2, 7, "f test string", 100, false) +
@@ -658,7 +694,12 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err)
 	}
 
-	tab := sqtables.GetTable(profile, tableName)
+	tab, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES " +
 		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 1, 5, "d test string", 10, true) +
 		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 2, 7, "f test string", 100, false) +
@@ -822,7 +863,11 @@ func TestAddRows(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err)
 	}
 
-	tab := sqtables.GetTable(profile, tableName)
+	tab, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	//	col1Def := sqtables.NewColExpr(*testT.FindColDef(profile, "col1"))
 	testData := []AddRowsData{

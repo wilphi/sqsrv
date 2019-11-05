@@ -33,7 +33,10 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 		return "", nil, sqerr.NewSyntax("Expecting table name in Update statement")
 	}
 	tkns.Remove()
-	tab := sqtables.GetTable(profile, tableName)
+	tab, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		return "", nil, err
+	}
 	if tab == nil {
 		return "", nil, sqerr.NewSyntaxf("Invalid table name: %s does not exist", tableName)
 	}
@@ -117,7 +120,11 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 		return "", nil, err
 	}
 	// get the data
-	tab.Lock(profile)
+	err = tab.Lock(profile)
+	if err != nil {
+		return "", nil, err
+	}
+
 	defer tab.Unlock(profile)
 	ptrs, err := tab.GetRowPtrs(profile, whereExpr, false)
 	if err != nil {

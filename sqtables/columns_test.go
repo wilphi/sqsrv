@@ -129,7 +129,12 @@ func TestColListValidate(t *testing.T) {
 		return
 	}
 
-	tab := sqtables.GetTable(profile, tableName)
+	tab, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	if tab == nil {
 		t.Error("Unable to get setup table")
 		return

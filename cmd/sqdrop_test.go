@@ -53,7 +53,12 @@ func testDropFunc(profile *sqprofile.SQProfile, d DropData) func(*testing.T) {
 			t.Error("Drop Table function should always return nil data")
 			return
 		}
-		tab := sqtables.GetTable(profile, d.TableName)
+		tab, err := sqtables.GetTable(profile, d.TableName)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		if tab != nil {
 			t.Errorf("Drop table did not drop %s", d.TableName)
 			return

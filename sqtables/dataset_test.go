@@ -124,7 +124,12 @@ func TestDataSet(t *testing.T) {
 	colds := []sqtables.ColDef{sqtables.ColDef{ColName: "col2", ColType: "STRING"}, sqtables.ColDef{ColName: "col1", ColType: "INT"}}
 	exprCols := sqtables.ColsToExpr(sqtables.NewColListDefs(colds))
 	emptyExprCols := &sqtables.ExprList{}
-	tab1 := sqtables.GetTable(profile, tableName)
+	tab1, err := sqtables.GetTable(profile, tableName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	if tab1 == nil {
 		t.Error("Unable to get table for testing")
 		return

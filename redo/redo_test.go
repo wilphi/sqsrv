@@ -433,7 +433,12 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 		}
 
 		// clean up db
-		tab := sqtables.GetTable(d.Profile, tableName)
+		tab, err := sqtables.GetTable(d.Profile, tableName)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		if tab != nil {
 			err = sqtables.DropTable(d.Profile, tableName)
 			if err != nil && err.Error() != "Invalid Name: Table names does not exist" {

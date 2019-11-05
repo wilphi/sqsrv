@@ -38,7 +38,12 @@ func testDeleteFunc(profile *sqprofile.SQProfile, d DeleteData) func(*testing.T)
 
 		//Reset Data
 		if d.Data != nil {
-			tab := sqtables.GetTable(profile, d.TableName)
+			tab, err := sqtables.GetTable(profile, d.TableName)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
 			ptrs, err := tab.GetRowPtrs(profile, nil, false)
 			if err != nil {
 				t.Errorf("Reset Data Error in test: %s", err.Error())
@@ -76,7 +81,12 @@ func testDeleteFunc(profile *sqprofile.SQProfile, d DeleteData) func(*testing.T)
 		}
 		if d.ExpVals != nil {
 			expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
-			tab := sqtables.GetTable(profile, d.TableName)
+			tab, err := sqtables.GetTable(profile, d.TableName)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
 			data, err := tab.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil)
 			if err != nil {
 				t.Error("Unable to get data from table")
@@ -123,7 +133,12 @@ func TestDelete(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
-	tab := sqtables.GetTable(profile, "deltest")
+	tab, err := sqtables.GetTable(profile, "deltest")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	ds, err := tab.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil)
 	if err != nil {
 		t.Errorf("Error setting up table for TestSelect: %s", err)

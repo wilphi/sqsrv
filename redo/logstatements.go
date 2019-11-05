@@ -148,7 +148,10 @@ func (i *InsertRows) Decode(dec *sqbin.Codec) {
 // Recreate - reprocess the recorded transaction log SQL statement to restore the database
 func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 	// make sure there is a valid table
-	tab := sqtables.GetTable(profile, i.TableName)
+	tab, err := sqtables.GetTable(profile, i.TableName)
+	if err != nil {
+		return err
+	}
 	if tab == nil {
 		return sqerr.New("Table " + i.TableName + " does not exist")
 	}
@@ -245,7 +248,10 @@ func (u *UpdateRows) Decode(dec *sqbin.Codec) {
 // Recreate - reprocess the recorded transaction log SQL statement to restore the database
 func (u *UpdateRows) Recreate(profile *sqprofile.SQProfile) error {
 	// make sure there is a valid table
-	tab := sqtables.GetTable(profile, u.TableName)
+	tab, err := sqtables.GetTable(profile, u.TableName)
+	if err != nil {
+		return err
+	}
 	if tab == nil {
 		return sqerr.New("Table " + u.TableName + " does not exist")
 	}
@@ -318,11 +324,14 @@ func (d *DeleteRows) Decode(dec *sqbin.Codec) {
 // Recreate - reprocess the recorded transaction log SQL statement to restore the database
 func (d *DeleteRows) Recreate(profile *sqprofile.SQProfile) error {
 	// make sure there is a valid table
-	tab := sqtables.GetTable(profile, d.TableName)
+	tab, err := sqtables.GetTable(profile, d.TableName)
+	if err != nil {
+		return err
+	}
 	if tab == nil {
 		return sqerr.New("Table " + d.TableName + " does not exist")
 	}
-	err := tab.DeleteRowsFromPtrs(profile, d.RowPtrs, sqtables.SoftDelete)
+	err = tab.DeleteRowsFromPtrs(profile, d.RowPtrs, sqtables.SoftDelete)
 	profile.VerifyNoLocks()
 
 	return err

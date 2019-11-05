@@ -116,9 +116,13 @@ func testCreateTableFunc(d CreateTableData) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		originalList := sqtables.CatalogTables(d.Profile)
+		originalList, err := sqtables.CatalogTables(d.Profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		tab := sqtables.CreateTableDef(d.TableName, d.Cols...)
-		err := sqtables.CreateTable(d.Profile, tab)
+		err = sqtables.CreateTable(d.Profile, tab)
 		if err != nil {
 			log.Println(err.Error())
 			if d.ExpErr == "" {
@@ -135,7 +139,11 @@ func testCreateTableFunc(d CreateTableData) func(*testing.T) {
 			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
 			return
 		}
-		finalList := sqtables.CatalogTables(d.Profile)
+		finalList, err := sqtables.CatalogTables(d.Profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		originalList = append(originalList, d.TableName)
 		sort.Strings(originalList)
 		if !reflect.DeepEqual(originalList, finalList) {
@@ -201,8 +209,12 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 				t.Errorf(d.TestName + " panicked unexpectedly")
 			}
 		}()
-		originalList := sqtables.CatalogTables(d.Profile)
-		err := sqtables.DropTable(d.Profile, d.TableName)
+		originalList, err := sqtables.CatalogTables(d.Profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = sqtables.DropTable(d.Profile, d.TableName)
 		if err != nil {
 			log.Println(err.Error())
 			if d.ExpErr == "" {
@@ -219,7 +231,11 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
 			return
 		}
-		finalList := sqtables.CatalogTables(d.Profile)
+		finalList, err := sqtables.CatalogTables(d.Profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		finalList = append(finalList, d.TableName)
 		sort.Strings(finalList)
 		if !reflect.DeepEqual(originalList, finalList) {
@@ -234,15 +250,22 @@ func TestMiscTableList(t *testing.T) {
 	// Data Setup
 	profile := sqprofile.CreateSQProfile()
 
-	originalList := sqtables.CatalogTables(profile)
-	originalAllList := sqtables.CatalogAllTables(profile)
-
+	originalList, err := sqtables.CatalogTables(profile)
+	if err != nil {
+		t.Error("Error setting up data for TestDropTable ", err)
+		return
+	}
+	originalAllList, err := sqtables.CatalogAllTables(profile)
+	if err != nil {
+		t.Error("Error setting up data for TestDropTable ", err)
+		return
+	}
 	tab := sqtables.CreateTableDef(
 		"tablea",
 		sqtables.CreateColDef("col1", tokens.TypeInt, false),
 		sqtables.CreateColDef("col2", tokens.TypeString, false),
 	)
-	err := sqtables.CreateTable(profile, tab)
+	err = sqtables.CreateTable(profile, tab)
 	if err != nil {
 		t.Error("Error setting up data for TestDropTable ", err)
 		return
@@ -281,8 +304,11 @@ func TestMiscTableList(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		tList := sqtables.CatalogTables(profile)
-
+		tList, err := sqtables.CatalogTables(profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		if len(originalList)+2 != len(tList) {
 			t.Error("Tables not added correctly to tables list")
 			return
@@ -296,7 +322,11 @@ func TestMiscTableList(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		tList := sqtables.CatalogAllTables(profile)
+		tList, err := sqtables.CatalogAllTables(profile)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
 		if len(originalAllList)+3 != len(tList) {
 			t.Error("Tables not added correctly to tables list")

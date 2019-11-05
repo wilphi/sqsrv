@@ -73,7 +73,10 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 	if err != nil {
 		return err
 	}
-	tab := sqtables.GetTable(profile, ins.tableName)
+	tab, err := sqtables.GetTable(profile, ins.tableName)
+	if err != nil {
+		return err
+	}
 	if tab == nil {
 		return sqerr.New("Table " + ins.tableName + " does not exist")
 	}
@@ -149,7 +152,10 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 
 func (ins *InsertStmt) insertIntoTables(profile *sqprofile.SQProfile) (int, error) {
 	// make sure there is a valid table
-	tab := sqtables.GetTable(profile, ins.tableName)
+	tab, err := sqtables.GetTable(profile, ins.tableName)
+	if err != nil {
+		return 0, err
+	}
 	if tab == nil {
 		return 0, sqerr.New("Table " + ins.tableName + " does not exist")
 	}
