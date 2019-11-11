@@ -288,11 +288,11 @@ func TestAsyncMtxLocks(t *testing.T) {
 			}
 		}()
 		var wg sync.WaitGroup
-		wg.Add(1)
 		rwA := NewSQMtx("A")
 		rwA.SetTimeout(5 * time.Millisecond)
 		rwB := NewSQMtx("B")
 		rwB.SetTimeout(10 * time.Millisecond)
+		wg.Add(1)
 		err := rwA.Lock(profile1)
 		if err != nil {
 			t.Error("Initial A lock failed")

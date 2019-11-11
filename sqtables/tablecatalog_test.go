@@ -341,7 +341,7 @@ func TestMiscTableList(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		sqtables.LockAllTables(profile)
+		sqtables.LockCatalog(profile)
 	})
 	t.Run("UnLock All Tables", func(t *testing.T) {
 		defer func() {
@@ -350,7 +350,7 @@ func TestMiscTableList(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		sqtables.UnlockAllTables(profile)
+		sqtables.UnlockCatalog(profile)
 	})
 	t.Run("underscore test", func(t *testing.T) {
 		defer func() {

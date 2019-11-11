@@ -80,8 +80,8 @@ func WriteDB(profile *sqprofile.SQProfile) error {
 	// Make sure database is paused or stopped
 
 	// Get locks on Catalog and each table
-	_tables.LockAll(profile)
-	defer _tables.UnlockAll(profile)
+	LockCatalog(profile)
+	defer UnlockCatalog(profile)
 
 	// Get the last transaction
 	id := transid.GetTransID()
@@ -348,8 +348,8 @@ func ReadDB(profile *sqprofile.SQProfile) error {
 	start := time.Now()
 
 	// Get locks on Catalog and each table
-	_tables.LockAll(profile)
-	defer _tables.UnlockAll(profile)
+	LockCatalog(profile)
+	defer UnlockCatalog(profile)
 
 	catTables, err := CatalogTables(profile)
 	if err != nil {

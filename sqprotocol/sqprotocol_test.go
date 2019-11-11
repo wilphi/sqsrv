@@ -618,6 +618,7 @@ func TestConnection(t *testing.T) {
 		}
 
 	})
+
 	t.Run("Server Shutdown with timeout", func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -655,4 +656,5 @@ func TestConnection(t *testing.T) {
 		}
 
 	})
+
 }

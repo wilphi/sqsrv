@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -15,7 +17,8 @@ import (
 )
 
 var connList []*SvrConfig
-var inShutdown bool
+var inShutdown *int64
+var mux sync.RWMutex
 
 // ShutdownCount Controls how long a shutdown will wait for connections to terminate on their own
 // once the time is up shutdown will continue
@@ -27,11 +30,14 @@ func init() {
 	gob.Register(sqtypes.SQBool{})
 	gob.Register(sqtypes.SQNull{})
 	gob.Register(sqtypes.SQFloat{})
+	inShutdown = new(int64)
 }
 
 // SetSvrConn - set the connection for the server to communicate on
 func SetSvrConn(conn net.Conn, cNum int) *SvrConfig {
 	c := &SvrConfig{enc: gob.NewEncoder(conn), dec: gob.NewDecoder(conn), conn: conn, cNum: cNum}
+	mux.Lock()
+	defer mux.Unlock()
 	connList = append(connList, c)
 	return c
 }
@@ -61,6 +67,8 @@ func (srv *SvrConfig) SendResponse(resp *ResponseToClient) error {
 
 // Close -
 func (srv *SvrConfig) Close() error {
+	mux.Lock()
+	defer mux.Unlock()
 	idx := -1
 	for i, c := range connList {
 		if c.cNum == srv.cNum {
@@ -73,8 +81,8 @@ func (srv *SvrConfig) Close() error {
 	}
 	connList = append(connList[:idx], connList[idx+1:]...)
 	log.Infof("Closing Client Connection #%d\n", srv.cNum)
-
-	return srv.conn.Close()
+	err := srv.conn.Close()
+	return err
 }
 
 // SendColumns -
@@ -122,6 +130,8 @@ func getTypeWidth(typeName string) int {
 
 //ShowConn builds a string that lists all connections to the server
 func ShowConn() string {
+	mux.Lock()
+	defer mux.Unlock()
 	str := "Current Connections\n"
 	for _, c := range connList {
 		// ConnNum, IP
@@ -132,32 +142,36 @@ func ShowConn() string {
 
 //Shutdown terminates connections in orderly fashion
 func Shutdown() {
-	inShutdown = true
+	if atomic.CompareAndSwapInt64(inShutdown, 0, 1) {
 
-	cnt := 0
-	for {
-		// All connections a have terminated
-		if len(connList) == 0 {
-			break
-		}
+		cnt := 0
+		for {
+			// All connections a have terminated
+			mux.Lock()
+			numConn := len(connList)
+			mux.Unlock()
+			if numConn == 0 {
+				break
+			}
 
-		// if more than 10 seconds has passed continue with shutdown
-		if cnt > ShutdownCount {
-			log.Info("Connection timeout for shutdown")
-			break
+			// if more than 10 seconds has passed continue with shutdown
+			if cnt > ShutdownCount {
+				log.Info("Connection timeout for shutdown")
+				break
+			}
+			// wait for a little bit
+			time.Sleep(100 * time.Millisecond)
+			cnt++
 		}
-		// wait for a little bit
-		time.Sleep(100 * time.Millisecond)
-		cnt++
 	}
 }
 
 // IsShutdown is true if a shutdown is in process
 func IsShutdown() bool {
-	return inShutdown
+	return atomic.LoadInt64(inShutdown) == 1
 }
 
 // CancelShutdown will stop an inprocess shutdown
 func CancelShutdown() {
-	inShutdown = false
+	atomic.StoreInt64(inShutdown, 0)
 }

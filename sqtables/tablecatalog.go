@@ -14,14 +14,14 @@ type tableCatalog struct {
 	*sqmutex.SQMtx
 }
 
-var _tables *tableCatalog
+var _Catalog *tableCatalog
 
 func init() {
-	// setup _tables
-	_tables = newTableCatalog()
+	// setup _Catalog
+	_Catalog = newTableCatalog()
 }
 
-// FindTableDef - Find a table def given the table name
+// FindTableDefO - Find a table def given the table name
 //		protected by a mutex to be concurrency safe
 func (tl *tableCatalog) FindTableDef(profile *sqprofile.SQProfile, name string) (*TableDef, error) {
 	err := tl.RLock(profile)
@@ -50,22 +50,22 @@ func CreateTable(profile *sqprofile.SQProfile, tab *TableDef) error {
 		return sqerr.Newf("Create Table: table must have at least one column")
 	}
 
-	// add to _tables
-	err := _tables.Lock(profile)
+	// add to _Catalog
+	err := _Catalog.Lock(profile)
 	if err != nil {
 		return err
 	}
-	defer _tables.Unlock(profile)
+	defer _Catalog.Unlock(profile)
 
 	// Err if there is already a table with the same name
-	tDef, err := _tables.FindTableDef(profile, tableName)
+	tDef, err := _Catalog.FindTableDef(profile, tableName)
 	if err != nil {
 		return err
 	}
 	if tDef != nil {
 		return sqerr.Newf("Invalid Name: Table %s already exists", tableName)
 	}
-	_tables.tables[tableName] = tab
+	_Catalog.tables[tableName] = tab
 
 	return nil
 }
@@ -80,14 +80,14 @@ func DropTable(profile *sqprofile.SQProfile, name string) error {
 		return sqerr.Newf("Invalid Name: %s - Unable to drop system tables", name)
 	}
 
-	err := _tables.Lock(profile)
+	err := _Catalog.Lock(profile)
 	if err != nil {
 		return err
 	}
-	defer _tables.Unlock(profile)
+	defer _Catalog.Unlock(profile)
 
 	// Err if table does not exist
-	tab, err := _tables.FindTableDef(profile, name)
+	tab, err := _Catalog.FindTableDef(profile, name)
 	if err != nil {
 		return err
 	}
@@ -101,8 +101,8 @@ func DropTable(profile *sqprofile.SQProfile, name string) error {
 	}
 	// Unlock when done to make sure the lock tracking is correct
 	defer tab.Unlock(profile)
-	// remove from _tables
-	_tables.tables[strings.ToLower(name)] = nil
+	// remove from _Catalog
+	_Catalog.tables[strings.ToLower(name)] = nil
 
 	//Clear out the values
 	tab.rowm = nil
@@ -119,16 +119,16 @@ func newTableCatalog() *tableCatalog {
 
 // CatalogTables returns a sorted list of tablenames
 func CatalogTables(profile *sqprofile.SQProfile) ([]string, error) {
-	err := _tables.RLock(profile)
+	err := _Catalog.RLock(profile)
 	if err != nil {
 		return nil, err
 	}
-	defer _tables.RUnlock(profile)
+	defer _Catalog.RUnlock(profile)
 	var tNames []string
 
-	for tab := range _tables.tables {
+	for tab := range _Catalog.tables {
 		if tab != "" {
-			if _tables.tables[tab] != nil {
+			if _Catalog.tables[tab] != nil {
 				tNames = append(tNames, tab)
 
 			}
@@ -141,14 +141,14 @@ func CatalogTables(profile *sqprofile.SQProfile) ([]string, error) {
 
 // CatalogAllTables returns a sorted list of tablenames including dropped tables
 func CatalogAllTables(profile *sqprofile.SQProfile) ([]string, error) {
-	err := _tables.RLock(profile)
+	err := _Catalog.RLock(profile)
 	if err != nil {
 		return nil, err
 	}
-	defer _tables.RUnlock(profile)
-	tNames := make([]string, len(_tables.tables))
+	defer _Catalog.RUnlock(profile)
+	tNames := make([]string, len(_Catalog.tables))
 	i := 0
-	for tab := range _tables.tables {
+	for tab := range _Catalog.tables {
 		tNames[i] = tab
 		i++
 	}
@@ -192,12 +192,17 @@ func isUnderScore(name string) bool {
 	return false
 }
 
-//UnlockAllTables releases write locks against the tablelist and all tables in it
-func UnlockAllTables(profile *sqprofile.SQProfile) {
-	_tables.UnlockAll(profile)
+//UnlockCatalog releases write locks against the Catalog and all tables in it
+func UnlockCatalog(profile *sqprofile.SQProfile) {
+	_Catalog.UnlockAll(profile)
 }
 
-//LockAllTables reserves write locks against the tablelist and all tables in it
-func LockAllTables(profile *sqprofile.SQProfile) {
-	_tables.LockAll(profile)
+//LockCatalog reserves write locks on the Catalog and all tables in it
+func LockCatalog(profile *sqprofile.SQProfile) {
+	_Catalog.LockAll(profile)
+}
+
+//GetTable returns a table definition for the given table name
+func GetTable(profile *sqprofile.SQProfile, tableName string) (*TableDef, error) {
+	return _Catalog.FindTableDef(profile, tableName)
 }

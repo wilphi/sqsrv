@@ -125,10 +125,12 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 	return len(newRows), nil
 }
 
+/*
 // GetTable - Get a pointer to the named table if it exists
 func GetTable(profile *sqprofile.SQProfile, name string) (*TableDef, error) {
-	return _tables.FindTableDef(profile, name)
+	return _Catalog.FindTableDef(profile, name)
 }
+*/
 
 // DeleteRows - Delete rows based on where expression
 func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptrs sqptr.SQPtrs, err error) {
