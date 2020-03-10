@@ -3,6 +3,8 @@ package sqtables
 import (
 	"sort"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqerr"
@@ -168,12 +170,19 @@ func (tl *TableList) TableNames() []string {
 func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr) (*DataSet, error) {
 	var err error
 	var whereList *ExprList
+	timeOut := new(int32)
 
 	err = tl.RLock(profile)
 	if err != nil {
 		return nil, err
 	}
 	defer tl.RUnlock(profile)
+	maxTimer := time.NewTimer(time.Minute)
+	defer maxTimer.Stop()
+	go func() {
+		<-maxTimer.C
+		atomic.StoreInt32(timeOut, 1)
+	}()
 
 	if eList == nil || eList.Len() < 1 {
 		return nil, sqerr.NewInternal("Expression List must have at least one item")
@@ -241,7 +250,9 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 	sort.Slice(joins, func(i, j int) bool {
 		return len(joins[i].Rows) < len(joins[j].Rows)
 	})
-
+	if atomic.LoadInt32(timeOut) != 0 {
+		return nil, sqerr.New("Query terminated due to timeout")
+	}
 	// Join the datasets together
 	jtab := joins[0]
 	joins = joins[1:]
@@ -312,6 +323,9 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 					cnt++
 					if cnt%1000000 == 0 {
 						log.Print(cnt)
+						if atomic.LoadInt32(timeOut) != 0 {
+							return nil, sqerr.New("Query terminated due to timeout")
+						}
 					}
 					tmpRow := row
 					newTup := append(tuple, &tmpRow)
