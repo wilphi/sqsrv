@@ -1,6 +1,7 @@
 package sq
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -21,18 +22,37 @@ import (
 // SQVersion  - version of software
 const SQVersion = "SQSRV v0.10.0"
 
-const (
-	cHost = "localhost"
-	cPort = "3333"
-	cType = "tcp"
-)
+//Options are the values set by the flag package
+var Options struct {
+	host    string
+	port    string
+	tlog    string
+	dbfiles string
+}
 
 // Main is the main process function for the SQServer
-func Main(host, port string) {
+func Main() {
+
 	//	var jobs = make(chan Job, 10)
 	var Terminate = make(chan bool, 10)
 	var doShutdown = false
 	//go profilerHTTP()
+
+	flag.StringVar(&Options.host, "host", "localhost", "Host name of the server")
+	flag.StringVar(&Options.port, "port", "3333", "TCP port for server to listen on")
+	flag.StringVar(&Options.tlog, "tlog", "./transaction.tlog", "File path/name for the transaction log")
+	flag.StringVar(&Options.dbfiles, "dbfile", "./dbfiles/", "Directory where database files are stored")
+	flag.Parse()
+
+	// Set where datafile are
+	sqtables.SetDBDir(Options.dbfiles)
+	redo.SetTLog(Options.tlog)
+
+	log.Println("Starting SQSrv version", SQVersion)
+	log.Println("dbfiles =", Options.dbfiles)
+	log.Println("tlog =", Options.tlog)
+	log.Println("host =", Options.host)
+	log.Println("port =", Options.port)
 
 	profile := sqprofile.CreateSQProfile()
 
@@ -51,7 +71,7 @@ func Main(host, port string) {
 
 	//go NewMonitor(10)
 	// startup listener thread
-	go listenerThread(host, port, Terminate)
+	go listenerThread(Options.host, Options.port, Terminate)
 
 	for !doShutdown {
 		log.Debug("+++++++++++++++++ Main waiting for shutdown signal +++++++++++++++")
@@ -85,8 +105,9 @@ func Main(host, port string) {
 
 func listenerThread(host, port string, Terminate chan bool) {
 
+	log.Println("Starting Listener...")
 	// Setup Listener
-	l, err := net.Listen(cType, host+":"+port)
+	l, err := net.Listen("tcp", host+":"+port)
 	if err != nil {
 		log.Fatalln("Error Listening: (", host, ":", port, ") -- ", err.Error())
 	}
