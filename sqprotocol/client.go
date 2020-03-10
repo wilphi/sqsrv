@@ -57,7 +57,7 @@ func (clnt *ClientConfig) ReceiveResponse() (*ResponseToClient, error) {
 	resp := &ResponseToClient{}
 	err := clnt.dec.Decode(resp)
 	if err != nil {
-		log.Println("Error receiving request reponse: ", err.Error())
+		//log.Println("Error receiving request reponse: ", err.Error())
 		return nil, err
 	}
 	return resp, nil
