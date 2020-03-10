@@ -185,20 +185,17 @@ func isWhiteSpace(ch rune) bool {
 	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }
 
-func getWhiteSpace(r []rune) ([]rune, *Token) {
-	tkn := CreateToken(Ws, "")
-
+func getWhiteSpace(r []rune) []rune {
 	// loop until no more whitespace
 	for {
 		//make sure that there is a rune to process
 		if len(r) <= 0 || !isWhiteSpace(r[0]) {
-			return r, tkn
+			break
 		}
-
-		tkn.tokenValue = tkn.tokenValue + string(r[0])
 		r = r[1:]
 
 	}
+	return r
 }
 
 func checkKeyWords(word string) *Token {
@@ -298,7 +295,7 @@ func Tokenize(str string) *TokenList {
 		}
 		//test for whitespace and condense into one token
 		if isWhiteSpace(r[0]) {
-			r, tkn = getWhiteSpace(r)
+			r = getWhiteSpace(r)
 			continue
 		}
 		if isLetter(r[0]) || isUnderScore(r[0]) {
