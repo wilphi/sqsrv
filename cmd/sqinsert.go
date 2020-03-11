@@ -21,7 +21,7 @@ type InsertStmt struct {
 
 // InsertInto -
 func InsertInto(profile *sqprofile.SQProfile, tl *tokens.TokenList) (string, *sqtables.DataSet, error) {
-	ins, err := CreateInsertStmt(tl)
+	ins, err := NewInsertStmt(tl)
 	if err != nil {
 		return "Zero rows inserted", nil, err
 	}
@@ -33,8 +33,8 @@ func InsertInto(profile *sqprofile.SQProfile, tl *tokens.TokenList) (string, *sq
 	return fmt.Sprintf("%d rows inserted into %s", i, ins.tableName), nil, err
 }
 
-// CreateInsertStmt - Create the Insert Statement
-func CreateInsertStmt(tl *tokens.TokenList) (*InsertStmt, error) {
+// NewInsertStmt - Create the Insert Statement
+func NewInsertStmt(tl *tokens.TokenList) (*InsertStmt, error) {
 
 	// make that this is an Insert
 	if tl.Test(tokens.Insert) == "" {
