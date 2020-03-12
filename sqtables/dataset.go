@@ -107,16 +107,50 @@ func (d *DataSet) Swap(i, j int) {
 
 // Less is part of sort Interface
 func (d *DataSet) Less(i, j int) bool {
-	for x := range d.order {
-		col := d.order[x]
-		if d.Vals[i][col.idx].LessThan(d.Vals[j][col.idx]) {
-			return col.SortType == tokens.Asc
+	if len(d.order) > 0 {
+		for x := range d.order {
+			col := d.order[x]
+			if d.Vals[i][col.idx].LessThan(d.Vals[j][col.idx]) {
+				return col.SortType == tokens.Asc
+			}
+			if d.Vals[i][col.idx].GreaterThan(d.Vals[j][col.idx]) {
+				return col.SortType != tokens.Asc
+			}
 		}
-		if d.Vals[i][col.idx].GreaterThan(d.Vals[j][col.idx]) {
-			return col.SortType != tokens.Asc
+	} else {
+		for x := 0; x < d.eList.Len(); x++ {
+			if d.Vals[i][x].LessThan(d.Vals[j][x]) {
+				return true
+			}
+			if d.Vals[i][x].GreaterThan(d.Vals[j][x]) {
+				return false
+			}
 		}
 	}
 	return true
+}
+
+// Distinct sorts and removes duplicate rows in the data set
+func (d *DataSet) Distinct() {
+	sort.Sort(d)
+	if (len(d.Vals) - 1) > 0 {
+		tmp := d.Vals[:1]
+		for i := 0; i < len(d.Vals)-1; i++ {
+			match := false
+			for j := 0; j < len(d.Vals[i]); j++ {
+				if d.Vals[i][j].Equal(d.Vals[i+1][j]) {
+					match = true
+				} else {
+					match = false
+					break
+				}
+			}
+			if !match {
+				tmp = append(tmp, d.Vals[i+1])
+			}
+		}
+		d.Vals = tmp
+	}
 }
 
 // Sort is a convenience function

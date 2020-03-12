@@ -11,83 +11,107 @@ import (
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+// SelectStmt - structure to store decoded Select Statement
+type SelectStmt struct {
+	tkns       *tokens.TokenList
+	tables     *sqtables.TableList
+	isDistinct bool
+	eList      *sqtables.ExprList
+	whereExpr  sqtables.Expr
+	orderBy    []sqtables.OrderItem
+}
+
 // Select command with function prototype as required for dispatching
 func Select(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
-	data, err := SelectParse(profile, tkns)
+	stmt := NewSelectStmt(tkns)
+	err := stmt.SelectParse(profile)
+	if err != nil {
+		return "", nil, err
+	}
+
+	data, err := stmt.SelectExecute(profile)
 	if err != nil {
 		return "", nil, err
 	}
 	return fmt.Sprintf("%d rows found", data.Len()), data, err
 }
 
-// SelectParse takes a list of tokens and verifies the syntax of the command
-//	 DataSet - All data found by select statement
-//   error - if !nil an error has occurred
-func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtables.DataSet, error) {
-	var err error
-	//var colNames []string
-	var eList *sqtables.ExprList
-	//var tableCols sqtables.ColList
-	var isAsterix = false
-	var tables *sqtables.TableList
-	var whereExpr sqtables.Expr
-	var orderBy []sqtables.OrderItem
+// NewSelectStmt creates SelectStmt object to hold all information about query
+func NewSelectStmt(tkns *tokens.TokenList) *SelectStmt {
+	stmt := new(SelectStmt)
+	stmt.tkns = tkns
+	stmt.orderBy = nil
+	return stmt
+}
 
-	orderBy = nil
+// SelectParse takes a list of tokens and verifies the syntax of the command
+//   error - if !nil an error has occurred
+func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
+	var err error
+
+	var isAsterix = false
 
 	log.Info("SELECT statement...")
 
-	//eat SELECT token
-	tkns.Remove()
+	//Verify and eat SELECT token
+	if stmt.tkns.Test(tokens.Select) == "" {
+		return sqerr.NewInternalf("SELECT Token not found: %s is invalid", stmt.tkns.Peek().GetString())
+	}
+	stmt.tkns.Remove()
 
+	// check for a distinct
+	if stmt.tkns.Test(tokens.Distinct) != "" {
+		stmt.tkns.Remove()
+		stmt.isDistinct = true
+	}
 	// Get the column list. * is special case
-	if tkns.Test(tokens.Asterix) != "" {
-		tkns.Remove()
+	if stmt.tkns.Test(tokens.Asterix) != "" {
+		stmt.tkns.Remove()
 		isAsterix = true
 
 	} else {
 		// get the column list
-		eList, err = GetExprList(tkns, tokens.From, false)
+		stmt.eList, err = GetExprList(stmt.tkns, tokens.From, false)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	// Get the FROM clause
-	if tkns.Test(tokens.From) == "" {
+	if stmt.tkns.Test(tokens.From) == "" {
 		// no FROM
-		return nil, sqerr.NewSyntax("Expecting FROM")
+		return sqerr.NewSyntax("Expecting FROM")
 	}
-	tkns.Remove()
-	tables, err = GetTableList(profile, tkns, tokens.Where, tokens.Order)
+	stmt.tkns.Remove()
+	stmt.tables, err = GetTableList(profile, stmt.tkns, tokens.Where, tokens.Order)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// get the cols in the table
 	// Once we have the table name we can generate the column list
 	if isAsterix {
-		cols := tables.AllCols(profile)
+		cols := stmt.tables.AllCols(profile)
 		sort.SliceStable(cols, func(i, j int) bool { return cols[i].Idx < cols[j].Idx })
 		sort.SliceStable(cols, func(i, j int) bool { return cols[i].TableName < cols[j].TableName })
 
-		if tables.Len() == 1 {
+		if stmt.tables.Len() == 1 {
 			// Only one table so alias colnames
-			eList = sqtables.NewExprList()
+			stmt.eList = sqtables.NewExprList()
 			for _, col := range cols {
 				colX := sqtables.NewColExpr(col)
 				colX.SetAlias(col.ColName)
-				eList.Add(colX)
+				stmt.eList.Add(colX)
 			}
 
 		} else {
-			eList = sqtables.ColsToExpr(sqtables.NewColListDefs(cols))
+			stmt.eList = sqtables.ColsToExpr(sqtables.NewColListDefs(cols))
 
 		}
 	} else {
 		//convert into column defs
-		err = eList.ValidateCols(profile, tables)
+		err = stmt.eList.ValidateCols(profile, stmt.tables)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -96,58 +120,58 @@ func SelectParse(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (*sqtable
 	// loop twice just in case the where clause is after the order by clause
 	for i := 0; i < 2; i++ {
 		// Optional Where clause processing goes here
-		if tkns.Test(tokens.Where) != "" {
+		if stmt.tkns.Test(tokens.Where) != "" {
 			if whereProcessed {
-				return nil, sqerr.NewSyntax("Duplicate where clause, only one allowed")
+				return sqerr.NewSyntax("Duplicate where clause, only one allowed")
 			}
 			whereProcessed = true
-			tkns.Remove()
-			whereExpr, err = ParseWhereClause(tkns, tokens.Order)
+			stmt.tkns.Remove()
+			stmt.whereExpr, err = ParseWhereClause(stmt.tkns, tokens.Order)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			err = whereExpr.ValidateCols(profile, tables)
+			err = stmt.whereExpr.ValidateCols(profile, stmt.tables)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
 		// Optional Order By clause processing goes here
-		if tkns.Test(tokens.Order) != "" {
+		if stmt.tkns.Test(tokens.Order) != "" {
 			if orderByProcessed {
-				return nil, sqerr.NewSyntax("Duplicate order by clause, only one allowed")
+				return sqerr.NewSyntax("Duplicate order by clause, only one allowed")
 			}
 			orderByProcessed = true
-			tkns.Remove()
-			orderBy, err = OrderByClause(tkns)
+			stmt.tkns.Remove()
+			stmt.orderBy, err = OrderByClause(stmt.tkns)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 
-	if !tkns.IsEmpty() {
-		return nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+	if !stmt.tkns.IsEmpty() {
+		return sqerr.NewSyntax("Unexpected tokens after SQL command:" + stmt.tkns.ToString())
 	}
 
-	return SelectExecute(profile, tables, eList, whereExpr, orderBy)
+	return nil
 
 }
 
 // SelectExecute executes the select command against the data to return the result
-func SelectExecute(
-	profile *sqprofile.SQProfile,
-	tables *sqtables.TableList,
-	eList *sqtables.ExprList,
-	whereExpr sqtables.Expr,
-	orderBy []sqtables.OrderItem) (*sqtables.DataSet, error) {
+func (stmt *SelectStmt) SelectExecute(profile *sqprofile.SQProfile) (*sqtables.DataSet, error) {
 
-	data, err := tables.GetRowData(profile, eList, whereExpr)
+	data, err := stmt.tables.GetRowData(profile, stmt.eList, stmt.whereExpr)
 	if err != nil {
 		return nil, err
 	}
-	if orderBy != nil || len(orderBy) > 0 {
-		err = data.SetOrder(orderBy)
+
+	// If Select DISTINCT then filter out duplicates
+	if stmt.isDistinct {
+		data.Distinct()
+	}
+	if stmt.orderBy != nil || len(stmt.orderBy) > 0 {
+		err = data.SetOrder(stmt.orderBy)
 		if err != nil {
 			return nil, err
 		}

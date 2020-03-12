@@ -2,6 +2,7 @@ package sqtest
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"sync"
 
@@ -59,4 +60,26 @@ func ProcessSQFile(name string) error {
 		}
 	}
 	return nil
+}
+
+//CheckErr checks an error to see if it is expected/unexpected
+// Returns:
+//  msg - "" if the exepected result, otherwise a more detailed message
+//  contEx - true if execution should continue, otherwise false
+func CheckErr(err error, ExpErr string) (msg string, contEx bool) {
+	if err != nil {
+		if ExpErr == "" {
+			return fmt.Sprintf("Unexpected Error: %s", err.Error()), false
+
+		}
+		if ExpErr != err.Error() {
+			return fmt.Sprintf("Expecting Error %s but got: %s", ExpErr, err.Error()), false
+
+		}
+		return "", false
+	}
+	if ExpErr != "" { // && err==nil
+		return fmt.Sprintf("Expected Success should have returned error: %s", err.Error()), false
+	}
+	return "", true
 }

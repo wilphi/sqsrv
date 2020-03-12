@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"testing"
 )
 
@@ -23,6 +24,20 @@ type TokenData struct {
 	TestName string
 	testStr  string
 	Tokens   *TokenList
+}
+
+func allWords() []*Token {
+	var keys []string
+	var tkns []*Token
+
+	for k := range Words {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		tkns = append(tkns, Words[k])
+	}
+	return tkns
 }
 
 func TestTokenize(t *testing.T) {
@@ -94,6 +109,11 @@ func TestTokenize(t *testing.T) {
 			TestName: "Multi char Symbol ",
 			testStr:  " SElect * from _Table_a whEre a<=b \n",
 			Tokens:   CreateList([]*Token{Words[Select], SYMBOLS["*"], Words[From], CreateToken(Ident, "_Table_a"), Words[Where], CreateToken(Ident, "a"), SYMBOLS["<="], CreateToken(Ident, "b")}),
+		},
+		{
+			TestName: "All Words ",
+			testStr:  "AND ASC BOOL BY COUNT CREATE DELETE DESC DISTINCT DROP FALSE FLOAT FROM INSERT INT INTO NOT NULL OR ORDER SELECT SET STRING TABLE TRUE UPDATE VALUES WHERE\n",
+			Tokens:   CreateList(allWords()),
 		},
 	}
 

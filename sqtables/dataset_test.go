@@ -2,7 +2,6 @@ package sqtables_test
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
 
@@ -64,15 +63,9 @@ func testNewDataSetFunc(tables *sqtables.TableList, cols sqtables.ColList, colSt
 		}()
 		profile := sqprofile.CreateSQProfile()
 		data, err := sqtables.NewDataSet(profile, tables, cols)
-		if err != nil {
-			log.Println(err.Error())
-			if ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", ExpErr, err.Error())
-				return
+		if msg, cont := sqtest.CheckErr(err, ExpErr); !cont {
+			if msg != "" {
+				t.Error(msg)
 			}
 			return
 		}
@@ -214,23 +207,22 @@ func TestDataSet(t *testing.T) {
 
 	data := []SortData{
 		{
-			TestName:        "Sort Dataset Invalid Order Col",
-			Tables:          tables,
-			DataCols:        exprCols,
-			InitVals:        vals,
-			Order:           []sqtables.OrderItem{{ColName: "colX", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
-			ExpVals:         [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
-			ExpSortOrderErr: true,
+			TestName:     "Sort Dataset Invalid Order Col",
+			Tables:       tables,
+			DataCols:     exprCols,
+			InitVals:     vals,
+			Order:        []sqtables.OrderItem{{ColName: "colX", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
+			ExpVals:      [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
+			SortOrderErr: "Error: Column colX not found in dataset",
 		},
 		{
-			TestName:        "Sort Dataset skip Invalid Order Col",
-			Tables:          tables,
-			DataCols:        exprCols,
-			InitVals:        vals,
-			Order:           []sqtables.OrderItem{{ColName: "colX", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
-			ExpVals:         [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
-			ExpSortOrderErr: true,
-			ExpSortErr:      true,
+			TestName:     "Sort Dataset skip Invalid Order Col",
+			Tables:       tables,
+			DataCols:     exprCols,
+			InitVals:     vals,
+			Order:        []sqtables.OrderItem{{ColName: "colX", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
+			ExpVals:      [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
+			SortOrderErr: "Error: Column colX not found in dataset",
 		},
 		{
 			TestName: "Sort Dataset",
@@ -264,7 +256,24 @@ func TestDataSet(t *testing.T) {
 			Order:    []sqtables.OrderItem{{ColName: "col2", SortType: tokens.Desc}, {ColName: "col1", SortType: tokens.Asc}},
 			ExpVals:  [][]sqtypes.Value{rw6, rw7, rw5, rw4, rw3, rw2, rw1, rw1},
 		},
-	}
+		{
+			TestName: "Sort Dataset no order",
+			Tables:   tables,
+			DataCols: exprCols,
+			InitVals: vals,
+			Order:    nil,
+			ExpVals:  [][]sqtypes.Value{rw6, rw7, rw5, rw4, rw3, rw2, rw1, rw1},
+			SortErr:  "Error: Sort Order has not been set for DataSet",
+		},
+		{
+			TestName: "Sort Dataset with Distinct",
+			Tables:   tables,
+			DataCols: exprCols,
+			InitVals: vals,
+			Order:    nil,
+			ExpVals:  [][]sqtypes.Value{rw1, rw2, rw3, rw4, rw5, rw6, rw7},
+			Distinct: true,
+		}}
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
@@ -275,14 +284,15 @@ func TestDataSet(t *testing.T) {
 }
 
 type SortData struct {
-	TestName        string
-	Tables          *sqtables.TableList
-	DataCols        *sqtables.ExprList
-	InitVals        [][]sqtypes.Value
-	Order           []sqtables.OrderItem
-	ExpVals         [][]sqtypes.Value
-	ExpSortOrderErr bool
-	ExpSortErr      bool
+	TestName     string
+	Tables       *sqtables.TableList
+	DataCols     *sqtables.ExprList
+	InitVals     [][]sqtypes.Value
+	Order        []sqtables.OrderItem
+	ExpVals      [][]sqtypes.Value
+	SortOrderErr string
+	SortErr      string
+	Distinct     bool
 }
 
 func testSortFunc(d SortData) func(*testing.T) {
@@ -296,19 +306,25 @@ func testSortFunc(d SortData) func(*testing.T) {
 		data := sqtables.NewExprDataSet(d.Tables, d.DataCols)
 		data.Vals = d.InitVals
 
-		err := data.SetOrder(d.Order)
-		if !d.ExpSortErr && err != nil {
-			if !d.ExpSortOrderErr {
-				t.Errorf("Error using SetOrder")
-			}
-			return
+		if d.Distinct {
+			data.Distinct()
 		}
-		err = data.Sort()
-		if err != nil {
-			if !d.ExpSortErr {
-				t.Errorf("Error using Sort")
+
+		if !(d.Distinct && d.Order == nil) {
+			err := data.SetOrder(d.Order)
+			if msg, cont := sqtest.CheckErr(err, d.SortOrderErr); !cont {
+				if msg != "" {
+					t.Error(msg)
+				}
+				return
 			}
-			return
+			err = data.Sort()
+			if msg, cont := sqtest.CheckErr(err, d.SortErr); !cont {
+				if msg != "" {
+					t.Error(msg)
+				}
+				return
+			}
 		}
 		//fmt.Println(data.Vals)
 		//fmt.Println(d.ExpVals)

@@ -64,29 +64,30 @@ var SYMBOLS = map[string]*Token{
 
 // Reserved Words
 const (
-	Create  = "CREATE"
-	Table   = "TABLE"
-	Select  = "SELECT"
-	From    = "FROM"
-	Where   = "WHERE"
-	And     = "AND"
-	Insert  = "INSERT"
-	Into    = "INTO"
-	Values  = "VALUES"
-	RWTrue  = "TRUE"
-	RWFalse = "FALSE"
-	Not     = "NOT"
-	Or      = "OR"
-	Delete  = "DELETE"
-	Count   = "COUNT"
-	Null    = "NULL"
-	Drop    = "DROP"
-	Update  = "UPDATE"
-	Set     = "SET"
-	Order   = "ORDER"
-	By      = "BY"
-	Asc     = "ASC"
-	Desc    = "DESC"
+	Create   = "CREATE"
+	Table    = "TABLE"
+	Select   = "SELECT"
+	From     = "FROM"
+	Where    = "WHERE"
+	And      = "AND"
+	Insert   = "INSERT"
+	Into     = "INTO"
+	Values   = "VALUES"
+	RWTrue   = "TRUE"
+	RWFalse  = "FALSE"
+	Not      = "NOT"
+	Or       = "OR"
+	Delete   = "DELETE"
+	Count    = "COUNT"
+	Null     = "NULL"
+	Drop     = "DROP"
+	Update   = "UPDATE"
+	Set      = "SET"
+	Order    = "ORDER"
+	By       = "BY"
+	Asc      = "ASC"
+	Desc     = "DESC"
+	Distinct = "DISTINCT"
 )
 
 // Types
@@ -137,6 +138,7 @@ var Words = map[string]*Token{
 	By:         &Token{tokenID: By, tokenValue: By},
 	Asc:        &Token{tokenID: Asc, tokenValue: Asc},
 	Desc:       &Token{tokenID: Desc, tokenValue: Desc},
+	Distinct:   &Token{tokenID: Distinct, tokenValue: Distinct},
 }
 
 // Token Methods
@@ -146,7 +148,7 @@ func (tkn Token) GetString() string {
 	var tknStr = ""
 	switch tkn.tokenID {
 	case Create, Table, Select, From, Where, And, Insert, Into, Values, RWTrue,
-		RWFalse, Or, Not, Delete, Count, Null, Drop, Update, Set, Order, By, Asc, Desc:
+		RWFalse, Or, Not, Delete, Count, Null, Drop, Update, Set, Order, By, Asc, Desc, Distinct:
 		tknStr = tkn.tokenID
 	case TypeTKN:
 		tknStr = tkn.tokenValue

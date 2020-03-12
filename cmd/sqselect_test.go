@@ -7,8 +7,6 @@ import (
 	"sort"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -41,24 +39,21 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 		}()
 		tkns := tokens.Tokenize(d.Command)
 		_, data, err := cmd.Select(profile, tkns)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
+		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
+			if !cont {
+				if msg != "" {
+					t.Error(msg)
+				}
 				return
 			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		}
+
+		if data == nil {
+			t.Error("Dataset returned from select is nil")
 			return
 		}
 		if data.Len() != d.ExpRows {
 			t.Errorf("The number of rows returned (%d) does not match expected rows (%d)", data.Len(), d.ExpRows)
-			return
-		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
 			return
 		}
 		if d.ExpCols == nil && data.GetColNames() != nil {
@@ -104,6 +99,7 @@ func TestSelect(t *testing.T) {
 
 	sqtest.ProcessSQFile("./testdata/selecttests.sq")
 	sqtest.ProcessSQFile("./testdata/multitable.sq")
+	sqtest.ProcessSQFile("./testdata/distinctdata.sq")
 
 	data := []SelectData{
 
@@ -111,6 +107,14 @@ func TestSelect(t *testing.T) {
 			TestName: "Select from empty table",
 			Command:  "SELECT col1, col2, col3 from selEmpty",
 			ExpErr:   "",
+			ExpRows:  0,
+			ExpCols:  []string{"col1", "col2", "col3"},
+			ExpVals:  sqtypes.RawVals{},
+		},
+		{
+			TestName: "Missing SELECT keyword",
+			Command:  " col1, col2, col3 from selEmpty",
+			ExpErr:   "Internal Error: SELECT Token not found: [IDENT=col1] is invalid",
 			ExpRows:  0,
 			ExpCols:  []string{"col1", "col2", "col3"},
 			ExpVals:  sqtypes.RawVals{},
@@ -558,6 +562,59 @@ func TestSelect(t *testing.T) {
 				{4, "Manchester", 53.5004, -2.248, "GBR"},
 				{2, "Sheffield", 53.3667, -1.5, "GBR"},
 				{0, "Tofino", 49.1521, -125.9031, "CAN"},
+			},
+		},
+		{
+			TestName: "Select Distinct all rows",
+			Command:  "SELECT distinct first, last, age  FROM names",
+			ExpErr:   "",
+			ExpRows:  5,
+			ExpCols:  []string{"first", "last", "age"},
+			ExpVals: sqtypes.RawVals{
+				{"Fred", "Hammer", 20},
+				{"Fred", "Johnson", 10},
+				{"Joe", "Biden", 78},
+				{"Sue", "Brown", 21},
+				{"Sue", "Johnson", 20},
+			},
+		},
+
+		{
+			TestName: "Select Distinct first name",
+			Command:  "SELECT distinct first FROM names",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"first"},
+			ExpVals: sqtypes.RawVals{
+				{"Fred"},
+				{"Joe"},
+				{"Sue"},
+			},
+		},
+		{
+			TestName: "Select Distinct age",
+			Command:  "SELECT distinct age  FROM names",
+			ExpErr:   "",
+			ExpRows:  4,
+			ExpCols:  []string{"age"},
+			ExpVals: sqtypes.RawVals{
+				{10},
+				{20},
+				{21},
+				{78},
+			},
+		},
+		{
+			TestName: "Select age Distinct ",
+			Command:  "SELECT age, distinct FROM names",
+			ExpErr:   "Syntax Error: Invalid expression: Unable to find a value or column near DISTINCT",
+			ExpRows:  4,
+			ExpCols:  []string{"age"},
+			ExpVals: sqtypes.RawVals{
+				{10},
+				{20},
+				{21},
+				{78},
 			},
 		},
 

@@ -1,0 +1,2 @@
+CREATE TABLE names (first string, last string, age int)
+INSERT INTO names (first, last, age) VALUES ("Fred", "Johnson", 10), ("Sue", "Johnson", 20), ("Joe","Biden", 78), ("Fred","Hammer", 20), ("Sue","Brown",21)
