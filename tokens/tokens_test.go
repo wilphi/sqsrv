@@ -2,10 +2,11 @@ package tokens
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func TestMain(m *testing.M) {
@@ -40,6 +41,21 @@ func allWords() []*Token {
 	return tkns
 }
 
+func allFunctions() []*Token {
+	var keys []string
+	var tkns []*Token
+
+	for k := range Words {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if Words[k].TestFlags(IsFunction) {
+			tkns = append(tkns, Words[k])
+		}
+	}
+	return tkns
+}
 func TestTokenize(t *testing.T) {
 	data := []TokenData{
 		{
@@ -112,8 +128,13 @@ func TestTokenize(t *testing.T) {
 		},
 		{
 			TestName: "All Words ",
-			testStr:  "AND ASC BOOL BY COUNT CREATE DELETE DESC DISTINCT DROP FALSE FLOAT FROM INSERT INT INTO NOT NULL OR ORDER SELECT SET STRING TABLE TRUE UPDATE VALUES WHERE\n",
+			testStr:  "AND ASC AVG BOOL BY COUNT CREATE DELETE DESC DISTINCT DROP FALSE FLOAT FROM GROUP INSERT INT INTO MAX MIN NOT NULL OR ORDER SELECT SET STRING SUM TABLE TRUE UPDATE VALUES WHERE\n",
 			Tokens:   CreateList(allWords()),
+		},
+		{
+			TestName: "All Functions ",
+			testStr:  "AVG BOOL COUNT FLOAT INT MAX MIN STRING SUM\n",
+			Tokens:   CreateList(allFunctions()),
 		},
 	}
 

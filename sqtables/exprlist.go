@@ -11,8 +11,9 @@ import (
 
 //ExprList a list of Expresions
 type ExprList struct {
-	exprlist []Expr
-	isCount  bool
+	exprlist        []Expr
+	isAggregateFunc bool
+	isValid         bool
 }
 
 //Len the number of expressions in list
@@ -23,6 +24,10 @@ func (el *ExprList) Len() int {
 //Evaluate evaluates all of the expressions given a row
 func (el *ExprList) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) ([]sqtypes.Value, error) {
 	var err error
+
+	if !el.isValid {
+		return nil, sqerr.NewInternal("Expression list has not been validated before Evaluate")
+	}
 	vals := make([]sqtypes.Value, len(el.exprlist))
 	for i, e := range el.exprlist {
 		vals[i], err = e.Evaluate(profile, partial, rows...)
@@ -47,15 +52,20 @@ func (el *ExprList) ToString() string {
 
 //Add an expression to the end of the list
 func (el *ExprList) Add(e Expr) {
-	_, ok := e.(*CountExpr)
+	// Add invalidates expression list
+	el.isValid = false
+
+	fexpr, ok := e.(*FuncExpr)
 	if ok {
-		el.isCount = true
+		el.isAggregateFunc = fexpr.IsAggregate()
 	}
 	el.exprlist = append(el.exprlist, e)
 }
 
 //Pop removes an expression from the end of the list
 func (el *ExprList) Pop() Expr {
+	// Pop does not affect isValid
+
 	n := el.Len() - 1
 	if n < 0 {
 		return nil
@@ -66,7 +76,7 @@ func (el *ExprList) Pop() Expr {
 }
 
 // ColsToExpr creates an expression list out of a col list
-func ColsToExpr(clist ColList) *ExprList {
+func ColsToExpr(clist *ColList) *ExprList {
 	var elist ExprList
 	cols := clist.GetColDefs()
 	for _, col := range cols {
@@ -100,28 +110,48 @@ func (el *ExprList) FindName(name string) int {
 
 // ValidateCols takes a column list and checks all potential columns against that list
 func (el *ExprList) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+	// If the Expression list is already valid then dont validate again
+	if el.isValid {
+		return nil
+	}
 	for _, ex := range el.exprlist {
 		// Check for a ColExpr
 		err := ex.ValidateCols(profile, tables)
 		if err != nil {
+			el.isValid = false
 			return err
 		}
 	}
+	el.isValid = true
 	return nil
 }
 
 //NewExprList creates an ExprList from a series of expressions
 func NewExprList(exprs ...Expr) *ExprList {
-	var el ExprList
+	el := new(ExprList)
 	for _, ex := range exprs {
 		el.Add(ex)
 	}
-	return &el
+	return el
 }
 
-// HasCount indicates if the list has a count function expression
-func (el *ExprList) HasCount() bool {
-	return el.isCount
+// HasAggregateFunc indicates if the list has a count function expression
+func (el *ExprList) HasAggregateFunc() bool {
+	return el.isAggregateFunc
+}
+
+// FindAggregateFuncs returns a list of aggregate functions in the Expression list
+func (el *ExprList) FindAggregateFuncs() (flist []*FuncExpr, idx []int) {
+
+	for i, expr := range el.exprlist {
+		fexpr, ok := expr.(*FuncExpr)
+		if ok && fexpr.IsAggregate() {
+			flist = append(flist, fexpr)
+			idx = append(idx, i)
+		}
+	}
+
+	return
 }
 
 //GetValues returns a list of values if all expressions reduce to a value
@@ -167,9 +197,14 @@ func DecodeExprList(dec *sqbin.Codec) *ExprList {
 
 // NewExprListFromValues creates a new expression list from an array of values
 func NewExprListFromValues(vals []sqtypes.Value) *ExprList {
-	var eList ExprList
+	eList := new(ExprList)
 	for _, val := range vals {
 		eList.Add(NewValueExpr(val))
 	}
-	return &eList
+	return eList
+}
+
+// GetExprs returns the list of expressions
+func (el *ExprList) GetExprs() []Expr {
+	return el.exprlist
 }

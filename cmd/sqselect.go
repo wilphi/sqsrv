@@ -19,6 +19,7 @@ type SelectStmt struct {
 	eList      *sqtables.ExprList
 	whereExpr  sqtables.Expr
 	orderBy    []sqtables.OrderItem
+	groupBy    *sqtables.ExprList
 }
 
 // Select command with function prototype as required for dispatching
@@ -71,7 +72,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 
 	} else {
 		// get the column list
-		stmt.eList, err = GetExprList(stmt.tkns, tokens.From, false)
+		stmt.eList, err = GetExprList(stmt.tkns, tokens.Words[tokens.From], tokens.Select)
 		if err != nil {
 			return err
 		}
@@ -83,7 +84,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 		return sqerr.NewSyntax("Expecting FROM")
 	}
 	stmt.tkns.Remove()
-	stmt.tables, err = GetTableList(profile, stmt.tkns, tokens.Where, tokens.Order)
+	stmt.tables, err = GetTableList(profile, stmt.tkns, tokens.Where, tokens.Order, tokens.Group)
 	if err != nil {
 		return err
 	}
@@ -115,18 +116,15 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 		}
 	}
 
-	whereProcessed := false
-	orderByProcessed := false
 	// loop twice just in case the where clause is after the order by clause
 	for i := 0; i < 2; i++ {
 		// Optional Where clause processing goes here
 		if stmt.tkns.Test(tokens.Where) != "" {
-			if whereProcessed {
+			if stmt.whereExpr != nil {
 				return sqerr.NewSyntax("Duplicate where clause, only one allowed")
 			}
-			whereProcessed = true
 			stmt.tkns.Remove()
-			stmt.whereExpr, err = ParseWhereClause(stmt.tkns, tokens.Order)
+			stmt.whereExpr, err = ParseWhereClause(stmt.tkns, tokens.SYMBOLW[tokens.Order])
 			if err != nil {
 				return err
 			}
@@ -135,13 +133,28 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 				return err
 			}
 		}
+		// Optional Group By Clause processing goes here
+		if stmt.tkns.Test(tokens.Group) != "" {
+			if stmt.groupBy != nil {
+				return sqerr.NewSyntax("Duplicate group by clause, only one allowed")
+			}
+			stmt.tkns.Remove()
+			groupBy, err := GroupByClause(stmt.tkns)
+			if err != nil {
+				return err
+			}
+			stmt.groupBy = groupBy
+			err = stmt.groupBy.ValidateCols(profile, stmt.tables)
+			if err != nil {
+				return err
+			}
+		}
 
 		// Optional Order By clause processing goes here
 		if stmt.tkns.Test(tokens.Order) != "" {
-			if orderByProcessed {
+			if stmt.orderBy != nil {
 				return sqerr.NewSyntax("Duplicate order by clause, only one allowed")
 			}
-			orderByProcessed = true
 			stmt.tkns.Remove()
 			stmt.orderBy, err = OrderByClause(stmt.tkns)
 			if err != nil {
@@ -161,7 +174,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 // SelectExecute executes the select command against the data to return the result
 func (stmt *SelectStmt) SelectExecute(profile *sqprofile.SQProfile) (*sqtables.DataSet, error) {
 
-	data, err := stmt.tables.GetRowData(profile, stmt.eList, stmt.whereExpr)
+	data, err := stmt.tables.GetRowData(profile, stmt.eList, stmt.whereExpr, stmt.groupBy)
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +183,7 @@ func (stmt *SelectStmt) SelectExecute(profile *sqprofile.SQProfile) (*sqtables.D
 	if stmt.isDistinct {
 		data.Distinct()
 	}
+
 	if stmt.orderBy != nil || len(stmt.orderBy) > 0 {
 		err = data.SetOrder(stmt.orderBy)
 		if err != nil {

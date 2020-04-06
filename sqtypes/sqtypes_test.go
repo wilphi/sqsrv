@@ -2,7 +2,7 @@ package sqtypes_test
 
 import (
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"reflect"
 	"testing"

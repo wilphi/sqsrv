@@ -60,7 +60,7 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 		// Ident(colName), Ident(typeVal), opt [opt NOT, NULL],  opt comma
 		if cName := tkns.Test(tokens.Ident); cName != "" {
 			tkns.Remove()
-			typeVal := tkns.Test(tokens.TypeTKN)
+			typeVal := tkns.Test(tokens.AllTypes...)
 			if typeVal == "" {
 				return "", sqerr.NewSyntax("Expecting column type")
 			}
@@ -81,7 +81,7 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 				return "", sqerr.NewSyntax("Expecting a NULL after NOT in Column definition")
 			}
 
-			col := sqtables.CreateColDef(cName, typeVal, isNot)
+			col := sqtables.NewColDef(cName, typeVal, isNot)
 			cols = append(cols, col)
 			i++
 

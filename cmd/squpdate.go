@@ -68,7 +68,7 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 			tkns.Remove()
 
 			// Get a value/expression
-			ex, err := GetExpr(tkns, nil, 0, tokens.Where, tokens.Comma)
+			ex, err := GetExpr(tkns, nil, 0, tokens.Words[tokens.Where], tokens.Words[tokens.Comma])
 			if err != nil {
 				return "", nil, err
 			}
@@ -87,11 +87,6 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 			} else {
 				break
 			}
-			/*
-				} else {
-					err = sqerr.NewSyntaxf("Expecting a value in SET clause after %s =", colName))
-					return "", nil, err
-				} */
 		}
 
 	}

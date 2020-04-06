@@ -72,6 +72,29 @@ func (tl *TokenList) Test(tknNames ...string) string {
 	return ""
 }
 
+// Test2 - Test a token to see if it matches one of the tknNames.
+//  Returns the token if matched otherwise nil
+//  If there are no more tokens in list nil is returned as well
+func (tl *TokenList) Test2(tkns ...*Token) *Token {
+	if len(tl.tkns) > 0 {
+		for _, tkn := range tkns {
+			if tkn != nil && tl.tkns[0].GetName() == tkn.GetName() {
+				return tl.tkns[0]
+			}
+		}
+	}
+	return nil
+}
+
+// IsReservedWord - checks to see if the first token in list is a reserved word token
+func (tl *TokenList) IsReservedWord() bool {
+	if len(tl.tkns) > 0 {
+		_, ok := Words[tl.tkns[0].GetName()]
+		return ok
+	}
+	return false
+}
+
 // NewTokenList - Create a new token list
 func NewTokenList() *TokenList {
 	tl := TokenList{}

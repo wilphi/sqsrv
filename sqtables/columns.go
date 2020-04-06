@@ -11,11 +11,12 @@ import (
 
 // ColDef - column definition
 type ColDef struct {
-	ColName   string
-	ColType   string
-	Idx       int
-	IsNotNull bool
-	TableName string
+	ColName          string
+	ColType          string
+	TableName        string
+	Idx              int
+	IsNotNull        bool
+	DisplayTableName bool
 }
 
 // ColList - a list of column definitions
@@ -27,9 +28,9 @@ type ColList struct {
 	isCount   bool
 }
 
-// CreateColDef -
-func CreateColDef(colName string, colType string, isNotNull bool) ColDef {
-	return ColDef{ColName: colName, ColType: colType, Idx: -1, IsNotNull: isNotNull}
+// NewColDef -
+func NewColDef(colName string, colType string, isNotNull bool) ColDef {
+	return ColDef{ColName: colName, ColType: colType, Idx: -1, IsNotNull: isNotNull, DisplayTableName: false}
 }
 
 // ToString returns a string representation of the ColDef
@@ -39,11 +40,37 @@ func (c *ColDef) ToString() string {
 	if c.IsNotNull {
 		ntype = " NOT NULL"
 	}
-	tName = c.TableName
-	if tName != "" {
-		tName += "."
+	if c.DisplayTableName {
+		tName = c.TableName
 	}
-	return "{" + tName + c.ColName + ", " + c.ColType + ntype + "}"
+
+	ret := "{" + Ternary(tName != "", tName+".", "") + c.ColName + ", " + c.ColType + ntype + "}"
+	return ret
+}
+
+// DisplayName returns the display name of the ColDef
+func (c *ColDef) DisplayName() string {
+
+	return Ternary(c.DisplayTableName && c.TableName != "", c.TableName+".", "") + c.ColName
+}
+
+// MergeColDef combines two ColDef
+// colA is the one that was used to find colB
+// colB is likely to be the original ColDef of a table
+func MergeColDef(colA, colB ColDef) (ColDef, error) {
+	var result ColDef
+	// ColName should be the same
+	result.ColName = colA.ColName
+	if colA.ColName != colB.ColName {
+		return result, sqerr.NewInternalf("Can't merge ColDef %s, %s", colA.ColName, colB.ColName)
+	}
+	result.ColType = colB.ColType
+	result.Idx = colB.Idx
+	result.IsNotNull = colB.IsNotNull
+	result.TableName = colB.TableName
+	//Display table Name of original is preserved
+	result.DisplayTableName = colA.DisplayTableName
+	return result, nil
 }
 
 //Encode outputs a binary encoded version of the coldef to the codec
@@ -54,6 +81,7 @@ func (c *ColDef) Encode(enc *sqbin.Codec) {
 	enc.WriteInt(c.Idx)
 	enc.WriteBool(c.IsNotNull)
 	enc.WriteString(c.TableName)
+	enc.WriteBool(c.DisplayTableName)
 }
 
 //Decode a binary encoded version of a coldef from the codec
@@ -64,12 +92,13 @@ func (c *ColDef) Decode(dec *sqbin.Codec) {
 	c.Idx = dec.ReadInt()
 	c.IsNotNull = dec.ReadBool()
 	c.TableName = dec.ReadString()
+	c.DisplayTableName = dec.ReadBool()
 }
 
 //////////////////////////////////////////////////////////////////
 
 // NewColListDefs - Create a list of columns based on ColDefs
-func NewColListDefs(colD []ColDef) ColList {
+func NewColListDefs(colD []ColDef) *ColList {
 	colNames := make([]string, len(colD))
 	valid := true
 	for i, col := range colD {
@@ -78,11 +107,11 @@ func NewColListDefs(colD []ColDef) ColList {
 			valid = false
 		}
 	}
-	return ColList{colD: colD, defsValid: valid, colNames: colNames}
+	return &ColList{colD: colD, defsValid: valid, colNames: colNames}
 }
 
 // NewColListNames - Create a list of columns based on name strings
-func NewColListNames(colNames []string) ColList {
+func NewColListNames(colNames []string) *ColList {
 	colD := make([]ColDef, len(colNames))
 	for i, name := range colNames {
 		x := strings.Index(name, ".")
@@ -93,11 +122,11 @@ func NewColListNames(colNames []string) ColList {
 			colD[i].ColName = name
 		}
 	}
-	return ColList{colD: colD, defsValid: false, colNames: colNames}
+	return &ColList{colD: colD, defsValid: false, colNames: colNames}
 }
 
-//ValidateTable -
-func (cl *ColList) ValidateTable(profile *sqprofile.SQProfile, tables *TableList) error {
+//Validate - Makes sure that all cols in the list are valid columns in the given table list
+func (cl *ColList) Validate(profile *sqprofile.SQProfile, tables *TableList) error {
 	if cl.defsValid {
 		return nil
 	}
@@ -140,4 +169,14 @@ func (cl *ColList) GetColDefs() []ColDef {
 // Len - get the number of columns in list
 func (cl *ColList) Len() int {
 	return len(cl.colNames)
+}
+
+// FindColDef finds a coldef in the list
+func (cl *ColList) FindColDef(name string) *ColDef {
+	for _, cd := range cl.colD {
+		if cd.ColName == name {
+			return &cd
+		}
+	}
+	return nil
 }

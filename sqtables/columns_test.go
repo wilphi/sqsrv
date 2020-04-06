@@ -2,7 +2,6 @@ package sqtables_test
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
 
@@ -19,74 +18,139 @@ func init() {
 }
 
 func TestColDef(t *testing.T) {
-	t.Run("CreateColDef Null", func(t *testing.T) {
+	data := []ColDefData{
+		{
+			TestName:    "NewColDef with nulls",
+			ColName:     "col1",
+			ColType:     tokens.TypeInt,
+			IsNotNull:   false,
+			ExpToString: "{col1, INT}",
+		},
+		{
+			TestName:    "NewColDef without nulls",
+			ColName:     "col1",
+			ColType:     tokens.TypeInt,
+			IsNotNull:   true,
+			ExpToString: "{col1, INT NOT NULL}",
+		},
+		{
+			TestName:         "NewColDef all values",
+			ColName:          "col1",
+			ColType:          tokens.TypeInt,
+			IsNotNull:        true,
+			Idx:              5,
+			TableName:        "testTab",
+			DisplayTableName: true,
+			ExpToString:      "{testTab.col1, INT NOT NULL}",
+		},
+		{
+			TestName:         "NewColDef do not display tablename",
+			ColName:          "col1",
+			ColType:          tokens.TypeInt,
+			IsNotNull:        true,
+			Idx:              5,
+			TableName:        "testTab",
+			DisplayTableName: false,
+			ExpToString:      "{col1, INT NOT NULL}",
+		},
+		{
+			TestName:    "NewColDef Merge",
+			ColName:     "col1",
+			ColType:     tokens.TypeInt,
+			IsNotNull:   true,
+			MergeCD:     &sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
+			ExpCD:       sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
+			ExpToString: "{col1, INT NOT NULL}",
+		},
+		{
+			TestName:    "NewColDef Merge Error",
+			ColName:     "col1",
+			ColType:     tokens.TypeInt,
+			IsNotNull:   true,
+			MergeCD:     &sqtables.ColDef{ColName: "col2", ColType: "INT", Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
+			ExpCD:       sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
+			ExpToString: "{col1, INT NOT NULL}",
+			ExpErr:      "Internal Error: Can't merge ColDef col1, col2",
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testColDefFunc(row))
+
+	}
+
+}
+
+type ColDefData struct {
+	TestName         string
+	ColName          string
+	ColType          string
+	TableName        string
+	Idx              int
+	IsNotNull        bool
+	DisplayTableName bool
+	MergeCD          *sqtables.ColDef
+	ExpCD            sqtables.ColDef
+	ExpToString      string
+	ExpErr           string
+}
+
+func testColDefFunc(d ColDefData) func(*testing.T) {
+	return func(t *testing.T) {
 		defer func() {
 			r := recover()
 			if r != nil {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		colName := "col1"
-		colType := tokens.TypeInt
-		isNotNull := false
-		cd := sqtables.CreateColDef(colName, colType, isNotNull)
-		if colName != cd.ColName || colType != cd.ColType || cd.Idx != -1 || isNotNull != cd.IsNotNull {
+		cd := sqtables.NewColDef(d.ColName, d.ColType, d.IsNotNull)
+		if d.ColName != cd.ColName || d.ColType != cd.ColType || cd.Idx != -1 || d.IsNotNull != cd.IsNotNull {
 			t.Errorf("Created ColDef does not match expected")
 			return
 		}
-		str := "{" + colName + ", " + colType + "}"
-		if str != cd.ToString() {
-			t.Errorf("ToString %q does not match expected: %q", cd.ToString(), str)
-
+		if d.Idx != 0 {
+			cd.Idx = d.Idx
+		}
+		if d.TableName != "" {
+			cd.TableName = d.TableName
 		}
 
-	})
-
-	t.Run("CreateColDef Not Null", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
-		colName := "col1"
-		colType := tokens.TypeInt
-		isNotNull := true
-		cd := sqtables.CreateColDef(colName, colType, isNotNull)
-		if colName != cd.ColName || colType != cd.ColType || cd.Idx != -1 || isNotNull != cd.IsNotNull {
-			t.Errorf("Created ColDef does not match expected")
-			return
-		}
-		str := "{" + colName + ", " + colType + " NOT NULL}"
-		if str != cd.ToString() {
-			t.Errorf("ToString %q does not match expected: %q", cd.ToString(), str)
+		cd.DisplayTableName = d.DisplayTableName
+		if d.ExpToString != cd.ToString() {
+			t.Errorf("ToString %q does not match expected: %q", cd.ToString(), d.ExpToString)
 
 		}
-	})
-
-	t.Run("ColDef Encode/Decode", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
-
-		cd := sqtables.CreateColDef("col1", tokens.TypeString, true)
-		cd.Idx = 3
 
 		bin := sqbin.NewCodec(nil)
 		cd.Encode(bin)
 		newCd := sqtables.ColDef{}
 		newCd.Decode(bin)
 
+		//fmt.Printf(" Original: %v\nRecreated: %v\n", cd, newCd)
 		if !reflect.DeepEqual(cd, newCd) {
 			t.Error("ColDef encoded/decoded does not match original")
 		}
+		if d.MergeCD != nil {
+			newCD, err := sqtables.MergeColDef(cd, *d.MergeCD)
+			if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
+				if !cont {
+					if msg != "" {
+						t.Error(msg)
+					}
+					return
+				}
+			}
+			if !reflect.DeepEqual(newCD, d.ExpCD) {
+				t.Errorf("ColDef Merge: Expected %v does not match actual %v", d.ExpCD, newCD)
+			}
 
-	})
+		}
+
+	}
 }
 
+///////////////////////////////////////////////////////////////////////////////
 func testColListValidateFunc(d ColListValidateData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
@@ -95,18 +159,35 @@ func testColListValidateFunc(d ColListValidateData) func(*testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		err := d.CList.ValidateTable(d.profile, d.tables)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
+		err := d.CList.Validate(d.profile, d.tables)
+		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
+			if !cont {
+				if msg != "" {
+					t.Error(msg)
+				}
 				return
 			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
+		}
+		// Check ColNames
+		if d.ColNames != nil {
+			if d.CList.Len() != len(d.ColNames) {
+				t.Errorf("ColList len does not match expected: Actual: %d, Expected: %d", d.CList.Len(), len(d.ColNames))
 				return
 			}
-			return
+			if !reflect.DeepEqual(d.ColNames, d.CList.GetColNames()) {
+				t.Errorf("ColList ColNames do not match expected: Actual: %v, Expected: %v", d.CList.GetColNames(), d.ColNames)
+				return
+			}
+		}
+		// Double validate
+		err = d.CList.Validate(d.profile, d.tables)
+		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
+			if !cont {
+				if msg != "" {
+					t.Error(msg)
+				}
+				return
+			}
 		}
 
 	}
@@ -114,7 +195,8 @@ func testColListValidateFunc(d ColListValidateData) func(*testing.T) {
 
 type ColListValidateData struct {
 	TestName string
-	CList    sqtables.ColList
+	CList    *sqtables.ColList
+	ColNames []string
 	ExpErr   string
 	profile  *sqprofile.SQProfile
 	tables   *sqtables.TableList
@@ -144,6 +226,7 @@ func TestColListValidate(t *testing.T) {
 		{
 			TestName: "All Cols",
 			CList:    sqtables.NewColListNames([]string{"col1", "col4", "col3", "col2"}),
+			ColNames: []string{"col1", "col4", "col3", "col2"},
 			ExpErr:   "",
 			profile:  profile,
 			tables:   sqtables.NewTableListFromTableDef(profile, tab),
@@ -171,7 +254,7 @@ func TestColListValidate(t *testing.T) {
 		},
 		{
 			TestName: "Coldef ColList Cols",
-			CList:    sqtables.NewColListDefs([]sqtables.ColDef{sqtables.CreateColDef("col1", tokens.TypeInt, false), sqtables.CreateColDef("col2", tokens.TypeString, false)}),
+			CList:    sqtables.NewColListDefs([]sqtables.ColDef{sqtables.NewColDef("col1", tokens.TypeInt, false), sqtables.NewColDef("col2", tokens.TypeString, false)}),
 			ExpErr:   "",
 			profile:  profile,
 			tables:   sqtables.NewTableListFromTableDef(profile, tab),
@@ -184,4 +267,39 @@ func TestColListValidate(t *testing.T) {
 
 	}
 
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+func TestColListFindColDef(t *testing.T) {
+	col1CD := sqtables.NewColDef("col1", tokens.TypeInt, false)
+	colList := sqtables.NewColListDefs([]sqtables.ColDef{col1CD, sqtables.NewColDef("col2", tokens.TypeString, false)})
+
+	t.Run("Found ColDef", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+
+		cd := colList.FindColDef("col1")
+		if cd.ToString() != col1CD.ToString() {
+			t.Errorf("Did not find expected ColDef: Actual: %s, Expected: %s", cd.ToString(), col1CD.ToString())
+		}
+	})
+
+	t.Run("No ColDef", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf(t.Name() + " panicked unexpectedly")
+			}
+		}()
+
+		cd := colList.FindColDef("colX")
+		if cd != nil {
+			t.Errorf("ColDef found unexpectedly: %s", cd.ToString())
+		}
+	})
 }

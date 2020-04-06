@@ -125,13 +125,6 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 	return len(newRows), nil
 }
 
-/*
-// GetTable - Get a pointer to the named table if it exists
-func GetTable(profile *sqprofile.SQProfile, name string) (*TableDef, error) {
-	return _Catalog.FindTableDef(profile, name)
-}
-*/
-
 // DeleteRows - Delete rows based on where expression
 func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptrs sqptr.SQPtrs, err error) {
 
@@ -171,7 +164,7 @@ func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 // GetRowDataFromPtrs returns data based on the rowIDs passed
 func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs) (*DataSet, error) {
 	tables := NewTableListFromTableDef(profile, t)
-	ds, err := NewDataSet(profile, tables, t.GetCols(profile))
+	ds, err := NewDataSet(profile, tables, ColsToExpr(t.GetCols(profile)), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +185,7 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 }
 
 // GetRowData - Returns a dataset with the data from table
-func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr) (*DataSet, error) {
+func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList) (*DataSet, error) {
 	var err error
 
 	err = t.RLock(profile)
@@ -204,14 +197,12 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 
 	tables := NewTableListFromTableDef(profile, t)
 
-	// Verify all cols exist in table
-	if err = eList.ValidateCols(profile, tables); err != nil {
+	// Setup the dataset for the results
+	ret, err := NewDataSet(profile, tables, eList, groupBy)
+	if err != nil {
 		return nil, err
 	}
-
-	// Setup the dataset for the results
-	ret := NewExprDataSet(tables, eList)
-	ret.usePtrs = !eList.HasCount()
+	ret.usePtrs = !eList.HasAggregateFunc()
 
 	// Get the pointers to the rows based on the conditions
 	ptrs, err := t.GetRowPtrs(profile, whereExpr, RowOrder)
@@ -219,26 +210,26 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 		return nil, err
 	}
 
-	if eList.HasCount() {
-		ret.Vals = make([][]sqtypes.Value, 1)
-		ret.Vals[0] = make([]sqtypes.Value, eList.Len())
-		ret.Vals[0][0] = sqtypes.NewSQInt(len(ptrs))
-	} else {
-		ret.Vals = make([][]sqtypes.Value, len(ptrs))
-		ret.Ptrs = ptrs
+	//	if eList.HasAggregateFunc() {
+	//		ret.Vals = make([][]sqtypes.Value, 1)
+	//		ret.Vals[0] = make([]sqtypes.Value, eList.Len())
+	//		ret.Vals[0][0] = sqtypes.NewSQInt(len(ptrs))
+	//	} else {
+	ret.Vals = make([][]sqtypes.Value, len(ptrs))
+	ret.Ptrs = ptrs
 
-		for i, ptr := range ptrs {
-			// make sure the ptr points to the correct row
-			if t.rowm[ptr].RowPtr != ptr {
-				log.Panic("rowPtr does not match Map index")
-			}
+	for i, ptr := range ptrs {
+		// make sure the ptr points to the correct row
+		if t.rowm[ptr].RowPtr != ptr {
+			log.Panic("rowPtr does not match Map index")
+		}
 
-			ret.Vals[i], err = eList.Evaluate(profile, EvalFull, t.rowm[ptr])
-			if err != nil {
-				return nil, err
-			}
+		ret.Vals[i], err = eList.Evaluate(profile, EvalFull, t.rowm[ptr])
+		if err != nil {
+			return nil, err
 		}
 	}
+	//	}
 	return ret, nil
 
 }
@@ -276,7 +267,7 @@ func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *ColDef
 }
 
 // GetCols - Returns the list of col TypeDef for the table
-func (t *TableDef) GetCols(profile *sqprofile.SQProfile) ColList {
+func (t *TableDef) GetCols(profile *sqprofile.SQProfile) *ColList {
 	return NewColListDefs(t.tableCols)
 }
 
@@ -342,7 +333,12 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted boo
 
 //UpdateRowsFromPtrs updates rows in the table based on the given list of pointers, columns to be changed and values to be set
 func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs, cols []string, eList *ExprList) error {
-	err := t.Lock(profile)
+	err := eList.ValidateCols(profile, NewTableListFromTableDef(profile, t))
+	if err != nil {
+		return err
+	}
+
+	err = t.Lock(profile)
 	if err != nil {
 		return err
 	}

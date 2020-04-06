@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
-	"sort"
+	"runtime/debug"
 	"testing"
 
 	"github.com/wilphi/sqsrv/cmd"
@@ -20,12 +20,13 @@ func init() {
 }
 
 type SelectData struct {
-	TestName string
-	Command  string
-	ExpErr   string
-	ExpRows  int
-	ExpCols  []string
-	ExpVals  sqtypes.RawVals
+	TestName    string
+	Command     string
+	ExpErr      string
+	ExpRows     int
+	ExpCols     []string
+	ExpVals     sqtypes.RawVals
+	SortResults bool
 }
 
 func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T) {
@@ -33,8 +34,9 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 		defer func() {
 			r := recover()
 			if r != nil {
-				_, fn, line, _ := runtime.Caller(4)
+				_, fn, line, _ := runtime.Caller(3)
 				t.Errorf("%s panicked unexpectedly: %s:%d %v", t.Name(), fn, line, r)
+				debug.PrintStack()
 			}
 		}()
 		tkns := tokens.Tokenize(d.Command)
@@ -67,8 +69,8 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 			return
 		}
 		actCols := data.GetColNames()
-		sort.Strings(actCols)
-		sort.Strings(d.ExpCols)
+		//sort.Strings(actCols)
+		//sort.Strings(d.ExpCols)
 		if !reflect.DeepEqual(actCols, d.ExpCols) {
 			t.Errorf("Expected Cols (%v) do not match actual cols (%v)", d.ExpCols, actCols)
 			return
@@ -83,7 +85,7 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 		}
 		if d.ExpVals != nil {
 			expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
-			msg := sqtypes.Compare2DValue(data.Vals, expVals, "Actual", "Expect")
+			msg := sqtypes.Compare2DValue(data.Vals, expVals, "Actual", "Expect", d.SortResults)
 			if msg != "" {
 				t.Error(msg)
 				return
@@ -130,7 +132,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT only",
 			Command:  "SELECT",
-			ExpErr:   "Syntax Error: No columns defined for query",
+			ExpErr:   "Syntax Error: No expressions defined for SELECT clause",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -138,7 +140,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT missing comma",
 			Command:  "SELECT col1",
-			ExpErr:   "Syntax Error: Comma is required to separate columns",
+			ExpErr:   "Syntax Error: Comma is required to separate expressions",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -146,7 +148,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT missing FROM",
 			Command:  "SELECT col1, col2, col3",
-			ExpErr:   "Syntax Error: Comma is required to separate columns",
+			ExpErr:   "Syntax Error: Comma is required to separate expressions",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -234,7 +236,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT COUNT",
 			Command:  "SELECT COUNT FROM seltest",
-			ExpErr:   "Syntax Error: Count must be followed by ()",
+			ExpErr:   "Syntax Error: Function COUNT must be followed by (",
 			ExpRows:  0,
 			ExpCols:  []string{"COUNT"},
 			ExpVals:  nil,
@@ -242,7 +244,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT COUNT(",
 			Command:  "SELECT COUNT( FROM seltest",
-			ExpErr:   "Syntax Error: Count must be followed by ()",
+			ExpErr:   "Syntax Error: No arguments or ) for function COUNT",
 			ExpRows:  0,
 			ExpCols:  []string{"COUNT"},
 			ExpVals:  nil,
@@ -250,7 +252,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT COUNT)",
 			Command:  "SELECT COUNT) FROM seltest",
-			ExpErr:   "Syntax Error: Count must be followed by ()",
+			ExpErr:   "Syntax Error: Function COUNT must be followed by (",
 			ExpRows:  0,
 			ExpCols:  []string{"COUNT"},
 			ExpVals:  nil,
@@ -260,15 +262,16 @@ func TestSelect(t *testing.T) {
 			Command:  "SELECT COUNT() FROM seltest",
 			ExpErr:   "",
 			ExpRows:  1,
-			ExpCols:  []string{"count()"},
+			ExpCols:  []string{"COUNT()"},
 			ExpVals:  sqtypes.RawVals{{3}},
 		},
+
 		{
 			TestName: "SELECT COUNT(), Extra Col",
-			Command:  "SELECT COUNT(), id FROM seltest",
-			ExpErr:   "Syntax Error: Select Statements with Count() must not have other expressions",
+			Command:  "SELECT COUNT(), col1 FROM seltest",
+			ExpErr:   "Syntax Error: Select Statements with Aggregate functions (count, sum, min, max, avg) must not have other expressions",
 			ExpRows:  1,
-			ExpCols:  []string{"count()"},
+			ExpCols:  []string{"COUNT()"},
 			ExpVals:  sqtypes.RawVals{{3}},
 		},
 		{
@@ -379,7 +382,7 @@ func TestSelect(t *testing.T) {
 			Command:  "SELECT col1*10, col2, col3 FROM seltest",
 			ExpErr:   "",
 			ExpRows:  3,
-			ExpCols:  []string{"(seltest.col1*10)", "col2", "col3"},
+			ExpCols:  []string{"(col1*10)", "col2", "col3"},
 			ExpVals: sqtypes.RawVals{
 				{1230, "With Cols Test", true},
 				{4560, "Seltest 2", true},
@@ -402,6 +405,18 @@ func TestSelect(t *testing.T) {
 			TestName: "SELECT Double Order By ",
 			Command:  "SELECT col1 FROM seltest Order by col1 Order by col1 desc",
 			ExpErr:   "Syntax Error: Duplicate order by clause, only one allowed",
+			ExpRows:  3,
+			ExpCols:  []string{"col1"},
+			ExpVals: sqtypes.RawVals{
+				{1230, "With Cols Test", true},
+				{4560, "Seltest 2", true},
+				{7890, "Seltest 3", false},
+			},
+		},
+		{
+			TestName: "SELECT Double GROUP By ",
+			Command:  "SELECT col1 FROM seltest GROUP by col1 GROUP by col2",
+			ExpErr:   "Syntax Error: Duplicate group by clause, only one allowed",
 			ExpRows:  3,
 			ExpCols:  []string{"col1"},
 			ExpVals: sqtypes.RawVals{
@@ -508,6 +523,7 @@ func TestSelect(t *testing.T) {
 				{"Manchester", "GBR"},
 				{"Sheffield", "GBR"},
 			},
+			SortResults: true,
 		},
 		{
 			TestName: "SELECT Join country city person ",
@@ -533,13 +549,14 @@ func TestSelect(t *testing.T) {
 				{"Shelton", "Leggat", "Manchester", "Manchester", "GBR"},
 				{"Svetlana", "Poirrier", "Sheffield", "Sheffield", "GBR"},
 			},
+			SortResults: true,
 		},
 		{
 			TestName: "Multi Table Order By with * ",
 			Command:  "SELECT * FROM city, country where city.country = country.name and country.name != \"United States\" order by city.name",
 			ExpErr:   "",
 			ExpRows:  6,
-			ExpCols:  []string{"country.name", "country.short", "city.cityid", "city.name", "city.country", "city.prov", "city.lat", "city.long"},
+			ExpCols:  []string{"city.cityid", "city.name", "city.country", "city.prov", "city.lat", "city.long", "country.name", "country.short"},
 			ExpVals: sqtypes.RawVals{
 				{5, "Hove", "United Kingdom", "Brighton and Hove", 50.8333, -0.1833, "United Kingdom", "GBR"},
 				{1, "Joliette", "Canada", "Québec", 46.0333, -73.4333, "Canada", "CAN"},
@@ -618,6 +635,202 @@ func TestSelect(t *testing.T) {
 			},
 		},
 
+		{
+			TestName: "Select group by",
+			Command:  "SELECT age,  count() FROM names group by age",
+			ExpErr:   "",
+			ExpRows:  4,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{10, 1},
+				{20, 2},
+				{21, 1},
+				{78, 1},
+			},
+		},
+
+		{
+			TestName: "Select group by reverse order",
+			Command:  "SELECT age,  count() FROM names group by age order by age desc",
+			ExpErr:   "",
+			ExpRows:  4,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{78, 1},
+				{21, 1},
+				{20, 2},
+				{10, 1},
+			},
+		},
+		{
+			TestName: "Select distinct group by ",
+			Command:  "SELECT DISTINCT age,  count() FROM names group by age",
+			ExpErr:   "",
+			ExpRows:  4,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{10, 1},
+				{20, 2},
+				{21, 1},
+				{78, 1},
+			},
+		},
+		{
+			TestName: "Select distinct order by group by ",
+			Command:  "SELECT DISTINCT age,  count() FROM names order by age desc group by age",
+			ExpErr:   "",
+			ExpRows:  4,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{78, 1},
+				{21, 1},
+				{20, 2},
+				{10, 1},
+			},
+		},
+		{
+			TestName: "Select group by err col",
+			Command:  "SELECT first,  count() FROM names group by age",
+			ExpErr:   "Syntax Error: age is not in the expression list: first,COUNT()",
+		},
+		{
+			TestName: "Select group by err col no aggregate",
+			Command:  "SELECT first,  age FROM names group by age",
+			ExpErr:   "Syntax Error: first is not in the group by clause: age",
+		},
+		{
+			TestName: "Select group by not in select",
+			Command:  "SELECT count() FROM names group by age",
+			ExpErr:   "Syntax Error: age is not in the expression list: COUNT()",
+			ExpRows:  4,
+			ExpCols:  []string{"COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{1},
+				{2},
+				{1},
+				{1},
+			},
+		},
+		{
+			TestName: "Select group by not in select, multi col",
+			Command:  "SELECT first, count() FROM names group by first, last",
+			ExpErr:   "Syntax Error: last is not in the expression list: first,COUNT()",
+			ExpRows:  4,
+			ExpCols:  []string{"first", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{"Fred", 1}, {"Sue", 1}, {"Joe", 1}, {"Fred", 1}, {"Sue", 1},
+			},
+		},
+
+		{
+			TestName: "Select group by expression err",
+			Command:  "SELECT age,  count() FROM names group by age/10",
+			ExpErr:   "Syntax Error: (age/10) is not in the expression list: age,COUNT()",
+			ExpRows:  4,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{10, 1},
+				{20, 2},
+				{21, 1},
+				{78, 1},
+			},
+		},
+
+		{
+			TestName: "Select group by expression ",
+			Command:  "SELECT age/10,  count() FROM names group by age/10",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"(age/10)", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{1, 1},
+				{2, 3},
+				{7, 1},
+			},
+		},
+
+		{
+			TestName: "Select group by expression ",
+			Command:  "SELECT age*10,  count() FROM names group by age*10",
+			ExpErr:   "",
+			ExpRows:  4,
+			ExpCols:  []string{"(age*10)", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{100, 1},
+				{200, 2},
+				{210, 1},
+				{780, 1},
+			},
+		},
+		{
+			TestName: "Select all aggregate functions ",
+			Command:  "SELECT min(age), max(age), avg(age),sum(age), count() FROM names ",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"MIN(age)", "MAX(age)", "AVG(age)", "SUM(age)", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{10, 78, 29.8, 149, 5},
+			},
+		},
+		{
+			TestName: "Select all aggregate functions one row result",
+			Command:  "SELECT min(age), max(age), avg(age),sum(age), count() FROM names where age = 10",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"MIN(age)", "MAX(age)", "AVG(age)", "SUM(age)", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{10, 10, 10.0, 10, 1},
+			},
+		},
+		{
+			TestName: "Select all aggregate functions one row result group by age",
+			Command:  "SELECT age, min(age), max(age), avg(age),sum(age), count() FROM names where age = 10 group by age",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"age", "MIN(age)", "MAX(age)", "AVG(age)", "SUM(age)", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{10, 10, 10, 10.0, 10, 1},
+			},
+		}, {
+			TestName: "Select Group By from empty table",
+			Command:  "SELECT col1, count() from selEmpty GROUP BY col1",
+			ExpErr:   "",
+			ExpRows:  0,
+			ExpCols:  []string{"col1", "COUNT()"},
+			ExpVals:  sqtypes.RawVals{},
+		},
+		{
+			TestName: "Select implicit Group By from empty table",
+			Command:  "SELECT count() from selEmpty",
+			ExpErr:   "",
+			ExpRows:  0,
+			ExpCols:  []string{"COUNT()"},
+			ExpVals:  sqtypes.RawVals{},
+		},
+		{
+			TestName: "Select Multitable Group By ",
+			Command:  "SELECT short,count(), min(lat), max(lat), sum(lat), avg(lat)  FROM city, country where city.country = country.name group by short",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"short", "COUNT()", "MIN(lat)", "MAX(lat)", "SUM(lat)", "AVG(lat)"},
+			ExpVals: sqtypes.RawVals{
+				{"CAN", 2, 46.0333, 49.1521, 95.18539999999999, 47.592699999999994},
+				{"GBR", 4, 50.8333, 53.83, 211.5304, 52.8826},
+				{"USA", 48, 27.9088, 47.4761, 1863.5617, 38.82420208333333},
+			},
+		},
+		{
+			TestName: "Select Multitable Group By ",
+			Command:  "SELECT short,count(), min(lat), max(lat), sum(lat), avg(lat)  FROM city, country where city.country = country.name ",
+			ExpErr:   "Syntax Error: Select Statements with Aggregate functions (count, sum, min, max, avg) must not have other expressions",
+			ExpRows:  3,
+			ExpCols:  []string{"short", "COUNT()", "MIN(lat)", "MAX(lat)", "SUM(lat)", "AVG(lat)"},
+			ExpVals: sqtypes.RawVals{
+				{"CAN", 2, 46.0333, 49.1521, 95.18539999999999, 47.592699999999994},
+				{"GBR", 4, 50.8333, 53.83, 211.5304, 52.8826},
+				{"USA", 48, 27.9088, 47.4761, 1863.5617, 38.82420208333333},
+			},
+		},
 		/*		{
 				TestName: "Multi Table Order By with table alias ",
 				Command:  "SELECT cn.short,city.cityid, city.name cname, lat,long  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",

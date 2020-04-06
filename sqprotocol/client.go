@@ -4,7 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"strings"
 

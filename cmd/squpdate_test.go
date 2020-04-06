@@ -244,7 +244,7 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 				return
 			}
 
-			ds, err := tab.GetRowData(profile, cList, nil)
+			ds, err := tab.GetRowData(profile, cList, nil, nil)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return

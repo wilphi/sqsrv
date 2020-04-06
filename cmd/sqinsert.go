@@ -69,7 +69,7 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 		return sqerr.NewSyntax("Expecting ( after name of table")
 	}
 
-	colNames, err = GetIdentList(ins.tkns, tokens.CloseBracket)
+	colNames, err = GetIdentList(ins.tkns, tokens.SYMBOLS[")"])
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 		return sqerr.New("Table " + ins.tableName + " does not exist")
 	}
 
-	ins.data, err = sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.NewColListNames(colNames))
+	ins.data, err = sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(sqtables.NewColListNames(colNames)), nil)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,8 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 	} else {
 		return nil, sqerr.NewSyntax("Expecting ( to start next row of VALUES")
 	}
-	eList, err := GetExprList(ins.tkns, tokens.CloseBracket, true)
+	t := tokens.SYMBOLW[tokens.CloseBracket]
+	eList, err := GetExprList(ins.tkns, t, tokens.Values)
 	if err != nil {
 		return nil, err
 	}

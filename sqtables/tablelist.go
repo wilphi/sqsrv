@@ -116,10 +116,12 @@ func (tl *TableList) Add(profile *sqprofile.SQProfile, ft FromTable) error {
 func (tl *TableList) AllCols(profile *sqprofile.SQProfile) []ColDef {
 
 	var cols []ColDef
+	displayTName := tl.Len() > 1
 	colm := make(map[ColDef]bool)
 	for _, tab := range tl.tables {
 		tc := tab.Table.GetCols(profile)
 		for _, cd := range tc.GetColDefs() {
+			cd.DisplayTableName = displayTName
 			colm[cd] = true
 		}
 	}
@@ -167,10 +169,17 @@ func (tl *TableList) TableNames() []string {
 }
 
 // GetRowData - Returns a dataset with the data from the tables
-func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr) (*DataSet, error) {
+func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList) (*DataSet, error) {
 	var err error
+	var finalResult *DataSet
 	var whereList *ExprList
 	timeOut := new(int32)
+
+	// Setup the result dataset, this will perform checks to make sure the eList and groupBy are valid
+	finalResult, err = NewDataSet(profile, tl, eList, groupBy)
+	if err != nil {
+		return nil, err
+	}
 
 	err = tl.RLock(profile)
 	if err != nil {
@@ -196,7 +205,14 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 		for _, tabInfo := range tl.tables {
 			tab = tabInfo.Table
 		}
-		return tab.GetRowData(profile, eList, whereExpr)
+		finalResult, err = tab.GetRowData(profile, eList, whereExpr, groupBy)
+		if err != nil {
+			return nil, err
+		}
+		if groupBy != nil || eList.HasAggregateFunc() {
+			err = finalResult.GroupBy()
+		}
+		return finalResult, err
 	}
 
 	if whereExpr == nil {
@@ -234,7 +250,7 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 		whereList = ColsToExpr(NewColListDefs(cols))
 
 		// Get the pointers to the rows based on the conditions
-		tmpData, err := tabInfo.Table.GetRowData(profile, whereList, whereExpr)
+		tmpData, err := tabInfo.Table.GetRowData(profile, whereList, whereExpr, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -247,6 +263,7 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 		jt := JoinTable{Name: tabInfo.TableName, Tab: tabInfo.Table, Cols: cols, Rows: resultRows}
 		joins = append(joins, jt)
 	}
+	// Sort tables from smallest to largest # rows returned
 	sort.Slice(joins, func(i, j int) bool {
 		return len(joins[i].Rows) < len(joins[j].Rows)
 	})
@@ -298,14 +315,11 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 					return nil, err
 				}
 				rowIdx := sort.Search(len(table2.Rows), func(i int) bool { return !table2.Rows[i].Vals[col2Idx].LessThan(leftVal) })
-				if rowIdx < len(table2.Rows) { //&& table2.Rows[rowIdx].Vals[col2Idx].Equal(leftVal) {
-					for table2.Rows[rowIdx].Vals[col2Idx].Equal(leftVal) {
-						tmpRow := table2.Rows[rowIdx]
-						newTup := append(tuple, &tmpRow)
-						intermresult = append(intermresult, newTup)
-						rowIdx++
-					}
-
+				for (rowIdx < len(table2.Rows)) && table2.Rows[rowIdx].Vals[col2Idx].Equal(leftVal) {
+					tmpRow := table2.Rows[rowIdx]
+					newTup := append(tuple, &tmpRow)
+					intermresult = append(intermresult, newTup)
+					rowIdx++
 				}
 			}
 			jresult = intermresult
@@ -340,14 +354,8 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 
 	}
 
-	ret := NewExprDataSet(tl, eList)
-	if eList.HasCount() {
-		ret.Vals = make([][]sqtypes.Value, 1)
-		ret.Vals[0] = make([]sqtypes.Value, eList.Len())
-		ret.Vals[0][0] = sqtypes.NewSQInt(len(jresult))
-		return ret, nil
-	}
-	ret.Vals = make([][]sqtypes.Value, len(jresult))
+	// Fill in the final Datastore result
+	finalResult.Vals = make([][]sqtypes.Value, len(jresult))
 
 	for i, tuple := range jresult {
 		rows := make([]RowInterface, len(joined))
@@ -358,10 +366,12 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 			}
 			rows[j] = RowInterface(row)
 		}
-		ret.Vals[i], err = eList.Evaluate(profile, EvalPartial, rows...)
+		finalResult.Vals[i], err = eList.Evaluate(profile, EvalPartial, rows...)
 	}
-
-	return ret, nil
+	if groupBy != nil || eList.HasAggregateFunc() {
+		err = finalResult.GroupBy()
+	}
+	return finalResult, nil
 
 }
 

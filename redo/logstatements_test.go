@@ -238,7 +238,7 @@ func testInsertFunc(d InsertData) func(*testing.T) {
 			t.Errorf("Unable to get table data for %s", d.TableName)
 			return
 		}
-		ptrs := NotIn(afterPtrs, initPtrs)
+		ptrs := sqptr.NotIn(afterPtrs, initPtrs)
 
 		actData, err := tab.GetRowDataFromPtrs(profile, ptrs)
 		if err != nil {
@@ -257,25 +257,6 @@ func testInsertFunc(d InsertData) func(*testing.T) {
 		}
 
 	}
-}
-
-// NotIn returns all items in A that are not in B
-func NotIn(a, b sqptr.SQPtrs) sqptr.SQPtrs {
-	var ret sqptr.SQPtrs
-	for _, x := range a {
-		if !Contain(b, x) {
-			ret = append(ret, x)
-		}
-	}
-	return ret
-}
-func Contain(arr sqptr.SQPtrs, item sqptr.SQPtr) bool {
-	for _, x := range arr {
-		if x == item {
-			return true
-		}
-	}
-	return false
 }
 
 type UpdateData struct {
@@ -491,7 +472,7 @@ func TestDelete(t *testing.T) {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}
 	cl := sqtables.NewColListDefs(cols)
-	ds, err := sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), cl)
+	ds, err := sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(cl), nil)
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}

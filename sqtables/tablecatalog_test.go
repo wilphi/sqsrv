@@ -2,7 +2,7 @@ package sqtables_test
 
 import (
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"reflect"
 	"sort"
 	"testing"
@@ -34,8 +34,8 @@ func TestCreateTable(t *testing.T) {
 			TestName:  "CREATE TABLE Underscore",
 			TableName: "_createtest1",
 			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("col1", tokens.TypeInt, false),
-				sqtables.CreateColDef("col2", tokens.TypeBool, false),
+				sqtables.NewColDef("col1", tokens.TypeInt, false),
+				sqtables.NewColDef("col2", tokens.TypeBool, false),
 			},
 			Profile: profile,
 			ExpErr:  "Error: Invalid Name: _createtest1 - Only system tables may begin with _",
@@ -44,8 +44,8 @@ func TestCreateTable(t *testing.T) {
 			TestName:  "CREATE TABLE test1",
 			TableName: "createtest1",
 			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("col1", tokens.TypeInt, false),
-				sqtables.CreateColDef("col2", tokens.TypeBool, false),
+				sqtables.NewColDef("col1", tokens.TypeInt, false),
+				sqtables.NewColDef("col2", tokens.TypeBool, false),
 			},
 			Profile: profile,
 			ExpErr:  "",
@@ -54,8 +54,8 @@ func TestCreateTable(t *testing.T) {
 			TestName:  "CREATE TABLE Duplicate",
 			TableName: "createtest1",
 			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("col1", tokens.TypeInt, false),
-				sqtables.CreateColDef("col2", tokens.TypeBool, false),
+				sqtables.NewColDef("col1", tokens.TypeInt, false),
+				sqtables.NewColDef("col2", tokens.TypeBool, false),
 			},
 			Profile: profile,
 			ExpErr:  "Error: Invalid Name: Table createtest1 already exists",
@@ -64,8 +64,8 @@ func TestCreateTable(t *testing.T) {
 			TestName:  "CREATE TABLE Different case Duplicate",
 			TableName: "CREATEtest1",
 			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("col1", tokens.TypeInt, false),
-				sqtables.CreateColDef("col2", tokens.TypeBool, false),
+				sqtables.NewColDef("col1", tokens.TypeInt, false),
+				sqtables.NewColDef("col2", tokens.TypeBool, false),
 			},
 			Profile: profile,
 			ExpErr:  "Error: Invalid Name: Table createtest1 already exists",
@@ -81,9 +81,9 @@ func TestCreateTable(t *testing.T) {
 			TestName:  "CREATE TABLE Not Null",
 			TableName: "createtest2",
 			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("city", tokens.TypeString, true),
-				sqtables.CreateColDef("street", tokens.TypeString, false),
-				sqtables.CreateColDef("streetno", tokens.TypeInt, false),
+				sqtables.NewColDef("city", tokens.TypeString, true),
+				sqtables.NewColDef("street", tokens.TypeString, false),
+				sqtables.NewColDef("streetno", tokens.TypeInt, false),
 			},
 			Profile: profile,
 			ExpErr:  "",
@@ -92,9 +92,9 @@ func TestCreateTable(t *testing.T) {
 			TestName:  "CREATE TABLE all Not Null",
 			TableName: "createtest3",
 			Cols: []sqtables.ColDef{
-				sqtables.CreateColDef("city", tokens.TypeString, true),
-				sqtables.CreateColDef("street", tokens.TypeString, true),
-				sqtables.CreateColDef("streetno", tokens.TypeInt, true),
+				sqtables.NewColDef("city", tokens.TypeString, true),
+				sqtables.NewColDef("street", tokens.TypeString, true),
+				sqtables.NewColDef("streetno", tokens.TypeInt, true),
 			},
 			Profile: profile,
 			ExpErr:  "",
@@ -262,8 +262,8 @@ func TestMiscTableList(t *testing.T) {
 	}
 	tab := sqtables.CreateTableDef(
 		"tablea",
-		sqtables.CreateColDef("col1", tokens.TypeInt, false),
-		sqtables.CreateColDef("col2", tokens.TypeString, false),
+		sqtables.NewColDef("col1", tokens.TypeInt, false),
+		sqtables.NewColDef("col2", tokens.TypeString, false),
 	)
 	err = sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -272,8 +272,8 @@ func TestMiscTableList(t *testing.T) {
 	}
 	tab2 := sqtables.CreateTableDef(
 		"tableb",
-		sqtables.CreateColDef("col1", tokens.TypeInt, false),
-		sqtables.CreateColDef("col2", tokens.TypeString, false),
+		sqtables.NewColDef("col1", tokens.TypeInt, false),
+		sqtables.NewColDef("col2", tokens.TypeString, false),
 	)
 	err = sqtables.CreateTable(profile, tab2)
 	if err != nil {
@@ -282,8 +282,8 @@ func TestMiscTableList(t *testing.T) {
 	}
 	tabdrop := sqtables.CreateTableDef(
 		"tabledrop",
-		sqtables.CreateColDef("col1", tokens.TypeInt, false),
-		sqtables.CreateColDef("col2", tokens.TypeString, false),
+		sqtables.NewColDef("col1", tokens.TypeInt, false),
+		sqtables.NewColDef("col2", tokens.TypeString, false),
 	)
 	err = sqtables.CreateTable(profile, tabdrop)
 	if err != nil {
@@ -359,7 +359,7 @@ func TestMiscTableList(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		tab := sqtables.CreateTableDef("", sqtables.CreateColDef("col1", tokens.TypeString, false))
+		tab := sqtables.CreateTableDef("", sqtables.NewColDef("col1", tokens.TypeString, false))
 		err := sqtables.CreateTable(profile, tab)
 		experr := "Error: Invalid Name: Table names can not be blank"
 		if err.Error() != experr {

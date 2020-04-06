@@ -79,7 +79,7 @@ func CheckErr(err error, ExpErr string) (msg string, contEx bool) {
 		return "", false
 	}
 	if ExpErr != "" { // && err==nil
-		return fmt.Sprintf("Expected Success should have returned error: %s", err.Error()), false
+		return fmt.Sprintf("Unexpected Success should have returned error: %s", ExpErr), false
 	}
 	return "", true
 }

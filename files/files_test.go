@@ -3,7 +3,7 @@ package files_test
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"testing"
 

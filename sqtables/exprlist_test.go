@@ -2,25 +2,32 @@ package sqtables_test
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+func init() {
+	sqtest.TestInit("sqtables_test.log")
+}
+
 type EvalListData struct {
-	TestName string
-	List     []sqtables.Expr
-	profile  *sqprofile.SQProfile
-	Tables   *sqtables.TableList
-	rows     []sqtables.RowInterface
-	ExpVals  []sqtypes.Raw
-	ExpErr   string
+	TestName    string
+	List        []sqtables.Expr
+	profile     *sqprofile.SQProfile
+	Tables      *sqtables.TableList
+	rows        []sqtables.RowInterface
+	ExpVals     []sqtypes.Raw
+	ExpErr      string
+	UnValidated bool
 }
 
 func testEvalListFunc(d EvalListData) func(*testing.T) {
@@ -32,7 +39,12 @@ func testEvalListFunc(d EvalListData) func(*testing.T) {
 			}
 		}()
 		eList := sqtables.NewExprList(d.List...)
-		eList.ValidateCols(d.profile, d.Tables)
+		if !d.UnValidated {
+			err := eList.ValidateCols(d.profile, d.Tables)
+			if err != nil {
+				t.Errorf("Unable to validate cols: %s", err.Error())
+			}
+		}
 		retVals, err := eList.Evaluate(d.profile, sqtables.EvalFull, d.rows...)
 
 		if err != nil {
@@ -108,7 +120,7 @@ func TestEvalListExpr(t *testing.T) {
 		},
 		{
 			TestName: "Col Expr",
-			List:     []sqtables.Expr{sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false))},
+			List:     []sqtables.Expr{sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false))},
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -116,10 +128,10 @@ func TestEvalListExpr(t *testing.T) {
 			ExpErr:   "",
 		},
 		{
-			TestName: "Col Expr Invalid col",
+			TestName: "Col Expr not validated",
 			List: []sqtables.Expr{
 				sqtables.NewValueExpr(sqtypes.NewSQString("Test STring")),
-				sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false)),
+				sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false)),
 			},
 			profile: profile,
 			Tables:  tables,
@@ -128,7 +140,8 @@ func TestEvalListExpr(t *testing.T) {
 				"Test STring",
 				12,
 			},
-			ExpErr: "Error: Column \"colX\" not found in Table(s): elisttest",
+			ExpErr:      "Internal Error: Expression list has not been validated before Evaluate",
+			UnValidated: true,
 		},
 	}
 	for i, row := range data {
@@ -158,8 +171,8 @@ func testAddFunc(eList *sqtables.ExprList, e sqtables.Expr, hascount bool) func(
 			t.Errorf("Expression List String before/after (%s/%s) did match expected", commaStr(preStr, e.ToString()), eList.ToString())
 			return
 		}
-		if hascount != eList.HasCount() {
-			t.Errorf("HasCount does not match expected")
+		if hascount != eList.HasAggregateFunc() {
+			t.Errorf("HasAggregateFunc does not match expected")
 			return
 		}
 	}
@@ -271,7 +284,7 @@ func TestEvalListMisc(t *testing.T) {
 
 	t.Run("Pop 1 Element List 2", testPopFunc(eList, ExpExpr))
 
-	t.Run("Add count", testAddFunc(eList, sqtables.NewCountExpr(), true))
+	t.Run("Add count", testAddFunc(eList, sqtables.NewFuncExpr(tokens.Count, nil), true))
 	//	t.Run("Encode/Decode List Err", testListEncDecFunc(eList))
 
 	t.Run("ExprList from Values", func(t *testing.T) {
@@ -334,7 +347,7 @@ func TestEvalListMisc(t *testing.T) {
 			"+",
 			sqtables.NewValueExpr(sqtypes.NewSQInt(9)),
 		),
-		sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false)),
+		sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false)),
 	)
 	t.Run("ExprList GetValues with Column", func(t *testing.T) {
 		defer func() {

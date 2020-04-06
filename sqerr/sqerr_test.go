@@ -2,7 +2,7 @@ package sqerr_test
 
 import (
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"testing"
 

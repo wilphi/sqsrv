@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
@@ -50,21 +48,13 @@ func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*te
 		}
 		tkns := tokens.Tokenize(d.Command)
 		_, _, err = cmd.InsertInto(profile, tkns)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
+		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
+			if !cont {
+				if msg != "" {
+					t.Error(msg)
+				}
 				return
 			}
-			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
-				return
-			}
-			return
-		}
-		if err == nil && d.ExpErr != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
-			return
 		}
 		if d.TableName != "" {
 			afterPtrs, err := tab.GetRowPtrs(profile, nil, true)
@@ -72,7 +62,7 @@ func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*te
 				t.Errorf("Unable to get table data for %s", d.TableName)
 				return
 			}
-			ptrs := NotIn(afterPtrs, initPtrs)
+			ptrs := sqptr.NotIn(afterPtrs, initPtrs)
 
 			data, err := tab.GetRowDataFromPtrs(profile, ptrs)
 			if err != nil {
@@ -86,25 +76,6 @@ func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*te
 			}
 		}
 	}
-}
-
-// NotIn returns all items in A that are not in B
-func NotIn(a, b sqptr.SQPtrs) sqptr.SQPtrs {
-	var ret sqptr.SQPtrs
-	for _, x := range a {
-		if !Contain(b, x) {
-			ret = append(ret, x)
-		}
-	}
-	return ret
-}
-func Contain(arr sqptr.SQPtrs, item sqptr.SQPtr) bool {
-	for _, x := range arr {
-		if x == item {
-			return true
-		}
-	}
-	return false
 }
 
 type InsertIntoData struct {
@@ -167,6 +138,10 @@ func TestInsertInto(t *testing.T) {
 			ExpErr:   "Syntax Error: Expecting keyword VALUES",
 		},
 		{
+			TestName: "INSERT missing ) before values",
+			Command:  "INSERT INTO instest (col1,col2,col3 VALUES",
+			ExpErr:   "Syntax Error: Comma is required to separate columns",
+		}, {
 			TestName: "INSERT missing ( after values",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES",
 			ExpErr:   "Syntax Error: Expecting ( after keyword VALUES",
@@ -184,12 +159,12 @@ func TestInsertInto(t *testing.T) {
 		{
 			TestName: "INSERT missing value for col2",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, ",
-			ExpErr:   "Syntax Error: Expecting value or a valid expression",
+			ExpErr:   "Syntax Error: Expecting a value",
 		},
 		{
 			TestName: "INSERT missing value for col3",
 			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", ",
-			ExpErr:   "Syntax Error: Expecting value or a valid expression",
+			ExpErr:   "Syntax Error: Expecting a value",
 		},
 		{
 			TestName: "INSERT missing final )",

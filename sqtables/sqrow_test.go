@@ -2,16 +2,21 @@ package sqtables_test
 
 import (
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"testing"
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
+
+func init() {
+	sqtest.TestInit("sqtables_test.log")
+}
 
 type UpdateRowData struct {
 	TestName string
@@ -427,16 +432,16 @@ func TestGetColData(t *testing.T) {
 	rowD.Delete(profile)
 
 	testData := []ColData{
-		{"Get Int ColData", row1, sqtables.CreateColDef("col1", tokens.TypeInt, false), 5, ""},
-		{"Get String ColData", row1, sqtables.CreateColDef("col2", tokens.TypeString, false), "Test Data 0", ""},
-		{"Get Bool ColData", row1, sqtables.CreateColDef("col4", tokens.TypeBool, false), true, ""},
-		{"Get Null ColData", row1, sqtables.CreateColDef("col3", tokens.TypeInt, false), nil, ""},
-		{"Type MisMatch ColData", row1, sqtables.CreateColDef("col3", tokens.Null, false), nil, "Error: col3's type of NULL does not match table definition for table getcoldatatest"},
-		{"Get Deleted Row ColData", rowD, sqtables.CreateColDef("col1", tokens.TypeInt, false), 5, "Error: Referenced Row has been deleted"},
+		{"Get Int ColData", row1, sqtables.NewColDef("col1", tokens.TypeInt, false), 5, ""},
+		{"Get String ColData", row1, sqtables.NewColDef("col2", tokens.TypeString, false), "Test Data 0", ""},
+		{"Get Bool ColData", row1, sqtables.NewColDef("col4", tokens.TypeBool, false), true, ""},
+		{"Get Null ColData", row1, sqtables.NewColDef("col3", tokens.TypeInt, false), nil, ""},
+		{"Type MisMatch ColData", row1, sqtables.NewColDef("col3", tokens.Null, false), nil, "Error: col3's type of NULL does not match table definition for table getcoldatatest"},
+		{"Get Deleted Row ColData", rowD, sqtables.NewColDef("col1", tokens.TypeInt, false), 5, "Error: Referenced Row has been deleted"},
 		{
 			testName: "Invalid Col",
 			row:      row1,
-			col:      sqtables.CreateColDef("colX", tokens.TypeInt, false),
+			col:      sqtables.NewColDef("colX", tokens.TypeInt, false),
 			ExpVal:   314,
 			ExpErr:   "Error: colX not found in table getcoldatatest",
 		},

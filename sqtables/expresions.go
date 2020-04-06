@@ -11,11 +11,11 @@ import (
 
 // Expr constants for binary versions
 const (
-	IDValueExpr  = 200
-	IDColExpr    = 201
-	IDOpExpr     = 202
-	IDCountExpr  = 203
-	IDNegateExpr = 204
+	IDValueExpr       = 200
+	IDColExpr         = 201
+	IDOpExpr          = 202
+	IDAgregateFunExpr = 203
+	IDNegateExpr      = 204
 )
 
 // Evaluate constants. Full means all parts must be valid to get a value, Partial means only parts that match current table matter
@@ -151,8 +151,9 @@ func (e *ValueExpr) SetAlias(alias string) {
 
 // ColExpr stores information about a column to allow Evaluate() to determine the correct Value
 type ColExpr struct {
-	col   ColDef
-	alias string
+	col    ColDef
+	alias  string
+	hidden bool
 }
 
 // Left - ColExpr is a leaf node, it will always return nil
@@ -181,8 +182,9 @@ func (e *ColExpr) ToString() string {
 	if e.alias == e.col.ColName {
 		return e.alias
 	}
-	str := Ternary(e.col.TableName != "", e.col.TableName+".", "") + e.col.ColName
-	//str := e.col.ColName
+
+	//str := Ternary(e.col.TableName != "", e.col.TableName+".", "") + e.col.ColName
+	str := e.col.DisplayName()
 	if e.alias != "" {
 		str += " " + e.alias
 	}
@@ -259,14 +261,19 @@ func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) 
 	if err != nil {
 		return err
 	}
-	e.col = *cd
-
-	return nil
+	e.col, err = MergeColDef(e.col, *cd)
+	return err
 }
 
 // NewColExpr creates a new ColExpr object
 func NewColExpr(c ColDef) Expr {
 	return &ColExpr{col: c}
+
+}
+
+// NewHiddenColExpr creates a new ColExpr object that is hidden
+func NewHiddenColExpr(c ColDef) Expr {
+	return &ColExpr{col: c, hidden: true}
 
 }
 
@@ -487,105 +494,6 @@ func (e *OpExpr) SetAlias(alias string) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-// CountExpr stores information about a function to allow Evaluate() to determine the correct Value
-type CountExpr struct {
-	Cmd   string
-	alias string
-	cnt   int
-}
-
-// Left - CountExpr is a leaf node, it will always return nil
-func (e *CountExpr) Left() Expr {
-	return nil
-}
-
-// Right - CountExpr is a leaf node, it will always return nil
-func (e *CountExpr) Right() Expr {
-	return nil
-}
-
-// SetLeft -
-func (e *CountExpr) SetLeft(ex Expr) {
-	log.Panic("Invalid to SetLeft on a CountExpr")
-}
-
-// SetRight -
-func (e *CountExpr) SetRight(ex Expr) {
-	log.Panic("Invalid to SetRight on a CountExpr")
-
-}
-
-// ToString - string representation of Expression. Will traverse to child conditions to form full string
-func (e *CountExpr) ToString() string {
-	str := "count()"
-	if e.alias != "" {
-		str += " " + e.alias
-	}
-	return str
-}
-
-// Name returns the name of the expression
-func (e *CountExpr) Name() string {
-	if e.alias != "" {
-		return e.alias
-	}
-	return e.ToString()
-}
-
-// ColDef returns a column definition for the expression
-func (e *CountExpr) ColDef() ColDef {
-	return ColDef{ColName: e.Name(), ColType: "INT"}
-}
-
-// ColDefs returns a list of all actual columns in the expression
-func (e *CountExpr) ColDefs(tables ...*TableDef) []ColDef {
-	return nil
-}
-
-// Evaluate -
-func (e *CountExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error) {
-
-	e.cnt++
-	return nil, nil
-}
-
-// Reduce will colapse the expression to it's simplest form
-func (e *CountExpr) Reduce() (Expr, error) {
-	return e, nil
-}
-
-// ValidateCols make sure that the cols in the expression match the tabledef
-func (e *CountExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
-	return nil
-}
-
-// NewCountExpr creates a new CountExpr object
-func NewCountExpr() Expr {
-	return &CountExpr{}
-
-}
-
-// Encode returns a binary encoded version of the expression
-func (e *CountExpr) Encode() *sqbin.Codec {
-	//enc := sqbin.NewCodec(nil)
-	panic("CountExpr Encode not implemented")
-	//return enc
-}
-
-// Decode gets a binary encoded version of the expression
-func (e *CountExpr) Decode(*sqbin.Codec) {
-	panic("CountExpr Decode not implemented")
-}
-
-//SetAlias sets an alternative name for the expression
-func (e *CountExpr) SetAlias(alias string) {
-	e.alias = alias
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
 // NegateExpr allows for an operator to create a value based on two other values
 type NegateExpr struct {
 	exL   Expr
@@ -744,12 +652,12 @@ type FuncExpr struct {
 	alias string
 }
 
-// Left - FuncExpr is a leaf node, it will always return nil
+// Left - FuncExpr may have an expression
 func (e *FuncExpr) Left() Expr {
 	return e.exL
 }
 
-// Right - FuncExpr is a leaf node, it will always return nil
+// Right - FuncExpr currently implements functions with 0 or 1 arguments
 func (e *FuncExpr) Right() Expr {
 	return nil
 }
@@ -767,7 +675,13 @@ func (e *FuncExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *FuncExpr) ToString() string {
-	str := e.Cmd + "(" + e.exL.ToString() + ")"
+	var str string
+	if e.exL != nil {
+		str = e.Cmd + "(" + e.exL.ToString() + ")"
+	} else {
+		str = e.Cmd + "()"
+	}
+
 	if e.alias != "" {
 		str += " " + e.alias
 	}
@@ -784,19 +698,31 @@ func (e *FuncExpr) Name() string {
 
 // ColDef returns a column definition for the expression
 func (e *FuncExpr) ColDef() ColDef {
-	return ColDef{ColName: e.Name(), ColType: "FUNC"}
+	name := e.Name()
+	colType := Ternary(name == tokens.Count+"()", "INT", "FUNC")
+
+	return ColDef{ColName: name, ColType: colType}
 }
 
 // ColDefs returns a list of all actual columns in the expression
 func (e *FuncExpr) ColDefs(tables ...*TableDef) []ColDef {
-	colsL := e.exL.ColDefs(tables...)
-	return colsL
+	if e.exL != nil {
+		colsL := e.exL.ColDefs(tables...)
+		return colsL
+	}
+	return nil
 }
 
 // Evaluate takes the current Expression and calculates the results based on the given row
 func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (retVal sqtypes.Value, err error) {
 	var vL sqtypes.Value
 
+	if e.exL == nil {
+		if e.Cmd == tokens.Count {
+			return sqtypes.NewSQNull(), nil
+		}
+		return nil, nil
+	}
 	vL, err = e.exL.Evaluate(profile, partial, rows...)
 	if err != nil {
 		return
@@ -818,14 +744,29 @@ func evalFunc(cmd string, v sqtypes.Value) (retVal sqtypes.Value, err error) {
 	switch cmd {
 	case tokens.TypeFloat, tokens.TypeInt, tokens.TypeBool, tokens.TypeString:
 		retVal, err = v.Convert(cmd)
+	case tokens.Count, tokens.Sum, tokens.Avg, tokens.Min, tokens.Max:
+		// aggregate functions are evaluated elsewhere, just pass the data along
+		retVal = v
 	default:
 		err = sqerr.NewSyntaxf("%q is not a valid function", cmd)
 	}
 	return
 }
 
+// IsAggregate returns true if the function is an aggregate
+func (e *FuncExpr) IsAggregate() bool {
+	switch e.Cmd {
+	case tokens.Count, tokens.Sum, tokens.Avg, tokens.Min, tokens.Max:
+		return true
+	}
+	return false
+}
+
 // Reduce will colapse the expression to it's simplest form
 func (e *FuncExpr) Reduce() (Expr, error) {
+	if e.exL == nil {
+		return e, nil
+	}
 	ex, err := e.exL.Reduce()
 	if err != nil {
 		return nil, err
@@ -844,7 +785,10 @@ func (e *FuncExpr) Reduce() (Expr, error) {
 
 // ValidateCols make sure that the cols in the expression match the tabledef
 func (e *FuncExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
-	return e.exL.ValidateCols(profile, tables)
+	if e.exL != nil {
+		return e.exL.ValidateCols(profile, tables)
+	}
+	return nil
 }
 
 // NewFuncExpr creates a new CountExpr object
@@ -884,7 +828,7 @@ func DecodeExpr(dec *sqbin.Codec) Expr {
 		ex = &OpExpr{}
 	case IDNegateExpr:
 		ex = &NegateExpr{}
-	case IDCountExpr:
+	case IDAgregateFunExpr:
 		log.Panic("Unexpected Count expression in Decode")
 	default:
 		log.Panic("Unexpected expression type in Decode")

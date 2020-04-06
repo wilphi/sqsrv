@@ -31,6 +31,7 @@ type RowDataTest struct {
 	Tab      *sqtables.TableDef
 	Cols     *sqtables.ExprList
 	WhereStr string
+	GroupBy  *sqtables.ExprList
 	ExpErr   string
 	ExpPtrs  []int
 }
@@ -43,7 +44,6 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-
 		tkns := tokens.Tokenize(d.WhereStr)
 		tWhere, err := cmd.GetExpr(tkns, nil, 0)
 		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
@@ -58,7 +58,8 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 				return
 			}
 		}
-		data, err := d.Tab.GetRowData(profile, d.Cols, tWhere)
+
+		data, err := d.Tab.GetRowData(profile, d.Cols, tWhere, d.GroupBy)
 		if err != nil {
 			log.Println(err.Error())
 			if d.ExpErr == "" {
@@ -129,20 +130,20 @@ func TestGetRowData(t *testing.T) {
 		{TestName: "col1 < 5 ->0", Tab: testT, Cols: cols, WhereStr: "col1 < 5", ExpErr: "", ExpPtrs: []int{}},
 		{TestName: "col1 < 7 ->1", Tab: testT, Cols: cols, WhereStr: "col1<6", ExpErr: "", ExpPtrs: []int{1}},
 		{TestName: "Where Error", Tab: testT, Cols: cols, WhereStr: "col2=6", ExpErr: "Error: Type Mismatch: 6 is not a String", ExpPtrs: []int{1}},
-		{
-			TestName: "Count Expression",
-			Tab:      testT,
-			Cols:     sqtables.NewExprList(sqtables.NewCountExpr()),
-			WhereStr: "",
-			ExpErr:   "",
-			ExpPtrs:  []int{2}, //does not return a pointer only the count of rows
-		},
+		/*		{
+				TestName: "Count Expression",
+				Tab:      testT,
+				Cols:     sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Count, nil)),
+				WhereStr: "",
+				ExpErr:   "",
+				ExpPtrs:  []int{}, //does not return a pointer only the count of rows
+			},*/
 		{
 			TestName: "Invalid Col in Expression",
 			Tab:      testT,
 			Cols: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewColExpr(sqtables.CreateColDef("colX", tokens.TypeString, false)),
+				sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.TypeString, false)),
 			),
 			WhereStr: "",
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): rowdatatest",
@@ -155,7 +156,7 @@ func TestGetRowData(t *testing.T) {
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 				sqtables.NewFuncExpr(
 					tokens.TypeFloat,
-					sqtables.NewColExpr(sqtables.CreateColDef("col2", tokens.TypeString, false)),
+					sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.TypeString, false)),
 				),
 			),
 			WhereStr: "col2=\"d test string\"",
@@ -368,7 +369,7 @@ func TestMisc(t *testing.T) {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
-		expstr := "rowcounttest\n--------------------------------------\n\t{rowcounttest.rowid, INT NOT NULL}\n\t{rowcounttest.firstname, STRING}\n\t{rowcounttest.active, BOOL}\n"
+		expstr := "rowcounttest\n--------------------------------------\n\t{rowid, INT NOT NULL}\n\t{firstname, STRING}\n\t{active, BOOL}\n"
 		str := tab.ToString(profile)
 		if str != expstr {
 			t.Errorf("ToString = %q \n\n\twhen it should be %q", str, expstr)
@@ -663,7 +664,7 @@ func testUpdateRowsFromPtrsFunc(d *UpdateRowsFromPtrsData) func(*testing.T) {
 		}
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-			ds, err := d.Tab.GetRowData(profile, cList, nil)
+			ds, err := d.Tab.GetRowData(profile, cList, nil, nil)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return
@@ -761,7 +762,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 			ExpErr:   "Error: Column \"ColX\" not found in Table(s): updaterowsfromptrstest",
 			Ptrs:     sqptr.SQPtrs{1},
 			Cols:     []string{"col4"},
-			ExpList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.CreateColDef("ColX", tokens.TypeFloat, false))),
+			ExpList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("ColX", tokens.TypeFloat, false))),
 			ExpData: sqtypes.RawVals{
 				{1, 5, "d test string", 10, true},
 				{2, 7, "f test string", 100, true},
@@ -799,11 +800,11 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 		profile := sqprofile.CreateSQProfile()
 		clist := sqtables.NewColListNames(d.Cols)
 		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
-		err := clist.ValidateTable(profile, tables)
+		err := clist.Validate(profile, tables)
 		if err != nil {
 			t.Errorf("Unexpected Error setting up ColList for test %s: %s", t.Name(), err)
 		}
-		data, err := sqtables.NewDataSet(profile, tables, d.Tab.GetCols(profile))
+		data, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(d.Tab.GetCols(profile)), nil)
 		if err != nil {
 			t.Errorf("Unexpected Error setting up DataSet for test %s: %s", t.Name(), err)
 		}
@@ -831,7 +832,7 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-			ds, err := d.Tab.GetRowData(profile, cList, nil)
+			ds, err := d.Tab.GetRowData(profile, cList, nil, nil)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return

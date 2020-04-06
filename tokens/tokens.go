@@ -10,7 +10,17 @@ import (
 type Token struct {
 	tokenID    string
 	tokenValue string
+	flags      uint8
 }
+
+// Token Flags
+const (
+	IsType     = 1
+	IsFunction = 2
+	IsAgregate = 4
+	IsNoArg    = 8
+	IsOneArg   = 16
+)
 
 // Token Constants
 const (
@@ -62,6 +72,28 @@ var SYMBOLS = map[string]*Token{
 	">=": &Token{tokenID: GreaterThanEqual, tokenValue: ">="},
 }
 
+// SYMBOLW look up symbols by word
+var SYMBOLW = map[string]*Token{
+	Asterix:          SYMBOLS["*"],
+	Period:           SYMBOLS["."],
+	Equal:            SYMBOLS["="],
+	OpenBracket:      SYMBOLS["("],
+	CloseBracket:     SYMBOLS[")"],
+	Comma:            SYMBOLS[","],
+	Colon:            SYMBOLS[":"],
+	UnderScore:       SYMBOLS["_"],
+	SemiColon:        SYMBOLS[";"],
+	LessThan:         SYMBOLS["<"],
+	GreaterThan:      SYMBOLS[">"],
+	Plus:             SYMBOLS["+"],
+	Minus:            SYMBOLS["-"],
+	Divide:           SYMBOLS["/"],
+	Modulus:          SYMBOLS["%"],
+	NotEqual:         SYMBOLS["!"],
+	LessThanEqual:    SYMBOLS["<="],
+	GreaterThanEqual: SYMBOLS[">="],
+}
+
 // Reserved Words
 const (
 	Create   = "CREATE"
@@ -88,11 +120,15 @@ const (
 	Asc      = "ASC"
 	Desc     = "DESC"
 	Distinct = "DISTINCT"
+	Group    = "GROUP"
+	Min      = "MIN"
+	Max      = "MAX"
+	Avg      = "AVG"
+	Sum      = "SUM"
 )
 
 // Types
 const (
-	TypeTKN    = "TYPETOKEN"
 	TypeInt    = "INT"
 	TypeString = "STRING"
 	TypeBool   = "BOOL"
@@ -107,9 +143,10 @@ const (
 	LenFloat = 20
 )
 
-var reservedTypes = []string{TypeInt, TypeString, TypeBool, TypeFloat}
+//AllTypes a list of all the type token names
+var AllTypes = []string{TypeInt, TypeString, TypeBool, TypeFloat}
 
-// Words - All Reserved Workds and Types as tokens
+// Words - All Reserved Words and Types as tokens
 var Words = map[string]*Token{
 	Create:     &Token{tokenID: Create, tokenValue: Create},
 	Table:      &Token{tokenID: Table, tokenValue: Table},
@@ -122,14 +159,14 @@ var Words = map[string]*Token{
 	Values:     &Token{tokenID: Values, tokenValue: Values},
 	RWTrue:     &Token{tokenID: RWTrue, tokenValue: RWTrue},
 	RWFalse:    &Token{tokenID: RWFalse, tokenValue: RWFalse},
-	TypeInt:    &Token{tokenID: TypeTKN, tokenValue: TypeInt},
-	TypeString: &Token{tokenID: TypeTKN, tokenValue: TypeString},
-	TypeBool:   &Token{tokenID: TypeTKN, tokenValue: TypeBool},
-	TypeFloat:  &Token{tokenID: TypeTKN, tokenValue: TypeFloat},
+	TypeInt:    &Token{tokenID: TypeInt, tokenValue: TypeInt, flags: IsType | IsFunction | IsOneArg},
+	TypeString: &Token{tokenID: TypeString, tokenValue: TypeString, flags: IsType | IsFunction | IsOneArg},
+	TypeBool:   &Token{tokenID: TypeBool, tokenValue: TypeBool, flags: IsType | IsFunction | IsOneArg},
+	TypeFloat:  &Token{tokenID: TypeFloat, tokenValue: TypeFloat, flags: IsType | IsFunction | IsOneArg},
 	Not:        &Token{tokenID: Not, tokenValue: Not},
 	Or:         &Token{tokenID: Or, tokenValue: Or},
 	Delete:     &Token{tokenID: Delete, tokenValue: Delete},
-	Count:      &Token{tokenID: Count, tokenValue: Count},
+	Count:      &Token{tokenID: Count, tokenValue: Count, flags: IsFunction | IsOneArg | IsNoArg | IsAgregate},
 	Null:       &Token{tokenID: Null, tokenValue: Null},
 	Drop:       &Token{tokenID: Drop, tokenValue: Drop},
 	Update:     &Token{tokenID: Update, tokenValue: Update},
@@ -139,6 +176,11 @@ var Words = map[string]*Token{
 	Asc:        &Token{tokenID: Asc, tokenValue: Asc},
 	Desc:       &Token{tokenID: Desc, tokenValue: Desc},
 	Distinct:   &Token{tokenID: Distinct, tokenValue: Distinct},
+	Group:      &Token{tokenID: Group, tokenValue: Group},
+	Min:        &Token{tokenID: Min, tokenValue: Min, flags: IsFunction | IsOneArg | IsAgregate},
+	Max:        &Token{tokenID: Max, tokenValue: Max, flags: IsFunction | IsOneArg | IsAgregate},
+	Avg:        &Token{tokenID: Avg, tokenValue: Avg, flags: IsFunction | IsOneArg | IsAgregate},
+	Sum:        &Token{tokenID: Sum, tokenValue: Sum, flags: IsFunction | IsOneArg | IsAgregate},
 }
 
 // Token Methods
@@ -148,9 +190,10 @@ func (tkn Token) GetString() string {
 	var tknStr = ""
 	switch tkn.tokenID {
 	case Create, Table, Select, From, Where, And, Insert, Into, Values, RWTrue,
-		RWFalse, Or, Not, Delete, Count, Null, Drop, Update, Set, Order, By, Asc, Desc, Distinct:
+		RWFalse, Or, Not, Delete, Count, Null, Drop, Update, Set, Order, By, Asc, Desc, Distinct,
+		Group, Min, Max, Avg, Sum:
 		tknStr = tkn.tokenID
-	case TypeTKN:
+	case TypeInt, TypeString, TypeBool, TypeFloat:
 		tknStr = tkn.tokenValue
 	case Asterix, Period, Equal, OpenBracket, CloseBracket, Comma, Colon, UnderScore,
 		SemiColon, LessThan, GreaterThan, Minus, Plus, Modulus, Divide, NotEqual, LessThanEqual, GreaterThanEqual:
@@ -162,6 +205,12 @@ func (tkn Token) GetString() string {
 
 	}
 	return tknStr
+}
+
+// TestFlags returns true if all given flags are present
+// Flags include IsType, IsFunction, IsNoArg, IsOneArg, IsAgregate
+func (tkn *Token) TestFlags(mask uint8) bool {
+	return (tkn.flags & mask) == mask
 }
 
 // GetName - Returns a string with the name of the token

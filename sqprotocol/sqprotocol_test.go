@@ -326,10 +326,10 @@ func TestConnection(t *testing.T) {
 		}()
 		testConn.Err = nil
 		err := svr.SendColumns([]sqtables.ColDef{
-			sqtables.CreateColDef("col1", "INT", false),
-			sqtables.CreateColDef("col2", "STRING", true),
-			sqtables.CreateColDef("col3", "BOOL", false),
-			sqtables.CreateColDef("col4", "FLOAT", true),
+			sqtables.NewColDef("col1", "INT", false),
+			sqtables.NewColDef("col2", "STRING", true),
+			sqtables.NewColDef("col3", "BOOL", false),
+			sqtables.NewColDef("col4", "FLOAT", true),
 		})
 		if err != nil {
 			t.Errorf("Unexpected Error: %s", err.Error())
@@ -345,7 +345,7 @@ func TestConnection(t *testing.T) {
 			}
 		}()
 		testConn.Err = errors.New("Error from Server")
-		err := svr.SendColumns([]sqtables.ColDef{sqtables.CreateColDef("Col1", "INT", false), sqtables.CreateColDef("col2", "STRING", true)})
+		err := svr.SendColumns([]sqtables.ColDef{sqtables.NewColDef("Col1", "INT", false), sqtables.NewColDef("col2", "STRING", true)})
 		ExpErr := "Error from Server"
 		if err == nil {
 			t.Errorf("Unexpected Success, expecting error %s", ExpErr)

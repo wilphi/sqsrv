@@ -2,7 +2,8 @@ package redo
 
 import (
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqptr"
@@ -158,10 +159,10 @@ func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
 
 	colList := sqtables.NewColListNames(i.Cols)
-	if err := colList.ValidateTable(profile, tables); err != nil {
+	if err := colList.Validate(profile, tables); err != nil {
 		return err
 	}
-	dataSet, err := sqtables.NewDataSet(profile, tables, colList)
+	dataSet, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(colList), nil)
 	if err != nil {
 		return err
 	}

@@ -2,9 +2,10 @@ package sqtables_test
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqbin"
@@ -29,7 +30,6 @@ func TestInterfaces(t *testing.T) {
 		{"ValueExpr is an Expr", &sqtables.ValueExpr{}},
 		{"ColExpr is an Expr", &sqtables.ColExpr{}},
 		{"OpExpr is an Expr", &sqtables.OpExpr{}},
-		{"CountExpr is an Expr", &sqtables.CountExpr{}},
 		{"NegateExpr is an Expr", &sqtables.NegateExpr{}},
 		{"FuncExpr is an Expr", &sqtables.FuncExpr{}},
 	}
@@ -158,11 +158,14 @@ func testGetNameFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing
 		}
 	}
 }
-func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef) func(*testing.T) {
+func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef, ExpPanic bool) func(*testing.T) {
 	return func(t *testing.T) {
 		defer func() {
 			r := recover()
-			if r != nil {
+			if ExpPanic && r == nil {
+				t.Error(t.Name() + " did not panic")
+			}
+			if !ExpPanic && r != nil {
 				t.Errorf(t.Name() + " panicked unexpectedly")
 			}
 		}()
@@ -198,7 +201,6 @@ func TestGetLeftExpr(t *testing.T) {
 		{TestName: "ValueExpr", TestExpr: vExpr, ExpExpr: nil},
 		{TestName: "ColExpr", TestExpr: cExpr, ExpExpr: nil},
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpExpr: cExpr},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpExpr: nil},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: vExpr},
 		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpExpr: vExpr},
 	}
@@ -221,7 +223,6 @@ func TestSetLeftExpr(t *testing.T) {
 		{TestName: "ValueExpr", TestExpr: vExpr, ExpExpr: nil, ExpPanic: true},
 		{TestName: "ColExpr", TestExpr: cExpr, ExpExpr: nil, ExpPanic: true},
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpExpr: cExpr, ExpPanic: false},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpExpr: nil, ExpPanic: true},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: vExpr, ExpPanic: false},
 		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpExpr: vExpr, ExpPanic: false},
 	}
@@ -243,7 +244,6 @@ func TestGetRightExpr(t *testing.T) {
 		{TestName: "ValueExpr", TestExpr: vExpr, ExpExpr: nil},
 		{TestName: "ColExpr", TestExpr: cExpr, ExpExpr: nil},
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpExpr: vExpr},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpExpr: nil},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: nil},
 		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpExpr: nil},
 	}
@@ -266,7 +266,6 @@ func TestSetRightExpr(t *testing.T) {
 		{TestName: "ValueExpr", TestExpr: vExpr, ExpExpr: nil, ExpPanic: true},
 		{TestName: "ColExpr", TestExpr: cExpr, ExpExpr: nil, ExpPanic: true},
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpExpr: cExpr, ExpPanic: false},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpExpr: nil, ExpPanic: true},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: nil, ExpPanic: true},
 		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpExpr: nil, ExpPanic: true},
 	}
@@ -325,8 +324,6 @@ func TestToStringExpr(t *testing.T) {
 			ExpVal: "(col1+1234) oAlias",
 			Alias:  "oAlias",
 		},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpVal: "count()"},
-		{TestName: "CountExpr with Alias", TestExpr: sqtables.NewCountExpr(), ExpVal: "count() cntAlias", Alias: "cntAlias"},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1234))), ExpVal: "(-1234)"},
 		{TestName: "NegateExpr with Alias", TestExpr: sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1234))), ExpVal: "(-1234) nAlias", Alias: "nAlias"},
 		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewValueExpr(sqtypes.NewSQInt(1234))), ExpVal: "FLOAT(1234)"},
@@ -349,7 +346,6 @@ func TestGetNameExpr(t *testing.T) {
 		{TestName: "ValueExpr", TestExpr: sqtables.NewValueExpr(sqtypes.NewSQInt(1)), ExpVal: "1", Alias: "vAlias"},
 		{TestName: "ColExpr", TestExpr: sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"}), ExpVal: "col1", Alias: "colAlias"},
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: "INT"}), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "(col1+1)", Alias: "opAlias"},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpVal: "count()", Alias: "cntAlias"},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "(-1)", Alias: "negAlias"},
 		{TestName: "FloatExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "FLOAT(1)", Alias: "funcAlias"},
 	}
@@ -367,18 +363,19 @@ func TestGetColDefExpr(t *testing.T) {
 		TestName string
 		TestExpr sqtables.Expr
 		ExpCol   sqtables.ColDef
+		ExpPanic bool
 	}{
 		{TestName: "ValueExpr", TestExpr: vExpr, ExpCol: sqtables.ColDef{ColName: "1", ColType: "INT"}},
 		{TestName: "ColExpr", TestExpr: cExpr, ExpCol: sqtables.ColDef{ColName: "col1", ColType: "INT"}},
 		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpCol: sqtables.ColDef{ColName: "(col1+1)", ColType: "INT"}},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpCol: sqtables.ColDef{ColName: "count()", ColType: "INT"}},
+		{TestName: "CountExpr", TestExpr: sqtables.NewFuncExpr(tokens.Count, nil), ExpCol: sqtables.ColDef{ColName: "COUNT()", ColType: "INT"}},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpCol: sqtables.ColDef{ColName: "(-1)", ColType: "INT"}},
 		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpCol: sqtables.ColDef{ColName: "FLOAT(1)", ColType: "FUNC"}},
 	}
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testGetColDefFunc(row.TestExpr, row.ExpCol))
+			testGetColDefFunc(row.TestExpr, row.ExpCol, row.ExpPanic))
 	}
 }
 
@@ -387,6 +384,7 @@ type ColDefsData struct {
 	TestExpr sqtables.Expr
 	ExpCols  []sqtables.ColDef
 	Tables   []*sqtables.TableDef
+	ExpPanic bool
 }
 
 func TestColDefsExpr(t *testing.T) {
@@ -409,7 +407,7 @@ func TestColDefsExpr(t *testing.T) {
 		{TestName: "OpExpr left col", TestExpr: sqtables.NewOpExpr(cExpr, "+", vExpr), ExpCols: []sqtables.ColDef{col1}},
 		{TestName: "OpExpr right col", TestExpr: sqtables.NewOpExpr(vExpr, "+", cExpr), ExpCols: []sqtables.ColDef{col1}},
 		{TestName: "OpExpr both col", TestExpr: sqtables.NewOpExpr(c2bExpr, "+", cExpr), ExpCols: []sqtables.ColDef{col2b, col1}},
-		{TestName: "CountExpr", TestExpr: sqtables.NewCountExpr(), ExpCols: nil},
+		{TestName: "CountExpr", TestExpr: sqtables.NewFuncExpr(tokens.Count, nil), ExpCols: nil},
 		{TestName: "NegateExpr no col", TestExpr: sqtables.NewNegateExpr(vExpr), ExpCols: nil},
 		{TestName: "NegateExpr with col", TestExpr: sqtables.NewNegateExpr(cExpr), ExpCols: []sqtables.ColDef{col1}, Tables: []*sqtables.TableDef{taba}},
 		{TestName: "FuncExpr no col", TestExpr: sqtables.NewFuncExpr(tokens.TypeFloat, vExpr), ExpCols: nil},
@@ -552,7 +550,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName:   "Col Expr Invalid col",
-			e:          sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false)),
+			e:          sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false)),
 			profile:    profile,
 			Tables:     tables,
 			rows:       rows,
@@ -580,7 +578,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr col1 + 1",
-			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false)), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false)), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -588,7 +586,7 @@ func TestEvaluateExpr(t *testing.T) {
 			ExpErr:   "",
 		}, {
 			TestName: "OpExpr 2+col1",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -597,7 +595,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr colX + 1",
-			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false)), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false)), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -606,7 +604,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr 2+colX",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -615,7 +613,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr 2+col2 type mismatch",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.CreateColDef("col2", "STRING", false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.NewColDef("col2", "STRING", false))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -740,11 +738,11 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "Count Expr",
-			e:        sqtables.NewCountExpr(),
+			e:        sqtables.NewFuncExpr(tokens.Count, nil),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
-			ExpVal:   nil,
+			ExpVal:   sqtypes.NewSQNull(),
 			ExpErr:   "",
 		},
 		{
@@ -820,7 +818,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "Float from Invalid Col",
-			e:        sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false))),
+			e:        sqtables.NewFuncExpr(tokens.TypeFloat, sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -865,38 +863,38 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "Operator Right with count",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1)), "+", sqtables.NewCountExpr()),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1)), "+", sqtables.NewFuncExpr(tokens.Count, nil)),
 			profile:  profile,
 			Tables:   tables,
 			rows:     nil,
-			ExpVal:   nil,
+			ExpVal:   sqtypes.NewSQNull(),
 			ExpErr:   "Error: Unable to evaluate \"count()\"",
 		},
 		{
 			TestName: "Operator Left with count",
-			e:        sqtables.NewOpExpr(sqtables.NewCountExpr(), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewFuncExpr(tokens.Count, nil), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     nil,
-			ExpVal:   nil,
+			ExpVal:   sqtypes.NewSQNull(),
 			ExpErr:   "Error: Unable to evaluate \"count()\"",
 		},
 		{
 			TestName: "Negate with count",
-			e:        sqtables.NewNegateExpr(sqtables.NewCountExpr()),
+			e:        sqtables.NewNegateExpr(sqtables.NewFuncExpr(tokens.Count, nil)),
 			profile:  profile,
 			Tables:   tables,
 			rows:     nil,
-			ExpVal:   nil,
+			ExpVal:   sqtypes.NewSQNull(),
 			ExpErr:   "Error: Unable to evaluate \"count()\"",
 		},
 		{
 			TestName: "Int Function with count",
-			e:        sqtables.NewFuncExpr(tokens.TypeInt, sqtables.NewCountExpr()),
+			e:        sqtables.NewFuncExpr(tokens.TypeInt, sqtables.NewFuncExpr(tokens.Count, nil)),
 			profile:  profile,
 			Tables:   tables,
 			rows:     nil,
-			ExpVal:   nil,
+			ExpVal:   sqtypes.NewSQNull(),
 			ExpErr:   "Error: Unable to evaluate \"count()\"",
 		},
 	}
@@ -961,14 +959,14 @@ func TestReduceExpr(t *testing.T) {
 		},
 		{
 			TestName: "Col Expr",
-			e:        sqtables.NewColExpr(sqtables.CreateColDef("col2", "STRING", false)),
+			e:        sqtables.NewColExpr(sqtables.NewColDef("col2", "STRING", false)),
 			ExpExpr:  "col2",
 			ExpErr:   "",
 		},
 		{
 			TestName: "Op Expr",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.CreateColDef("col2", "STRING", false)),
+				sqtables.NewColExpr(sqtables.NewColDef("col2", "STRING", false)),
 				"+",
 				sqtables.NewValueExpr(sqtypes.NewSQString(" Test")),
 			),
@@ -1017,8 +1015,8 @@ func TestReduceExpr(t *testing.T) {
 		},
 		{
 			TestName: "Count Expr",
-			e:        sqtables.NewCountExpr(),
-			ExpExpr:  "count()",
+			e:        sqtables.NewFuncExpr(tokens.Count, nil),
+			ExpExpr:  "COUNT()",
 			ExpErr:   "",
 		},
 		{
@@ -1040,7 +1038,7 @@ func TestReduceExpr(t *testing.T) {
 		{
 			TestName: "Negate Column Expr",
 			e: sqtables.NewNegateExpr(
-				sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false)),
+				sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false)),
 			),
 			ExpExpr: "(-col1)",
 			ExpErr:  "",
@@ -1066,7 +1064,7 @@ func TestReduceExpr(t *testing.T) {
 			TestName: "Function with ColExpr",
 			e: sqtables.NewFuncExpr(
 				tokens.TypeString,
-				sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false))),
+				sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false))),
 			ExpExpr: "STRING(col1)",
 			ExpErr:  "",
 		},
@@ -1176,14 +1174,14 @@ func TestValidateCols(t *testing.T) {
 		},
 		{
 			TestName: "Col Expr",
-			e:        sqtables.NewColExpr(sqtables.CreateColDef("col1", "", false)),
+			e:        sqtables.NewColExpr(sqtables.NewColDef("col1", "", false)),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Col Expr Invalid col",
-			e:        sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false)),
+			e:        sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false)),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): validatecolstest",
@@ -1204,34 +1202,34 @@ func TestValidateCols(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr col1 + 1",
-			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false)), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false)), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",
 		}, {
 			TestName: "OpExpr 2+col1",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",
 		},
 		{
 			TestName: "OpExpr colX + 1",
-			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false)), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false)), "+", sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): validatecolstest",
 		},
 		{
 			TestName: "OpExpr 2+colX",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): validatecolstest",
 		},
 		{
 			TestName: "OpExpr 2+col2 type mismatch",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.CreateColDef("col2", "STRING", false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.NewColDef("col2", "STRING", false))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "Error: Type Mismatch: test1 is not an Int",
@@ -1273,7 +1271,7 @@ func TestValidateCols(t *testing.T) {
 		},
 		{
 			TestName: "Count Expr",
-			e:        sqtables.NewCountExpr(),
+			e:        sqtables.NewFuncExpr(tokens.Count, nil),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",
@@ -1324,7 +1322,7 @@ func TestValidateCols(t *testing.T) {
 			TestName: "Function with Col Expr",
 			e: sqtables.NewFuncExpr(
 				tokens.TypeFloat,
-				sqtables.NewColExpr(sqtables.CreateColDef("col1", "", false)),
+				sqtables.NewColExpr(sqtables.NewColDef("col1", "", false)),
 			),
 			profile: profile,
 			Tables:  tables,
@@ -1334,7 +1332,7 @@ func TestValidateCols(t *testing.T) {
 			TestName: "Function with Col Expr Invalid col",
 			e: sqtables.NewFuncExpr(
 				tokens.TypeFloat,
-				sqtables.NewColExpr(sqtables.CreateColDef("colX", "INT", false)),
+				sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false)),
 			),
 			profile: profile,
 			Tables:  tables,
@@ -1386,12 +1384,12 @@ func TestEncDecExpr(t *testing.T) {
 		},
 		{
 			TestName: "ColExpr",
-			e:        sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false)),
+			e:        sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false)),
 		},
 		{
 			TestName: "OpExpr",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.CreateColDef("col1", "INT", false)),
+				sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false)),
 				"+",
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
 			),
@@ -1402,7 +1400,7 @@ func TestEncDecExpr(t *testing.T) {
 		},
 		{
 			TestName: "CountExpr",
-			e:        sqtables.NewCountExpr(),
+			e:        sqtables.NewFuncExpr(tokens.Count, nil),
 			ExpPanic: true,
 		},
 		{
@@ -1487,13 +1485,6 @@ func TestDecodeExpr(t *testing.T) {
 			ExpPanic: true,
 		},
 		{
-			TestName: "CountExpr Error",
-			ex:       &sqtables.CountExpr{},
-			ExpExpr:  valueEx,
-			bin:      valueEx.Encode(),
-			ExpPanic: true,
-		},
-		{
 			TestName: "FuncExpr Error",
 			ex:       &sqtables.FuncExpr{},
 			ExpExpr:  valueEx,
@@ -1511,7 +1502,7 @@ func TestFunctionDecodeExpr(t *testing.T) {
 	bin := sqbin.NewCodec(nil)
 	bin.Writebyte(1)
 	countBin := sqbin.NewCodec(nil)
-	countBin.Writebyte(sqtables.IDCountExpr)
+	countBin.Writebyte(sqtables.IDAgregateFunExpr)
 
 	t.Run("CountExpr", func(*testing.T) {
 		defer func() {
