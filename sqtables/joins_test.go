@@ -32,13 +32,8 @@ func TestMiscJoinRow(t *testing.T) {
 	col := sqtables.NewColDef("col1", "STRING", false)
 
 	t.Run("joinRow is valid RowInterface", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		var i sqtables.RowInterface
 		i = &row
 		_, ok := i.(sqtables.RowInterface)
@@ -48,39 +43,24 @@ func TestMiscJoinRow(t *testing.T) {
 		}
 	})
 	t.Run("GetTableName", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if row.GetTableName(profile) != tName {
 			t.Error("GetTableName did not match expected value")
 			return
 		}
 	})
 	t.Run("GetPtr", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if row.GetPtr(profile) != ptr12 {
 			t.Error("GetPtr did not match expected value")
 			return
 		}
 	})
 	t.Run("GetIdxVal idx=-1", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := "Error: Invalid index (-1) for row. Data len = 4"
 		_, err := row.GetIdxVal(profile, -1)
 
@@ -90,13 +70,8 @@ func TestMiscJoinRow(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal idx=4", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := "Error: Invalid index (4) for row. Data len = 4"
 		_, err := row.GetIdxVal(profile, 4)
 
@@ -106,13 +81,8 @@ func TestMiscJoinRow(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal idx=1", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := ""
 		expVal := sqtypes.NewSQString("test1")
 		v, err := row.GetIdxVal(profile, 1)
@@ -127,13 +97,8 @@ func TestMiscJoinRow(t *testing.T) {
 	})
 
 	t.Run("GetColData idx=-1", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := "Error: Invalid index (-1) for Column in row. Col len = 4"
 		col.Idx = -1
 		_, err := row.GetColData(profile, &col)
@@ -144,13 +109,8 @@ func TestMiscJoinRow(t *testing.T) {
 		}
 	})
 	t.Run("GetColData idx=4", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := "Error: Invalid index (4) for Column in row. Col len = 4"
 		col.Idx = 4
 		_, err := row.GetColData(profile, &col)
@@ -164,13 +124,8 @@ func TestMiscJoinRow(t *testing.T) {
 		}
 	})
 	t.Run("GetColData idx=1", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := ""
 		expVal := sqtypes.NewSQString("test1")
 		col.Idx = 1

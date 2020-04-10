@@ -10,6 +10,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqptr"
+	"github.com/wilphi/sqsrv/sqtest"
 )
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -56,15 +57,7 @@ func TestIntegers(t *testing.T) {
 
 func testIntTypesFunc(d dataInt) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Error(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
 		//log.Warn(">>>" + d.TestName)
 		if d.CodecReset {
 			d.Codec.Reset()
@@ -150,15 +143,8 @@ func TestFloats(t *testing.T) {
 
 func testFloatFunc(d dataFloat) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Error(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
+
 		//log.Warn(">>>" + d.TestName)
 		if d.CodecReset {
 			d.Codec.Reset()
@@ -224,15 +210,8 @@ func TestString(t *testing.T) {
 
 func testStrTypeFunc(d dataString) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Error(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
+
 		//log.Warn(">>>" + d.TestName)
 		if d.CodecReset {
 			d.Codec.Reset()
@@ -302,15 +281,8 @@ func TestByte(t *testing.T) {
 
 func testByteTypeFunc(d dataByte) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Error(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
+
 		//log.Warn(">>>" + d.TestName)
 		if d.CodecReset {
 			d.Codec.Reset()
@@ -386,15 +358,8 @@ func TestBool(t *testing.T) {
 
 func testBoolTypeFunc(d dataBool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Error(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
+
 		//log.Warn(">>>" + d.TestName)
 		if d.CodecReset {
 			d.Codec.Reset()

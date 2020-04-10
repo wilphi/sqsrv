@@ -6,8 +6,6 @@ import (
 	"sort"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -200,12 +198,8 @@ func TestUpdate(t *testing.T) {
 
 func testUpdateFunc(d UpdateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if d.ResetData {
 			err := resetUpdateData()
 			if err != nil {
@@ -220,22 +214,10 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			t.Errorf("Update returned a non nil dataset")
 			return
 		}
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
-			return
-		}
+
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(sqtables.NewColListNames(d.Cols))
 			tab, err := sqtables.GetTable(profile, d.TableName)

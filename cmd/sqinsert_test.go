@@ -20,12 +20,7 @@ func init() {
 
 func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
 
 		var tab *sqtables.TableDef
 		var err error
@@ -48,14 +43,10 @@ func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*te
 		}
 		tkns := tokens.Tokenize(d.Command)
 		_, _, err = cmd.InsertInto(profile, tkns)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
+
 		if d.TableName != "" {
 			afterPtrs, err := tab.GetRowPtrs(profile, nil, true)
 			if err != nil {

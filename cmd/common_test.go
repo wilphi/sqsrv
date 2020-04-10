@@ -27,23 +27,15 @@ type GetIdentListData struct {
 
 func testGetIdentListFunc(d GetIdentListData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.Command)
 
 		rIdents, err := cmd.GetIdentList(tkns, d.Terminator)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
+
 		if tkns.Len() != 0 {
 			t.Error("All tokens should be consumed by test")
 			return
@@ -147,23 +139,15 @@ type GetExprData struct {
 
 func testGetExprFunc(d GetExprData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.Command)
 
 		actExpr, err := cmd.GetExpr(tkns, nil, 0, d.Terminator)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
+
 		if d.ExpExpr != actExpr.Name() {
 			t.Errorf("Expected Expressions %s do not match actual Expressions %s", d.ExpExpr, actExpr.Name())
 			return
@@ -336,22 +320,13 @@ func TestGetExpr(t *testing.T) {
 
 func testOrderByFunc(profile *sqprofile.SQProfile, d OrderByData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.Command)
 
 		aOrderBy, err := cmd.OrderByClause(tkns)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
 
 		if !reflect.DeepEqual(aOrderBy, d.ExpOrder) {
@@ -465,23 +440,15 @@ type GetExprListData struct {
 
 func testGetExprListFunc(d GetExprListData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.Command)
 
 		rExprs, err := cmd.GetExprList(tkns, d.Terminator, d.ListType)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
+
 		if tkns.Test(d.Terminator.GetName()) == "" {
 			t.Error("Remaining token should be Terminator")
 			return
@@ -770,12 +737,8 @@ type GetTableListData struct {
 
 func testGetTableListFunc(d GetTableListData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 
 		tkns := tokens.Tokenize(d.Command)
@@ -785,14 +748,10 @@ func testGetTableListFunc(d GetTableListData) func(*testing.T) {
 			terms = append(terms, t.GetName())
 		}
 		rIdents, err := cmd.GetTableList(profile, tkns, terms...)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
+
 		if tkns.Len() != d.ExpTokenLen {
 			t.Error("All tokens should be consumed by test")
 			return

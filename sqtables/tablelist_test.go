@@ -3,14 +3,12 @@ package sqtables_test
 import (
 	"fmt"
 	"reflect"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/wilphi/sqsrv/cmd"
+	"github.com/wilphi/sqsrv/sq"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
@@ -35,12 +33,8 @@ type AddTableData struct {
 
 func testAddTableFunc(d AddTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if d.TL.Len() != d.InitLen {
 			t.Errorf("Expected Len (%d) Pre Add does not match actual len (%d) of TableList", d.InitLen, d.TL.Len())
 			return
@@ -48,22 +42,10 @@ func testAddTableFunc(d AddTableData) func(*testing.T) {
 		profile := sqprofile.CreateSQProfile()
 		ft := sqtables.FromTable{TableName: d.TableName, Alias: d.Alias, Table: d.Table}
 		err := d.TL.Add(profile, ft)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
-			return
-		}
+
 		if d.TL.Len() != d.PostLen {
 			t.Errorf("Expected Len (%d) Post Add does not match actual len (%d) of TableList", d.PostLen, d.TL.Len())
 			return
@@ -71,12 +53,8 @@ func testAddTableFunc(d AddTableData) func(*testing.T) {
 	}
 }
 func TestAddTable(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			t.Errorf(t.Name() + " panicked unexpectedly")
-		}
-	}()
+	defer sqtest.PanicTestRecovery(t, false)
+
 	var err error
 	profile := sqprofile.CreateSQProfile()
 	tdata := []struct {
@@ -168,36 +146,24 @@ func TestAddTable(t *testing.T) {
 
 	// with the data nicely setup already, will run some one-off tests
 	t.Run("FindTableDef with Name", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tab := tList.FindTableDef(profile, tdata[0].Name)
 		if tab != tdata[0].Tab {
 			t.Errorf("Unable to find TableDef for %s", tdata[0].Name)
 		}
 	})
 	t.Run("FindTableDef with Alias", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tab := tList.FindTableDef(profile, "alias2")
 		if tab != tdata[2].Tab {
 			t.Errorf("Unable to find TableDef for %s", "alias2")
 		}
 	})
 	t.Run("FindTableDef invalid table", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tab := tList.FindTableDef(profile, "NotATable")
 		if tab != nil {
 			t.Errorf("Unexpected table found %s", tab.GetName(profile))
@@ -205,12 +171,8 @@ func TestAddTable(t *testing.T) {
 	})
 
 	t.Run("AllCols", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		cols := tList.AllCols(profile)
 		sort.SliceStable(cols, func(i, j int) bool { return cols[i].Idx < cols[j].Idx })
 		sort.SliceStable(cols, func(i, j int) bool { return cols[i].TableName < cols[j].TableName })
@@ -239,12 +201,8 @@ func createTestTable(profile *sqprofile.SQProfile, tableName string, cols ...str
 }
 
 func TestFindColDef(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			t.Errorf(t.Name() + " panicked unexpectedly")
-		}
-	}()
+	defer sqtest.PanicTestRecovery(t, false)
+
 	var err error
 
 	///////////////////////////////////////////////////////////////
@@ -362,30 +320,14 @@ type FindColDefData struct {
 
 func testFindColDefFunc(d FindColDefData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 		cd, err := d.TL.FindColDef(profile, d.ColName, d.TableAlias)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
-			return
-		}
+
 		if !reflect.DeepEqual(cd, d.ExpCol) {
 			t.Errorf("Actual ColDef %v does not match expected ColDef %v", cd, d.ExpCol)
 		}
@@ -394,16 +336,11 @@ func testFindColDefFunc(d FindColDefData) func(*testing.T) {
 
 ////////////////////////////////////////////////////////////////
 func TestTLGetRowData(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			t.Errorf(t.Name() + " panicked unexpectedly")
-		}
-	}()
+	defer sqtest.PanicTestRecovery(t, false)
 
 	//var err error
 	profile := sqprofile.CreateSQProfile()
-	sqtest.ProcessSQFile("./testdata/multitable.sq")
+	sq.ProcessSQFile("./testdata/multitable.sq")
 	tList := sqtables.NewTableList(profile,
 		[]sqtables.FromTable{
 			{TableName: "Person"},
@@ -701,23 +638,16 @@ type TLGetRowData struct {
 
 func testTLGetRowDataFunc(d TLGetRowData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				debug.PrintStack()
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 		data, err := d.TL.GetRowData(profile, d.ExprList, d.WhereExpr, d.GroupBy)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if msg != "" {
-				t.Error(msg)
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
+
 		expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
-		for x, _ := range data.Vals[0] {
+		for x := range data.Vals[0] {
 			sort.SliceStable(data.Vals, func(i, j int) bool { return data.Vals[i][x].LessThan(data.Vals[j][x]) })
 			sort.SliceStable(expVals, func(i, j int) bool { return expVals[i][x].LessThan(expVals[j][x]) })
 		}

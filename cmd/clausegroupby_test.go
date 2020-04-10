@@ -20,22 +20,13 @@ func init() {
 
 func testGroupByFunc(profile *sqprofile.SQProfile, d GroupByData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.Command)
 
 		eList, err := cmd.GroupByClause(tkns)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
 
 		if d.ExpEList != nil {

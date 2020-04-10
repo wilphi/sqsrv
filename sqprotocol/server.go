@@ -123,7 +123,8 @@ func getTypeWidth(typeName string) int {
 		ret = sqtypes.SQFloatWidth
 	default:
 		// This should never happen
-		log.Panicf("Invalid type: %s", typeName)
+		//log.Panicf("Invalid type: %s", typeName)
+		ret = 12
 	}
 	return ret
 }

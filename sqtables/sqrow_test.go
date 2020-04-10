@@ -2,7 +2,6 @@ package sqtables_test
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"testing"
 
 	"github.com/wilphi/sqsrv/cmd"
@@ -29,29 +28,12 @@ type UpdateRowData struct {
 
 func testUpdateRowFunc(profile *sqprofile.SQProfile, r *UpdateRowData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		ExpVals := sqtypes.CreateValueArrayFromRaw(r.ExpVals)
 		vals := sqtypes.CreateValueArrayFromRaw(r.Vals)
 		err := r.Row.UpdateRow(profile, r.Cols, vals)
-		if err != nil {
-			log.Println(err.Error())
-			if r.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if r.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", r.ExpErr, err.Error())
-				return
-			}
-			return
-		}
-		if err == nil && r.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", r.ExpErr)
+		if sqtest.CheckErr(t, err, r.ExpErr) {
 			return
 		}
 
@@ -203,28 +185,11 @@ type CreateRowData struct {
 
 func testCreateRowFunc(profile *sqprofile.SQProfile, r *CreateRowData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		ExpVals := sqtypes.CreateValueArrayFromRaw(r.ExpVals)
 		row, err := sqtables.CreateRow(profile, r.RowPtr, r.Tab, r.Cols, sqtypes.CreateValueArrayFromRaw(r.Vals))
-		if err != nil {
-			log.Println(err.Error())
-			if r.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if r.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", r.ExpErr, err.Error())
-				return
-			}
-			return
-		}
-		if err == nil && r.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", r.ExpErr)
+		if sqtest.CheckErr(t, err, r.ExpErr) {
 			return
 		}
 
@@ -366,28 +331,11 @@ type ColData struct {
 
 func testGetColDataFunc(profile *sqprofile.SQProfile, r *ColData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		ExpVal := sqtypes.RawValue(r.ExpVal)
 		val, err := r.row.GetColData(profile, &r.col)
-		if err != nil {
-			log.Println(err.Error())
-			if r.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if r.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", r.ExpErr, err.Error())
-				return
-			}
-			return
-		}
-		if err == nil && r.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", r.ExpErr)
+		if sqtest.CheckErr(t, err, r.ExpErr) {
 			return
 		}
 
@@ -452,12 +400,8 @@ func TestGetColData(t *testing.T) {
 	}
 }
 func TestSetStorage(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			t.Errorf(t.Name() + " panicked unexpectedly")
-		}
-	}()
+	defer sqtest.PanicTestRecovery(t, false)
+
 	profile := sqprofile.CreateSQProfile()
 	// Setup Data
 	stmt := "CREATE TABLE setstorage (col1 int not null, col2 string null, col3 int, col4 bool not null)"
@@ -518,13 +462,8 @@ func TestMiscRowFunctions(t *testing.T) {
 	rowD.Delete(profile)
 
 	t.Run("Row is valid RowInterface", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		var i sqtables.RowInterface
 		i = row1
 		_, ok := i.(sqtables.RowInterface)
@@ -535,26 +474,16 @@ func TestMiscRowFunctions(t *testing.T) {
 	})
 
 	t.Run("GetPtr", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if row1.GetPtr(profile) != ptr12 {
 			t.Error("GetPtr did not match expected value")
 			return
 		}
 	})
 	t.Run("GetIdxVal idx=-1", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := "Error: Invalid index (-1) for row. Data len = 4"
 		_, err := row1.GetIdxVal(profile, -1)
 
@@ -564,13 +493,8 @@ func TestMiscRowFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal idx=4", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := "Error: Invalid index (4) for row. Data len = 4"
 		_, err := row1.GetIdxVal(profile, 4)
 
@@ -580,13 +504,8 @@ func TestMiscRowFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal idx=1", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := ""
 		expVal := sqtypes.NewSQString("Test Data 0")
 		v, err := row1.GetIdxVal(profile, 1)
@@ -600,13 +519,8 @@ func TestMiscRowFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal deleted row", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-				return
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		errTxt := "Internal Error: Deleted row can't return a value from GetIdxVal. Table: miscrowtest, ptr:0"
 		expVal := sqtypes.NewSQString("Test Data 0")
 		v, err := rowD.GetIdxVal(profile, 1)

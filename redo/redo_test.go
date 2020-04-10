@@ -12,6 +12,7 @@ import (
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 	"github.com/wilphi/sqsrv/transid"
@@ -193,12 +194,8 @@ func TestInterfaces(t *testing.T) {
 
 func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		_, ok := d.i.(LogStatement)
 		if !ok {
 			t.Error("Object is not a LogStatement")
@@ -262,15 +259,7 @@ type TestData struct {
 
 func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
 		var err error
 		transid.SetTransID(d.IDStart)
 		Items = []string{}
@@ -404,15 +393,7 @@ func copyFile(destFile, srcFile string) error {
 }
 func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
 		var err error
 
 		// Setup Files
@@ -535,12 +516,8 @@ func TestTransProc(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	t.Run("Verify Tlog file", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		expTlog := tmpDir + "/" + "transaction.tlog"
 		SetTLog(expTlog)
 
@@ -550,12 +527,8 @@ func TestTransProc(t *testing.T) {
 	})
 
 	t.Run("Double set Tlog file", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		expTlog := tmpDir + "/" + "transaction2.tlog"
 		SetTLog(expTlog)
 
@@ -567,33 +540,20 @@ func TestTransProc(t *testing.T) {
 	logState.Start()
 
 	t.Run("Double Start", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Errorf("%s did not panic", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, true)
+
 		Start()
 		runtime.Gosched()
 		transProc()
 	})
 	t.Run("Send", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		stmt := &TestStmt{"Test0", 1}
 		Send(stmt)
 	})
 	t.Run("Stop", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
 
 		Stop()
 	})

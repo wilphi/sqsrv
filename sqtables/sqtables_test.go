@@ -13,8 +13,6 @@ import (
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -38,12 +36,8 @@ type RowDataTest struct {
 
 func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.WhereStr)
 		tWhere, err := cmd.GetExpr(tkns, nil, 0)
 		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
@@ -60,20 +54,7 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 		}
 
 		data, err := d.Tab.GetRowData(profile, d.Cols, tWhere, d.GroupBy)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
-			return
-		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
 
@@ -181,12 +162,8 @@ type RowPtrsTest struct {
 
 func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		var tWhere sqtables.Expr
 		var err error
 		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
@@ -206,20 +183,7 @@ func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*test
 
 		}
 		ptrs, err := d.Tab.GetRowPtrs(profile, tWhere, d.Sort)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
-			return
-		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
 
@@ -308,12 +272,8 @@ func TestMisc(t *testing.T) {
 	}
 
 	t.Run("RowCount:No Rows", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		num, err := tab.RowCount(profile)
 		if err != nil {
 			t.Error(err)
@@ -345,12 +305,8 @@ func TestMisc(t *testing.T) {
 	}
 
 	t.Run("RowCount:6 Rows", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		num, err := tab.RowCount(profile)
 		if err != nil {
 			t.Error(err)
@@ -363,12 +319,8 @@ func TestMisc(t *testing.T) {
 	})
 
 	t.Run("ToString", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		expstr := "rowcounttest\n--------------------------------------\n\t{rowid, INT NOT NULL}\n\t{firstname, STRING}\n\t{active, BOOL}\n"
 		str := tab.ToString(profile)
 		if str != expstr {
@@ -378,12 +330,7 @@ func TestMisc(t *testing.T) {
 	})
 
 	t.Run("GetRow invalid", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
 
 		row := tab.GetRow(profile, 0)
 		if row != nil {
@@ -402,12 +349,8 @@ type DeleteRowsData struct {
 
 func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		var tWhere sqtables.Expr
 
 		//Reset Data
@@ -460,20 +403,7 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 		}
 
 		actPtrs, err := tab.DeleteRows(profile, tWhere)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err)
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err)
-				return
-			}
-			return
-		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
 
@@ -512,12 +442,8 @@ func TestDeleteRows(t *testing.T) {
 
 	//Do a hard Delete
 	t.Run("DeleteFromPtrs HardDelete", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 
 		tab, err := sqtables.GetTable(profile, tableName)
@@ -546,29 +472,12 @@ type GetRowDataFromPtrsData struct {
 
 func testGetRowDataFromPtrsFunc(d *GetRowDataFromPtrsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 
 		data, err := d.Tab.GetRowDataFromPtrs(profile, d.Ptrs)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err)
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err)
-				return
-			}
-			return
-		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
 
@@ -637,31 +546,15 @@ type UpdateRowsFromPtrsData struct {
 
 func testUpdateRowsFromPtrsFunc(d *UpdateRowsFromPtrsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 
 		err := d.Tab.UpdateRowsFromPtrs(profile, d.Ptrs, d.Cols, d.ExpList)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err)
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err)
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
-			return
-		}
+
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
 			ds, err := d.Tab.GetRowData(profile, cList, nil, nil)
@@ -791,12 +684,8 @@ type AddRowsData struct {
 
 func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 		clist := sqtables.NewColListNames(d.Cols)
 		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
@@ -810,22 +699,10 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 		}
 		data.Vals = sqtypes.CreateValuesFromRaw(d.ExpData)
 		n, err := d.Tab.AddRows(profile, data)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err)
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err)
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
-			return
-		}
+
 		if n != len(d.ExpData) {
 			t.Errorf("Number of rows returned %d does not match expected %d", n, len(d.ExpData))
 		}

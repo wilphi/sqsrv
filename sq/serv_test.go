@@ -7,21 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
 func testformatFunc(d formatData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
 
 		retVal := format(d.Num)
 		if retVal != d.ExpVal {
@@ -57,12 +52,8 @@ func TestInsertInto(t *testing.T) {
 
 func testGetCmdFunc(profile *sqprofile.SQProfile, d GetCmdData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if d.SaveDir {
 			dir, err := ioutil.TempDir("", "sqtestgetcmd")
 			if err != nil {
@@ -84,22 +75,10 @@ func testGetCmdFunc(profile *sqprofile.SQProfile, d GetCmdData) func(*testing.T)
 			return
 		}
 		response, shutdowntype, err := cmd(profile, tkns)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
-			return
-		}
+
 		if shutdowntype != d.ExpShutDown {
 			t.Errorf("Actual shutdown type %d does not match expected %d", shutdowntype, d.ExpShutDown)
 			return
@@ -346,12 +325,8 @@ func TestGetCmdFunction(t *testing.T) {
 
 func testGetDispatchFunc(d GetDispatchData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.Command)
 		cmd := GetDispatchFunc(*tkns)
 		if cmd == nil {

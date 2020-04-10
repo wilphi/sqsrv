@@ -2,7 +2,6 @@ package sqtables_test
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"reflect"
 	"sort"
 	"testing"
@@ -110,12 +109,8 @@ func TestCreateTable(t *testing.T) {
 
 func testCreateTableFunc(d CreateTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		originalList, err := sqtables.CatalogTables(d.Profile)
 		if err != nil {
 			t.Error(err)
@@ -123,22 +118,10 @@ func testCreateTableFunc(d CreateTableData) func(*testing.T) {
 		}
 		tab := sqtables.CreateTableDef(d.TableName, d.Cols...)
 		err = sqtables.CreateTable(d.Profile, tab)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
-			return
-		}
+
 		finalList, err := sqtables.CatalogTables(d.Profile)
 		if err != nil {
 			t.Error(err)
@@ -203,34 +186,18 @@ func TestDropTable(t *testing.T) {
 
 func testDropTableFunc(d DropTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		originalList, err := sqtables.CatalogTables(d.Profile)
 		if err != nil {
 			t.Error(err)
 			return
 		}
 		err = sqtables.DropTable(d.Profile, d.TableName)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
-			return
-		}
+
 		finalList, err := sqtables.CatalogTables(d.Profile)
 		if err != nil {
 			t.Error(err)
@@ -298,12 +265,8 @@ func TestMiscTableList(t *testing.T) {
 	// \Data Setup
 
 	t.Run("Tables List", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tList, err := sqtables.CatalogTables(profile)
 		if err != nil {
 			t.Error(err)
@@ -316,12 +279,8 @@ func TestMiscTableList(t *testing.T) {
 	})
 
 	t.Run("Tables All List", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tList, err := sqtables.CatalogAllTables(profile)
 		if err != nil {
 			t.Error(err)
@@ -335,30 +294,18 @@ func TestMiscTableList(t *testing.T) {
 	})
 
 	t.Run("Lock All Tables", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		sqtables.LockCatalog(profile)
 	})
 	t.Run("UnLock All Tables", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		sqtables.UnlockCatalog(profile)
 	})
 	t.Run("underscore test", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tab := sqtables.CreateTableDef("", sqtables.NewColDef("col1", tokens.TypeString, false))
 		err := sqtables.CreateTable(profile, tab)
 		experr := "Error: Invalid Name: Table names can not be blank"

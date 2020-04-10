@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtest"
@@ -18,28 +16,11 @@ func init() {
 
 func testCreateTableFunc(profile *sqprofile.SQProfile, d CreateTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.Command)
 		tname, data, err := cmd.CreateTable(profile, tkns)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
-				return
-			}
-			return
-		}
-		if err == nil && d.ExpErr != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
 		if data != nil {

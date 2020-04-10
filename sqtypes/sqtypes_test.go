@@ -2,12 +2,14 @@ package sqtypes_test
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"reflect"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/wilphi/sqsrv/sqbin"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -48,12 +50,8 @@ func TestInterfaces(t *testing.T) {
 
 func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		_, ok := d.i.(sqtypes.Value)
 		if !ok {
 			t.Error("Object is not a Value")
@@ -64,12 +62,8 @@ func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 
 func testValueType(v sqtypes.Value, expType string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if v.Type() != expType {
 			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", expType, v.Type()))
 		}
@@ -77,12 +71,8 @@ func testValueType(v sqtypes.Value, expType string) func(*testing.T) {
 }
 func testValueToString(v sqtypes.Value, expStr string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if v.ToString() != expStr {
 			t.Error(fmt.Sprintf("ToString for type %s produced unexpected results: Actual %q, Expected %q", v.Type(), v.ToString(), expStr))
 		}
@@ -90,12 +80,8 @@ func testValueToString(v sqtypes.Value, expStr string) func(*testing.T) {
 }
 func testGetLen(v sqtypes.Value, expLen int) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if v.Len() != expLen {
 			t.Error(fmt.Sprintf("The expected Lenght of %d does not match actual value of %d for type %s", expLen, v.Len(), v.Type()))
 		}
@@ -104,12 +90,8 @@ func testGetLen(v sqtypes.Value, expLen int) func(*testing.T) {
 
 func testEqual(a, b sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if expect {
 			if !a.Equal(b) {
 				t.Error(fmt.Sprintf("The values: %s, %s were expected to be equal but are not", a.ToString(), b.ToString()))
@@ -122,12 +104,8 @@ func testEqual(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 func testLessThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if expect {
 			if !a.LessThan(b) {
 				t.Error(fmt.Sprintf("%s was expected to be less than %s", a.ToString(), b.ToString()))
@@ -140,12 +118,8 @@ func testLessThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 func testGreaterThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if expect {
 			if !a.GreaterThan(b) {
 				t.Error(fmt.Sprintf("%s was expected to be greater than %s", a.ToString(), b.ToString()))
@@ -158,12 +132,8 @@ func testGreaterThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 func testisNull(a sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if a.IsNull() != expect {
 			t.Errorf("IsNull actual %t does not match expected %t", a.IsNull(), expect)
 			return
@@ -173,12 +143,8 @@ func testisNull(a sqtypes.Value, expect bool) func(*testing.T) {
 
 func testWriteRead(a sqtypes.Value) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		cdc := sqbin.NewCodec([]byte{})
 		a.Write(cdc)
 		b := sqtypes.ReadValue(cdc)
@@ -202,29 +168,13 @@ type OperationData struct {
 
 func testOperation(d OperationData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		actVal, err := d.a.Operation(d.op, d.b)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
-			return
-		}
+
 		if actVal.IsNull() && d.ExpVal.IsNull() {
 			return
 		}
@@ -459,29 +409,13 @@ type ConvertData struct {
 
 func testConvertFunc(d ConvertData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		actVal, err := d.V.Convert(d.NewType)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err)
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err)
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", d.ExpErr)
-			return
-		}
+
 		if actVal.IsNull() && d.ExpVal == nil {
 			return
 		}
@@ -719,12 +653,8 @@ func TestCreateValueFromToken(t *testing.T) {
 
 func testCreateValueFromToken(tkn tokens.Token, errTxt string, expType string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		v, err := sqtypes.CreateValueFromToken(tkn)
 		if err != nil {
 			log.Println(err.Error())
@@ -750,12 +680,8 @@ func testCreateValueFromToken(tkn tokens.Token, errTxt string, expType string) f
 }
 
 func TestReadValueFail(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Errorf(t.Name() + " did not panic")
-		}
-	}()
+	defer sqtest.PanicTestRecovery(t, true)
+
 	cdc := sqbin.NewCodec([]byte{68, 255, 0})
 
 	val := sqtypes.ReadValue(cdc)
@@ -792,15 +718,8 @@ type RawValueData struct {
 
 func testRawValue(d RawValueData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
+
 		actVal := sqtypes.RawValue(d.Arg)
 		// Null values need special handling to confirm they are equal
 		if actVal.IsNull() && d.expVal.IsNull() {
@@ -814,12 +733,7 @@ func testRawValue(d RawValueData) func(*testing.T) {
 }
 
 func TestCreateValuesFromRaw(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			t.Errorf(t.Name() + " panicked unexpectedly")
-		}
-	}()
+	defer sqtest.PanicTestRecovery(t, false)
 
 	vals := sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 		{1, "test1", false, 1.01},

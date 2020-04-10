@@ -3,10 +3,8 @@ package sqtables_test
 import (
 	"fmt"
 	"reflect"
-	"runtime/debug"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -24,29 +22,12 @@ func testNewDataSetFunc(
 	eList *sqtables.ExprList, groupBy *sqtables.ColList, ExpErr string,
 ) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 
 		data, err := sqtables.NewDataSet(profile, tables, eList, nil)
-		if err != nil {
-			log.Println(err.Error())
-			if ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", ExpErr, err.Error())
-				return
-			}
-			return
-		}
-		if err == nil && ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", ExpErr)
+		if sqtest.CheckErr(t, err, ExpErr) {
 			return
 		}
 
@@ -100,7 +81,7 @@ func TestDataSet(t *testing.T) {
 	//colStr := []string{"col2", "col1"}
 	colStrErr := []string{"col2", "col1", "colX"}
 
-	colds := []sqtables.ColDef{sqtables.ColDef{ColName: "col2", ColType: "STRING"}, sqtables.ColDef{ColName: "col1", ColType: "INT"}}
+	colds := []sqtables.ColDef{{ColName: "col2", ColType: "STRING"}, {ColName: "col1", ColType: "INT"}}
 	exprCols := sqtables.ColsToExpr(sqtables.NewColListDefs(colds))
 	emptyExprCols := &sqtables.ExprList{}
 	exprColsErr := sqtables.ColsToExpr(sqtables.NewColListNames(colStrErr))
@@ -126,12 +107,8 @@ func TestDataSet(t *testing.T) {
 	))
 
 	t.Run("Len==0 from DataSet", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
 		if err != nil {
 			t.Errorf("Unexpected Error in test: %s", err.Error())
@@ -144,12 +121,8 @@ func TestDataSet(t *testing.T) {
 	})
 
 	t.Run("GetTable from Dataset", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
 		if err != nil {
 			t.Errorf("Unexpected Error in test: %s", err.Error())
@@ -161,12 +134,8 @@ func TestDataSet(t *testing.T) {
 		}
 	})
 	t.Run("GetColList from Dataset", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
 		if err != nil {
 			t.Errorf("Unexpected Error in test: %s", err.Error())
@@ -308,12 +277,8 @@ type SortData struct {
 
 func testSortFunc(d SortData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 		data, err := sqtables.NewDataSet(profile, d.Tables, d.DataCols, nil)
 		if err != nil {
@@ -329,19 +294,15 @@ func testSortFunc(d SortData) func(*testing.T) {
 
 		if !(d.Distinct && d.Order == nil) {
 			err := data.SetOrder(d.Order)
-			if msg, cont := sqtest.CheckErr(err, d.SortOrderErr); !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
+			if sqtest.CheckErr(t, err, d.SortOrderErr) {
 				return
 			}
+
 			err = data.Sort()
-			if msg, cont := sqtest.CheckErr(err, d.SortErr); !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
+			if sqtest.CheckErr(t, err, d.SortErr) {
 				return
 			}
+
 		}
 		if d.ExpVals != nil {
 			msg := sqtypes.Compare2DValue(data.Vals, d.ExpVals, "Actual", "Expect", false)
@@ -372,19 +333,11 @@ type GroupByData struct {
 
 func testGroupByFunc(d GroupByData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				debug.PrintStack()
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		profile := sqprofile.CreateSQProfile()
 		data, err := sqtables.NewDataSet(profile, d.Tables, d.DataCols, d.GroupBy)
-		if msg, contEx := sqtest.CheckErr(err, d.NewDataSetErr); !contEx {
-			if msg != "" {
-				t.Error(msg)
-			}
+		if sqtest.CheckErr(t, err, d.NewDataSetErr) {
 			return
 		}
 
@@ -394,28 +347,22 @@ func testGroupByFunc(d GroupByData) func(*testing.T) {
 			err = data.GroupBy()
 		}
 
-		if msg, contEx := sqtest.CheckErr(err, d.ExpErr); !contEx {
-			if msg != "" {
-				t.Error(msg)
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
+
 		//fmt.Println(data.Vals)
 		if d.Order != nil {
 			err := data.SetOrder(d.Order)
-			if msg, cont := sqtest.CheckErr(err, d.SortOrderErr); !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
+			if sqtest.CheckErr(t, err, d.SortOrderErr) {
 				return
 			}
+
 			err = data.Sort()
-			if msg, cont := sqtest.CheckErr(err, d.SortErr); !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
+			if sqtest.CheckErr(t, err, d.SortErr) {
 				return
 			}
+
 		}
 		if !reflect.DeepEqual(data.Vals, d.ExpVals) {
 			fmt.Println("  Actual Values:", data.Vals)

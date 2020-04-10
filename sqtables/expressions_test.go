@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
@@ -43,12 +41,8 @@ func TestInterfaces(t *testing.T) {
 
 func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		_, ok := d.i.(sqtables.Expr)
 		if !ok {
 			t.Error("Object is not a Expr(ession)")
@@ -59,12 +53,8 @@ func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 
 func testLeftFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if !reflect.DeepEqual(e.Left(), ExpExpr) {
 			t.Errorf("Actual Expr does not match Expected Expr")
 			return
@@ -73,12 +63,8 @@ func testLeftFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 }
 func testRightFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if !reflect.DeepEqual(e.Right(), ExpExpr) {
 			t.Errorf("Actual Expr does not match Expected Expr")
 			return
@@ -87,15 +73,8 @@ func testRightFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 }
 func testSetLeftFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if expPanic && r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-			if !expPanic && r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, expPanic)
+
 		a.SetLeft(b)
 		if !reflect.DeepEqual(a.Left(), b) {
 			t.Errorf("Actual Expr does not match Expected Expr")
@@ -105,15 +84,8 @@ func testSetLeftFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 }
 func testSetRightFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if expPanic && r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-			if !expPanic && r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, expPanic)
+
 		a.SetRight(b)
 		if !reflect.DeepEqual(a.Right(), b) {
 			t.Errorf("Actual Expr does not match Expected Expr")
@@ -123,12 +95,8 @@ func testSetRightFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 }
 func testToStringFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		e.SetAlias(alias)
 
 		if e.ToString() != ExpVal {
@@ -139,12 +107,8 @@ func testToStringFunc(e sqtables.Expr, ExpVal string, alias string) func(*testin
 }
 func testGetNameFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if e.Name() != ExpVal {
 			t.Errorf("Actual value %q does not match Expected value %q", e.Name(), ExpVal)
 			return
@@ -160,15 +124,8 @@ func testGetNameFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing
 }
 func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef, ExpPanic bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if ExpPanic && r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-			if !ExpPanic && r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, ExpPanic)
+
 		if !reflect.DeepEqual(e.ColDef(), col) {
 			t.Errorf("Actual value %v does not match Expected value %v", e.ColDef(), col)
 			return
@@ -177,12 +134,8 @@ func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef, ExpPanic bool) func
 }
 func testColDefsFunc(d ColDefsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		retCols := d.TestExpr.ColDefs(d.Tables...)
 		if !reflect.DeepEqual(retCols, d.ExpCols) {
 			t.Errorf("Actual value %v does not match Expected value %v", retCols, d.ExpCols)
@@ -422,29 +375,17 @@ func TestColDefsExpr(t *testing.T) {
 
 func testEvaluateFunc(d EvalData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		if !d.NoValidate {
 			d.e.ValidateCols(d.profile, d.Tables)
 		}
 
 		retVal, err := d.e.Evaluate(d.profile, d.Partial, d.rows...)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
+
 		if retVal == nil {
 			if d.ExpVal != nil {
 				t.Errorf("Actual value \"nil\" does not match Expected value %q", d.ExpVal.ToString())
@@ -490,7 +431,6 @@ func TestEvaluateExpr(t *testing.T) {
 		t.Error("Unable to get setup table")
 		return
 	}
-	//row := tab.GetRow(profile, 1)
 	row, err := sqtables.CreateRow(profile, 1, tab, []string{"col1", "col2", "col3"}, sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{1, "test1", true}))
 	if err != nil {
 		t.Error("Unable to setup table")
@@ -868,7 +808,7 @@ func TestEvaluateExpr(t *testing.T) {
 			Tables:   tables,
 			rows:     nil,
 			ExpVal:   sqtypes.NewSQNull(),
-			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpErr:   "",
 		},
 		{
 			TestName: "Operator Left with count",
@@ -877,7 +817,7 @@ func TestEvaluateExpr(t *testing.T) {
 			Tables:   tables,
 			rows:     nil,
 			ExpVal:   sqtypes.NewSQNull(),
-			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpErr:   "",
 		},
 		{
 			TestName: "Negate with count",
@@ -886,7 +826,7 @@ func TestEvaluateExpr(t *testing.T) {
 			Tables:   tables,
 			rows:     nil,
 			ExpVal:   sqtypes.NewSQNull(),
-			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpErr:   "",
 		},
 		{
 			TestName: "Int Function with count",
@@ -895,7 +835,7 @@ func TestEvaluateExpr(t *testing.T) {
 			Tables:   tables,
 			rows:     nil,
 			ExpVal:   sqtypes.NewSQNull(),
-			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpErr:   "",
 		},
 	}
 	for i, row := range data {
@@ -909,25 +849,13 @@ func TestEvaluateExpr(t *testing.T) {
 
 func testReduceFunc(d ReduceData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		retVal, err := d.e.Reduce()
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
+
 		if retVal == nil {
 			if d.ExpExpr != "" {
 				t.Errorf("Actual value \"nil\" does not match Expected value %q", d.ExpExpr)
@@ -1101,23 +1029,10 @@ func TestReduceExpr(t *testing.T) {
 
 func testValidateFunc(d ValidateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		err := d.e.ValidateCols(d.profile, d.Tables)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
 
@@ -1198,7 +1113,7 @@ func TestValidateCols(t *testing.T) {
 			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQString("Test STring")), "-", sqtables.NewValueExpr(sqtypes.NewSQString(" Added together"))),
 			profile:  profile,
 			Tables:   tables,
-			ExpErr:   "Syntax Error: Invalid String Operator -",
+			ExpErr:   "",
 		},
 		{
 			TestName: "OpExpr col1 + 1",
@@ -1232,7 +1147,7 @@ func TestValidateCols(t *testing.T) {
 			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), "+", sqtables.NewColExpr(sqtables.NewColDef("col2", "STRING", false))),
 			profile:  profile,
 			Tables:   tables,
-			ExpErr:   "Error: Type Mismatch: test1 is not an Int",
+			ExpErr:   "",
 		},
 		{
 			TestName: "OpExpr Deep Tree",
@@ -1295,21 +1210,21 @@ func TestValidateCols(t *testing.T) {
 			e:        sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQString("Test String Neg"))),
 			profile:  profile,
 			Tables:   tables,
-			ExpErr:   "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:   "",
 		},
 		{
 			TestName: "Double Negate String",
 			e:        sqtables.NewNegateExpr(sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQString("Test String Neg")))),
 			profile:  profile,
 			Tables:   tables,
-			ExpErr:   "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:   "",
 		},
 		{
 			TestName: "Negate Bool",
 			e:        sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQBool(true))),
 			profile:  profile,
 			Tables:   tables,
-			ExpErr:   "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:   "",
 		},
 		{
 			TestName: "Negate Null",
@@ -1348,15 +1263,7 @@ func TestValidateCols(t *testing.T) {
 
 func testEncDecFunc(d EncDecData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
 
 		bin := d.e.Encode()
 
@@ -1417,15 +1324,7 @@ func TestEncDecExpr(t *testing.T) {
 
 func testDecodeFunc(d DecodeData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
 
 		d.ex.Decode(d.bin)
 
@@ -1505,24 +1404,14 @@ func TestFunctionDecodeExpr(t *testing.T) {
 	countBin.Writebyte(sqtables.IDAgregateFunExpr)
 
 	t.Run("CountExpr", func(*testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, true)
 
 		_ = sqtables.DecodeExpr(countBin)
 
 	})
 
 	t.Run("Unknown Expression", func(*testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Error(t.Name() + " did not panic")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, true)
 
 		_ = sqtables.DecodeExpr(bin)
 

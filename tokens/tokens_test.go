@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/wilphi/sqsrv/sqtest"
 )
 
 func TestMain(m *testing.M) {
@@ -188,12 +189,8 @@ func TestMiscFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetSymbolFromTokenID", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		for s, tkn := range SYMBOLS {
 			sym := GetSymbolFromTokenID(tkn.tokenID)
 			if sym != tkn.tokenValue {
@@ -206,12 +203,7 @@ func TestMiscFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetSymbolFromTokenID Non Symbol", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
 
 		sym := GetSymbolFromTokenID(Where)
 		if sym != Where {
@@ -224,12 +216,8 @@ func TestMiscFunctions(t *testing.T) {
 
 func testTokenizeFunc(d TokenData) func(t *testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := Tokenize(d.testStr)
 		if tkns.ToString() != d.Tokens.ToString() {
 			t.Errorf("Token list %q does not match expected list %q", tkns.ToString(), d.Tokens.ToString())

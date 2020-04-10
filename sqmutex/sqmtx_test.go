@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtest"
 )
 
 type mtxlockData struct {
@@ -25,12 +26,8 @@ type mtxlockData struct {
 
 func TestMtxStats(t *testing.T) {
 	t.Run("Test Empty Stats", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		resetMtxStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 		str := GetMtxStats()
 		if str != "Write Lock Stats:\n    No mtxStats at this time.\nRead Lock Stats:\n    No mtxStats at this time." {
@@ -40,12 +37,8 @@ func TestMtxStats(t *testing.T) {
 	})
 
 	t.Run("Test Only Lock Stats", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		resetMtxStats(time.Millisecond*3, 4*time.Millisecond, 2, 7*time.Millisecond, 0, 0, 0, 0, 1, 400*time.Millisecond)
 		str := GetMtxStats()
 		if str != "Write Lock Stats:\n    No mtxStats at this time.\nRead Lock Stats:\n    Min: 3ms\n    Max: 4ms\n    Average: 3.5ms\n    Total Locks: 2\n" {
@@ -55,12 +48,8 @@ func TestMtxStats(t *testing.T) {
 	})
 
 	t.Run("Test Write Lock Stats", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		resetMtxStats(0, 0, 0, 0, time.Millisecond*6, 14*time.Millisecond, 2, 1, 0, 20*time.Millisecond)
 		str := GetMtxStats()
 		if str != "Write Lock Stats:\n    Min: 6ms\n    Max: 14ms\n    Average: 10ms\n    Total Locks: 2\n\nRead Lock Stats:\n    No mtxStats at this time." {
@@ -70,12 +59,8 @@ func TestMtxStats(t *testing.T) {
 	})
 
 	t.Run("Test Read & Write Lock Stats", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		resetMtxStats(time.Millisecond*3, 4*time.Millisecond, 2, 7*time.Millisecond, time.Millisecond*6, 14*time.Millisecond, 2, 1, 3, 20*time.Millisecond)
 		str := GetMtxStats()
 		if str != "Write Lock Stats:\n    Min: 6ms\n    Max: 14ms\n    Average: 10ms\n    Total Locks: 2\n\nRead Lock Stats:\n    Min: 3ms\n    Max: 4ms\n    Average: 3.5ms\n    Total Locks: 2\n" {
@@ -114,15 +99,8 @@ func TestMtxLocks(t *testing.T) {
 
 func testmtxLocksFunc(d *mtxlockData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Error(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
+
 		log.Warn(">>>" + d.TestName)
 
 		switch d.Function {
@@ -202,12 +180,8 @@ func TestAsyncMtxLocks(t *testing.T) {
 	profile4 := sqprofile.CreateSQProfile()
 	//rwB := NewSQMtx("B")
 	t.Run("Block Write Lock", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		rwA := NewSQMtx("A")
 		rwA.SetTimeout(10 * time.Millisecond)
 
@@ -228,12 +202,8 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Block & Release Write Lock", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		rwA := NewSQMtx("A")
 		rwA.SetTimeout(10 * time.Millisecond)
 
@@ -248,12 +218,8 @@ func TestAsyncMtxLocks(t *testing.T) {
 
 	})
 	t.Run("Block & Release Write Lock2", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		rwA := NewSQMtx("A")
 		rwA.SetTimeout(10 * time.Millisecond)
 
@@ -281,12 +247,8 @@ func TestAsyncMtxLocks(t *testing.T) {
 		profile2.VerifyNoLocks()
 	})
 	t.Run("Double Block with timeout", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		var wg sync.WaitGroup
 		rwA := NewSQMtx("A")
 		rwA.SetTimeout(5 * time.Millisecond)
@@ -328,12 +290,8 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Block Read with Write Lock ", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		rwA := NewSQMtx("BLOCKED-READ")
 		rwA.SetTimeout(10 * time.Millisecond)
 
@@ -359,12 +317,8 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Block Write with Read Lock ", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		lockName := "BLOCK|WITH|READ"
 		rwA := NewSQMtx(lockName)
 		rwA.SetTimeout(10 * time.Millisecond)
@@ -391,12 +345,8 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Block Write with 3 Read Locks ", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		status := new(int64)
 		rwA := NewSQMtx("MultiReadLocks")
 		rwA.SetTimeout(100 * time.Millisecond)
@@ -443,12 +393,8 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Random test with R/W locks", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("%s panicked unexpectedly", t.Name())
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		rwA := NewSQMtx("RAND")
 		rwA.SetTimeout(100 * time.Millisecond)
 		var wg sync.WaitGroup

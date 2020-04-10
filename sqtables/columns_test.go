@@ -98,12 +98,8 @@ type ColDefData struct {
 
 func testColDefFunc(d ColDefData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		cd := sqtables.NewColDef(d.ColName, d.ColType, d.IsNotNull)
 		if d.ColName != cd.ColName || d.ColType != cd.ColType || cd.Idx != -1 || d.IsNotNull != cd.IsNotNull {
 			t.Errorf("Created ColDef does not match expected")
@@ -133,14 +129,10 @@ func testColDefFunc(d ColDefData) func(*testing.T) {
 		}
 		if d.MergeCD != nil {
 			newCD, err := sqtables.MergeColDef(cd, *d.MergeCD)
-			if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-				if !cont {
-					if msg != "" {
-						t.Error(msg)
-					}
-					return
-				}
+			if sqtest.CheckErr(t, err, d.ExpErr) {
+				return
 			}
+
 			if !reflect.DeepEqual(newCD, d.ExpCD) {
 				t.Errorf("ColDef Merge: Expected %v does not match actual %v", d.ExpCD, newCD)
 			}
@@ -153,21 +145,13 @@ func testColDefFunc(d ColDefData) func(*testing.T) {
 ///////////////////////////////////////////////////////////////////////////////
 func testColListValidateFunc(d ColListValidateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		err := d.CList.Validate(d.profile, d.tables)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
+
 		// Check ColNames
 		if d.ColNames != nil {
 			if d.CList.Len() != len(d.ColNames) {
@@ -181,13 +165,8 @@ func testColListValidateFunc(d ColListValidateData) func(*testing.T) {
 		}
 		// Double validate
 		err = d.CList.Validate(d.profile, d.tables)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
 
 	}
@@ -276,12 +255,7 @@ func TestColListFindColDef(t *testing.T) {
 	colList := sqtables.NewColListDefs([]sqtables.ColDef{col1CD, sqtables.NewColDef("col2", tokens.TypeString, false)})
 
 	t.Run("Found ColDef", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
 
 		cd := colList.FindColDef("col1")
 		if cd.ToString() != col1CD.ToString() {
@@ -290,12 +264,7 @@ func TestColListFindColDef(t *testing.T) {
 	})
 
 	t.Run("No ColDef", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
 
 		cd := colList.FindColDef("colX")
 		if cd != nil {

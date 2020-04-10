@@ -1,6 +1,7 @@
 package sq
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"net"
@@ -247,4 +248,28 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 
 		}
 	}
+}
+
+// ProcessSQFile loads sq commands from file
+func ProcessSQFile(name string) error {
+	profile := sqprofile.CreateSQProfile()
+	file, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	//	var lines []string
+	scanner := bufio.NewScanner(file)
+	//_ = scanner.Text()
+	for scanner.Scan() {
+
+		line := scanner.Text()
+		tkns := tokens.Tokenize(line)
+		sqfunc := GetDispatchFunc(*tkns)
+		_, _, err = sqfunc(profile, tkns)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

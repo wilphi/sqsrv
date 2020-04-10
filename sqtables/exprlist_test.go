@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -32,12 +30,8 @@ type EvalListData struct {
 
 func testEvalListFunc(d EvalListData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		eList := sqtables.NewExprList(d.List...)
 		if !d.UnValidated {
 			err := eList.ValidateCols(d.profile, d.Tables)
@@ -46,19 +40,10 @@ func testEvalListFunc(d EvalListData) func(*testing.T) {
 			}
 		}
 		retVals, err := eList.Evaluate(d.profile, sqtables.EvalFull, d.rows...)
-
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", d.ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
+
 		if retVals == nil {
 			if d.ExpVals != nil {
 				t.Errorf("Actual values \"nil\" does not match Expected values %q", d.ExpVals)
@@ -153,12 +138,8 @@ func TestEvalListExpr(t *testing.T) {
 
 func testAddFunc(eList *sqtables.ExprList, e sqtables.Expr, hascount bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		preLen := eList.Len()
 		preStr := eList.ToString()
 		eList.Add(e)
@@ -191,12 +172,8 @@ func commaStr(a, b string) string {
 }
 func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		preLen := eList.Len()
 		preStr := eList.ToString()
 		actExpr := eList.Pop()
@@ -222,23 +199,10 @@ func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.
 
 func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqprofile.SQProfile, tables *sqtables.TableList) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		err := eList.ValidateCols(profile, tables)
-		if err != nil {
-			log.Println(err.Error())
-			if ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, ExpErr) {
 			return
 		}
 
@@ -247,12 +211,8 @@ func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqpr
 
 func testListEncDecFunc(eList *sqtables.ExprList) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		bin := eList.Encode()
 		actList := sqtables.DecodeExprList(bin)
 
@@ -288,12 +248,8 @@ func TestEvalListMisc(t *testing.T) {
 	//	t.Run("Encode/Decode List Err", testListEncDecFunc(eList))
 
 	t.Run("ExprList from Values", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		vals := sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{1, "test", true})
 		eList := sqtables.NewExprListFromValues(vals)
 		actValues, err := eList.GetValues()
@@ -316,30 +272,14 @@ func TestEvalListMisc(t *testing.T) {
 		),
 	)
 	t.Run("ExprList GetValues with Err", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		ExpErr := "Syntax Error: Invalid Int Operator ~"
 		_, err := errList.GetValues()
-		if err != nil {
-			log.Println(err.Error())
-			if ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, ExpErr) {
 			return
 		}
-		if err == nil && ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", ExpErr)
-			return
-		}
+
 	})
 	errList = sqtables.NewExprList(
 		sqtables.NewOpExpr(
@@ -350,30 +290,14 @@ func TestEvalListMisc(t *testing.T) {
 		sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false)),
 	)
 	t.Run("ExprList GetValues with Column", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(t.Name() + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		ExpErr := "Syntax Error: Expression did not reduce to a Value"
 		_, err := errList.GetValues()
-		if err != nil {
-			log.Println(err.Error())
-			if ExpErr == "" {
-				t.Errorf("Unexpected Error in test: %s", err.Error())
-				return
-			}
-			if ExpErr != err.Error() {
-				t.Errorf("Expecting Error %s but got: %s", ExpErr, err.Error())
-				return
-			}
+		if sqtest.CheckErr(t, err, ExpErr) {
 			return
 		}
-		if err == nil && ExpErr != "" {
-			t.Errorf("Unexpected Success, should have returned error: %s", ExpErr)
-			return
-		}
+
 	})
 }
 

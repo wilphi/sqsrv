@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/wilphi/sqsrv/sqtest"
 )
 
 func TestGetID(t *testing.T) {
@@ -55,15 +56,8 @@ func TestLocks(t *testing.T) {
 
 func testLocksFunc(d lockData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if d.ExpPanic && r == nil {
-				t.Error(d.TestName + " did not panic")
-			}
-			if !d.ExpPanic && r != nil {
-				t.Error(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
+
 		log.Warn(">>>" + d.TestName)
 
 		switch d.Function {

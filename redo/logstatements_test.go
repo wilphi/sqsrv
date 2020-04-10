@@ -11,6 +11,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -30,8 +31,8 @@ func TestCreate(t *testing.T) {
 			TestName:  "Recreate table from redo",
 			TableName: "RedoCreate",
 			Cols: []sqtables.ColDef{
-				sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-				sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
+				{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
+				{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
 			},
 			ID: 123,
 		},
@@ -46,12 +47,8 @@ func TestCreate(t *testing.T) {
 
 func testCreateFunc(d CreateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		s := redo.NewCreateDDL(d.TableName, d.Cols)
 		// Test Get/Set Id
 		s.SetID(d.ID)
@@ -170,12 +167,8 @@ func TestInsert(t *testing.T) {
 
 func testInsertFunc(d InsertData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		var err error
 		var initPtrs sqptr.SQPtrs
 
@@ -337,12 +330,7 @@ func TestUpdate(t *testing.T) {
 }
 func testUpdateFunc(d UpdateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
 
 		// Create table & data
 		profile := sqprofile.CreateSQProfile()
@@ -463,8 +451,8 @@ func TestDelete(t *testing.T) {
 	// Testing Data Setup
 	profile := sqprofile.CreateSQProfile()
 	cols := []sqtables.ColDef{
-		sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-		sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
+		{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
+		{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
 	}
 	tab := sqtables.CreateTableDef("testDeleteRedo", cols...)
 	err := sqtables.CreateTable(profile, tab)
@@ -519,12 +507,8 @@ func TestDelete(t *testing.T) {
 
 func testDeleteFunc(d DeleteData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		var err error
 		s := redo.NewDeleteRows(d.TableName, d.RowPtrs)
 		// Test Set/Get ID
@@ -603,8 +587,8 @@ type DropTableData struct {
 func TestDropTable(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	cols := []sqtables.ColDef{
-		sqtables.ColDef{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-		sqtables.ColDef{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
+		{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
+		{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
 	}
 	s := redo.NewCreateDDL("testredodrop", cols)
 	if s.Recreate(profile) != nil {
@@ -636,12 +620,8 @@ func TestDropTable(t *testing.T) {
 
 func testDropTableFunc(d DropTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf(d.TestName + " panicked unexpectedly")
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		s := redo.NewDropDDL(d.TableName)
 
 		// Test Set/Get ID
@@ -726,12 +706,9 @@ func TestDecodeErr(t *testing.T) {
 	s2 := redo.NewDeleteRows("test", sqptr.SQPtrs{1, 2, 3})
 
 	t.Run("Create", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Errorf("%s did not panic", t.Name())
-			}
-		}() // Test Encode/Decode
+		defer sqtest.PanicTestRecovery(t, true)
+
+		// Test Encode/Decode
 		cdr := s.Encode()
 		res := &redo.CreateDDL{}
 		res.Decode(cdr)
@@ -742,12 +719,9 @@ func TestDecodeErr(t *testing.T) {
 
 	})
 	t.Run("Insert", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Errorf("%s did not panic", t.Name())
-			}
-		}() // Test Encode/Decode
+		defer sqtest.PanicTestRecovery(t, true)
+
+		// Test Encode/Decode
 		cdr := s.Encode()
 		res := &redo.InsertRows{}
 		res.Decode(cdr)
@@ -758,12 +732,9 @@ func TestDecodeErr(t *testing.T) {
 
 	})
 	t.Run("Update", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Errorf("%s did not panic", t.Name())
-			}
-		}() // Test Encode/Decode
+		defer sqtest.PanicTestRecovery(t, true)
+
+		// Test Encode/Decode
 		cdr := s.Encode()
 		res := &redo.UpdateRows{}
 		res.Decode(cdr)
@@ -773,12 +744,9 @@ func TestDecodeErr(t *testing.T) {
 		}
 	})
 	t.Run("Delete", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Errorf("%s did not panic", t.Name())
-			}
-		}() // Test Encode/Decode
+		defer sqtest.PanicTestRecovery(t, true)
+
+		// Test Encode/Decode
 		cdr := s.Encode()
 		res := &redo.DeleteRows{}
 		res.Decode(cdr)
@@ -788,12 +756,9 @@ func TestDecodeErr(t *testing.T) {
 		}
 	})
 	t.Run("Drop", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Errorf("%s did not panic", t.Name())
-			}
-		}() // Test Encode/Decode
+		defer sqtest.PanicTestRecovery(t, true)
+
+		// Test Encode/Decode
 		cdr := s2.Encode()
 		res := &redo.DropDDL{}
 		res.Decode(cdr)

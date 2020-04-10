@@ -3,11 +3,10 @@ package cmd_test
 import (
 	"fmt"
 	"reflect"
-	"runtime"
-	"runtime/debug"
 	"testing"
 
 	"github.com/wilphi/sqsrv/cmd"
+	"github.com/wilphi/sqsrv/sq"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
@@ -31,23 +30,12 @@ type SelectData struct {
 
 func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r != nil {
-				_, fn, line, _ := runtime.Caller(3)
-				t.Errorf("%s panicked unexpectedly: %s:%d %v", t.Name(), fn, line, r)
-				debug.PrintStack()
-			}
-		}()
+		defer sqtest.PanicTestRecovery(t, false)
+
 		tkns := tokens.Tokenize(d.Command)
 		_, data, err := cmd.Select(profile, tkns)
-		if msg, cont := sqtest.CheckErr(err, d.ExpErr); !cont {
-			if !cont {
-				if msg != "" {
-					t.Error(msg)
-				}
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
 		}
 
 		if data == nil {
@@ -99,9 +87,9 @@ func TestSelect(t *testing.T) {
 	// Make sure datasets are by default in RowID order
 	sqtables.RowOrder = true
 
-	sqtest.ProcessSQFile("./testdata/selecttests.sq")
-	sqtest.ProcessSQFile("./testdata/multitable.sq")
-	sqtest.ProcessSQFile("./testdata/distinctdata.sq")
+	sq.ProcessSQFile("./testdata/selecttests.sq")
+	sq.ProcessSQFile("./testdata/multitable.sq")
+	sq.ProcessSQFile("./testdata/distinctdata.sq")
 
 	data := []SelectData{
 
@@ -845,7 +833,15 @@ func TestSelect(t *testing.T) {
 					{2, "Sheffield", 53.3667, -1.5, "GBR"},
 					{0, "Tofino", 49.1521, -125.9031, "CAN"},
 				},
-			}*/
+			},*/
+		{
+			TestName: "Select COUNT with alias",
+			Command:  "SELECT count() test from person",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"test"},
+			ExpVals:  sqtypes.RawVals{{100}},
+		},
 	}
 
 	for i, row := range data {
