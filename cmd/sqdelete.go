@@ -25,6 +25,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	var tableName string
 	var td *sqtables.TableDef
 	var whereExpr sqtables.Expr
+	var tkn tokens.Token
 	log.Info("Delete statement...")
 
 	numRows = -1
@@ -33,7 +34,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	tkns.Remove()
 
 	// eat the From
-	if tkns.Test(tokens.From) == "" {
+	if tkns.Test(tokens.From) == nil {
 		// no FROM
 		err = sqerr.NewSyntax("Expecting FROM")
 		return
@@ -41,10 +42,11 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	tkns.Remove()
 
 	//expecting Ident (tablename)
-	if tableName = tkns.Test(tokens.Ident); tableName == "" {
+	if tkn = tkns.Test(tokens.Ident); tkn == nil {
 		err = sqerr.NewSyntax("Expecting table name in Delete statement")
 		return
 	}
+	tableName = tkn.(*tokens.ValueToken).Value()
 	tkns.Remove()
 
 	// get the TableDef
@@ -58,9 +60,9 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	}
 
 	// Optional Where clause processing goes here
-	if tkns.Test(tokens.Where) != "" {
+	if tkns.Test(tokens.Where) != nil {
 		tkns.Remove()
-		whereExpr, err = ParseWhereClause(tkns, tokens.Words[tokens.Order])
+		whereExpr, err = ParseWhereClause(tkns, tokens.Order)
 
 		if err != nil {
 			return
@@ -72,7 +74,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 
 	}
 	if !tkns.IsEmpty() {
-		err = sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+		err = sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
 		return
 	}
 

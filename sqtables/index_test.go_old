@@ -17,11 +17,11 @@ func TestNewIndex(t *testing.T) {
 	// Setup table for testing
 	colNames := []string{"rownum", "col1", "col2", "col3", "col4"}
 	cols := []sqtables.ColDef{
-		sqtables.NewColDef(colNames[0], tokens.TypeInt, false),
-		sqtables.NewColDef(colNames[1], tokens.TypeInt, false),
-		sqtables.NewColDef(colNames[2], tokens.TypeString, false),
-		sqtables.NewColDef(colNames[3], tokens.TypeInt, false),
-		sqtables.NewColDef(colNames[4], tokens.TypeBool, false),
+		sqtables.NewColDef(colNames[0], tokens.Int, false),
+		sqtables.NewColDef(colNames[1], tokens.Int, false),
+		sqtables.NewColDef(colNames[2], tokens.String, false),
+		sqtables.NewColDef(colNames[3], tokens.Int, false),
+		sqtables.NewColDef(colNames[4], tokens.Bool, false),
 	}
 	colList := sqtables.NewColListDefs(cols)
 	testT := sqtables.CreateTableDef("indextest", cols...)

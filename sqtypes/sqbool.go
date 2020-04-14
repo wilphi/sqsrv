@@ -16,8 +16,8 @@ func (b SQBool) ToString() string {
 }
 
 // Type - returns the type
-func (b SQBool) Type() string {
-	return tokens.TypeBool
+func (b SQBool) Type() tokens.TokenID {
+	return tokens.Bool
 }
 
 // Len -
@@ -58,7 +58,7 @@ func (b SQBool) Write(c *sqbin.Codec) {
 }
 
 // Operation transforms two SQBool values based on given operator
-func (b SQBool) Operation(op string, v Value) (retVal Value, err error) {
+func (b SQBool) Operation(op tokens.TokenID, v Value) (retVal Value, err error) {
 	vBool, ok := v.(SQBool)
 	if !ok {
 		if v.IsNull() {
@@ -73,42 +73,42 @@ func (b SQBool) Operation(op string, v Value) (retVal Value, err error) {
 		retVal = NewSQBool(b.Val && vBool.Val)
 	case tokens.Or:
 		retVal = NewSQBool(b.Val || vBool.Val)
-	case "=":
+	case tokens.Equal:
 		retVal = NewSQBool(b.Val == vBool.Val)
-	case "!=":
+	case tokens.NotEqual:
 		retVal = NewSQBool(b.Val != vBool.Val)
 	default:
-		err = sqerr.NewSyntax("Invalid Bool Operator " + op)
+		err = sqerr.NewSyntax("Invalid Bool Operator " + tokens.IDName(op))
 		return
 	}
 	return
 }
 
 // Convert returns the value converted to the given type
-func (b SQBool) Convert(newtype string) (retVal Value, err error) {
+func (b SQBool) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 	switch newtype {
-	case tokens.TypeInt:
+	case tokens.Int:
 		if b.Val {
 			retVal = NewSQInt(1)
 		} else {
 			retVal = NewSQInt(0)
 		}
-	case tokens.TypeBool:
+	case tokens.Bool:
 		retVal = b
-	case tokens.TypeFloat:
+	case tokens.Float:
 		if b.Val {
 			retVal = NewSQFloat(1)
 		} else {
 			retVal = NewSQFloat(0)
 		}
-	case tokens.TypeString:
+	case tokens.String:
 		if b.Val {
 			retVal = NewSQString("true")
 		} else {
 			retVal = NewSQString("false")
 		}
 	default:
-		err = sqerr.Newf("A value of type %s can not be converted to type %s", b.Type(), newtype)
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", tokens.IDName(b.Type()), tokens.IDName(newtype))
 	}
 	return
 }

@@ -81,7 +81,7 @@ func TestDataSet(t *testing.T) {
 	//colStr := []string{"col2", "col1"}
 	colStrErr := []string{"col2", "col1", "colX"}
 
-	colds := []sqtables.ColDef{{ColName: "col2", ColType: "STRING"}, {ColName: "col1", ColType: "INT"}}
+	colds := []sqtables.ColDef{{ColName: "col2", ColType: tokens.String}, {ColName: "col1", ColType: tokens.Int}}
 	exprCols := sqtables.ColsToExpr(sqtables.NewColListDefs(colds))
 	emptyExprCols := &sqtables.ExprList{}
 	exprColsErr := sqtables.ColsToExpr(sqtables.NewColListNames(colStrErr))
@@ -399,14 +399,14 @@ func TestGroupBy(t *testing.T) {
 	}
 
 	tables := sqtables.NewTableListFromTableDef(profile, tab1)
-	firstnameCD := sqtables.ColDef{ColName: "firstname", ColType: "STRING"}
-	lastnameCD := sqtables.ColDef{ColName: "lastname", ColType: "STRING"}
+	firstnameCD := sqtables.ColDef{ColName: "firstname", ColType: tokens.String}
+	lastnameCD := sqtables.ColDef{ColName: "lastname", ColType: tokens.String}
 	firstNameExp := sqtables.NewColExpr(firstnameCD)
 	lastNameExp := sqtables.NewColExpr(lastnameCD)
 	multitable := sqtables.NewTableListFromTableDef(profile, tab1, tab2)
-	cityNameCD := sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: tab2.GetName(profile), DisplayTableName: true}
+	cityNameCD := sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: tab2.GetName(profile), DisplayTableName: true}
 	cityNameExp := sqtables.NewColExpr(cityNameCD)
-	ageExp := sqtables.NewColExpr(sqtables.ColDef{ColName: "age", ColType: "INT"})
+	ageExp := sqtables.NewColExpr(sqtables.ColDef{ColName: "age", ColType: tokens.Int})
 	data := []GroupByData{
 		{
 			TestName: "GroupBy Dataset No Group Cols",
@@ -686,7 +686,7 @@ func TestGroupBy(t *testing.T) {
 		{
 			TestName: "Dataset GroupBy non aggregate function",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewFuncExpr(tokens.TypeString, ageExp)),
+			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewFuncExpr(tokens.String, ageExp)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},

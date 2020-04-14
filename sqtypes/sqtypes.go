@@ -34,15 +34,15 @@ const (
 // Value interface
 type Value interface {
 	ToString() string
-	Type() string
+	Type() tokens.TokenID
 	Len() int
 	Equal(v Value) bool
 	LessThan(v Value) bool
 	GreaterThan(v Value) bool
 	IsNull() bool
 	Write(c *sqbin.Codec)
-	Operation(op string, v Value) (Value, error)
-	Convert(newtype string) (Value, error)
+	Operation(op tokens.TokenID, v Value) (Value, error)
+	Convert(newtype tokens.TokenID) (Value, error)
 }
 
 //Raw is a type that can be converted into sq Values
@@ -109,22 +109,24 @@ type SQFloat struct {
 func CreateValueFromToken(tkn tokens.Token) (Value, error) {
 	var retVal Value
 
-	switch tkn.GetName() {
+	switch tkn.ID() {
 	case tokens.Num:
+		val := tkn.(*tokens.ValueToken).Value()
 		// try to convert to int
-		i, err := strconv.Atoi(tkn.GetValue())
+		i, err := strconv.Atoi(val)
 		if err != nil {
 			//If not Int try to convert to float64
-			fp, err := strconv.ParseFloat(tkn.GetValue(), 64)
+			fp, err := strconv.ParseFloat(val, 64)
 			if err != nil {
-				return nil, sqerr.NewSyntaxf("%q is not a number", tkn.GetValue())
+				return nil, sqerr.NewSyntaxf("%q is not a number", val)
 			}
 			retVal = NewSQFloat(fp)
 		} else {
 			retVal = NewSQInt(i)
 		}
 	case tokens.Quote:
-		retVal = NewSQString(tkn.GetValue())
+		val := tkn.(*tokens.ValueToken).Value()
+		retVal = NewSQString(val)
 	case tokens.RWTrue:
 		retVal = NewSQBool(true)
 	case tokens.RWFalse:
@@ -132,7 +134,7 @@ func CreateValueFromToken(tkn tokens.Token) (Value, error) {
 	case tokens.Null:
 		retVal = NewSQNull()
 	default:
-		return nil, sqerr.NewInternalf("%q is not a valid Value", tkn.GetString())
+		return nil, sqerr.NewInternalf("%q is not a valid Value", tkn.String())
 	}
 	return retVal, nil
 }
@@ -205,7 +207,7 @@ func Compare2DValue(a, b [][]Value, aName, bName string, doSort bool) string {
 	for i, row := range a {
 		for j, val := range row {
 			if val.Type() != b[i][j].Type() {
-				return fmt.Sprintf("Type Mismatch: %s[%d][%d] = %s Does not match %s[%d][%d] = %s", aName, i, j, a[i][j].Type(), bName, i, j, b[i][j].Type())
+				return fmt.Sprintf("Type Mismatch: %s[%d][%d] = %s Does not match %s[%d][%d] = %s", aName, i, j, tokens.IDName(a[i][j].Type()), bName, i, j, tokens.IDName(b[i][j].Type()))
 			}
 			if !val.Equal(b[i][j]) {
 				if !(val.IsNull() && b[i][j].IsNull()) {

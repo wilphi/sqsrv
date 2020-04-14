@@ -21,7 +21,7 @@ import (
 )
 
 // SQVersion  - version of software
-const SQVersion = "SQSRV v0.11.0"
+const SQVersion = "SQSRV v0.12.0"
 
 //Options are the values set by the flag package
 var Options struct {
@@ -168,7 +168,7 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 		var data *sqtables.DataSet
 		var isShutdown ShutdownType
 		isShutdown = NoAction
-		if tkList.Len() > 0 && tkList.Peek().GetName() == tokens.Ident {
+		if tkList.Len() > 0 && tkList.Peek().ID() == tokens.Ident {
 			cmdFunc := GetCmdFunc(*tkList)
 			if cmdFunc != nil {
 				resp, isShutdown, err = cmdFunc(profile, tkList)
@@ -197,7 +197,8 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 		} else {
 			dispFunc := GetDispatchFunc(*tkList)
 			if dispFunc != nil {
-				if tkList.Peek().GetValue() == "checkpoint" {
+				vtkn, ok := tkList.Peek().(*tokens.ValueToken)
+				if ok && vtkn.Value() == "checkpoint" {
 					wg.Add(1)
 					resp.Msg, data, err = dispFunc(profile, tkList)
 					time.Sleep(10 * time.Second)

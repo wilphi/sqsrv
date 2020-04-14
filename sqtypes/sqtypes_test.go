@@ -60,12 +60,12 @@ func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 	}
 }
 
-func testValueType(v sqtypes.Value, expType string) func(*testing.T) {
+func testValueType(v sqtypes.Value, expType tokens.TokenID) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		if v.Type() != expType {
-			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", expType, v.Type()))
+			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", tokens.IDName(expType), tokens.IDName(v.Type())))
 		}
 	}
 }
@@ -74,7 +74,7 @@ func testValueToString(v sqtypes.Value, expStr string) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		if v.ToString() != expStr {
-			t.Error(fmt.Sprintf("ToString for type %s produced unexpected results: Actual %q, Expected %q", v.Type(), v.ToString(), expStr))
+			t.Error(fmt.Sprintf("ToString for type %s produced unexpected results: Actual %q, Expected %q", tokens.IDName(v.Type()), v.ToString(), expStr))
 		}
 	}
 }
@@ -83,7 +83,7 @@ func testGetLen(v sqtypes.Value, expLen int) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		if v.Len() != expLen {
-			t.Error(fmt.Sprintf("The expected Lenght of %d does not match actual value of %d for type %s", expLen, v.Len(), v.Type()))
+			t.Error(fmt.Sprintf("The expected Lenght of %d does not match actual value of %d for type %s", expLen, v.Len(), tokens.IDName(v.Type())))
 		}
 	}
 }
@@ -161,7 +161,7 @@ func testWriteRead(a sqtypes.Value) func(*testing.T) {
 type OperationData struct {
 	name   string
 	a, b   sqtypes.Value
-	op     string
+	op     tokens.TokenID
 	ExpVal sqtypes.Value
 	ExpErr string
 }
@@ -190,7 +190,7 @@ func TestSQInt(t *testing.T) {
 	b := sqtypes.NewSQInt(34)
 	equalA := sqtypes.NewSQInt(1234)
 	notEqualA := sqtypes.NewSQInt(4321)
-	t.Run("Type Test", testValueType(v, tokens.TypeInt))
+	t.Run("Type Test", testValueType(v, tokens.Int))
 	t.Run("To String Test", testValueToString(v, "987654321"))
 	t.Run("GetLen Test", testGetLen(v, sqtypes.SQIntWidth))
 	t.Run("Equal Test:equal", testEqual(a, equalA, true))
@@ -204,29 +204,29 @@ func TestSQInt(t *testing.T) {
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
 	data := []OperationData{
-		{name: "int+int", a: a, b: b, op: "+", ExpVal: sqtypes.NewSQInt(1268), ExpErr: ""},
-		{name: "int-int", a: a, b: b, op: "-", ExpVal: sqtypes.NewSQInt(1200), ExpErr: ""},
-		{name: "int*int", a: a, b: b, op: "*", ExpVal: sqtypes.NewSQInt(41956), ExpErr: ""},
-		{name: "int div int", a: a, b: b, op: "/", ExpVal: sqtypes.NewSQInt(36), ExpErr: ""},
-		{name: "int%int", a: a, b: b, op: "%", ExpVal: sqtypes.NewSQInt(10), ExpErr: ""},
-		{name: "Invalid operator", a: a, b: b, op: "~", ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid Int Operator ~"},
-		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
-		{name: "Type Mismatch string", a: a, b: sqtypes.NewSQString("test"), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: test is not an Int"},
-		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not an Int"},
-		{name: "int=int : false", a: a, b: notEqualA, op: "=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "int=int : true", a: a, b: equalA, op: "=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "int!=int : true", a: a, b: notEqualA, op: "!=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "int!=int : false", a: a, b: equalA, op: "!=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "int<int : true", a: a, b: notEqualA, op: "<", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "int<int : false", a: a, b: equalA, op: "<", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "int>int : true", a: a, b: b, op: ">", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "int>int : false", a: a, b: equalA, op: ">", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "int<=int : true", a: a, b: notEqualA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "int<=int : false", a: a, b: b, op: "<=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "int<=int : Equal true", a: a, b: equalA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "int>=int : true", a: a, b: b, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "int>=int : false", a: a, b: notEqualA, op: ">=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "int>=int : true", a: a, b: equalA, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int+int", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQInt(1268), ExpErr: ""},
+		{name: "int-int", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: ""},
+		{name: "int*int", a: a, b: b, op: tokens.Asterix, ExpVal: sqtypes.NewSQInt(41956), ExpErr: ""},
+		{name: "int div int", a: a, b: b, op: tokens.Divide, ExpVal: sqtypes.NewSQInt(36), ExpErr: ""},
+		{name: "int%int", a: a, b: b, op: tokens.Modulus, ExpVal: sqtypes.NewSQInt(10), ExpErr: ""},
+		{name: "Invalid operator", a: a, b: b, op: tokens.Asc, ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid Int Operator ASC"},
+		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
+		{name: "Type Mismatch string", a: a, b: sqtypes.NewSQString("test"), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: test is not an Int"},
+		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not an Int"},
+		{name: "int=int : false", a: a, b: notEqualA, op: tokens.Equal, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int=int : true", a: a, b: equalA, op: tokens.Equal, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int!=int : true", a: a, b: notEqualA, op: tokens.NotEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int!=int : false", a: a, b: equalA, op: tokens.NotEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int<int : true", a: a, b: notEqualA, op: tokens.LessThan, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int<int : false", a: a, b: equalA, op: tokens.LessThan, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int>int : true", a: a, b: b, op: tokens.GreaterThan, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int>int : false", a: a, b: equalA, op: tokens.GreaterThan, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int<=int : true", a: a, b: notEqualA, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int<=int : false", a: a, b: b, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int<=int : Equal true", a: a, b: equalA, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int>=int : true", a: a, b: b, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "int>=int : false", a: a, b: notEqualA, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "int>=int : true", a: a, b: equalA, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
 	}
 	for _, row := range data {
 		t.Run(row.name, testOperation(row))
@@ -238,7 +238,7 @@ func TestSQString(t *testing.T) {
 	a := sqtypes.NewSQString("new test string")
 	equalA := sqtypes.NewSQString("new test string")
 	notEqualA := sqtypes.NewSQString("zz test string")
-	t.Run("Type Test", testValueType(v, tokens.TypeString))
+	t.Run("Type Test", testValueType(v, tokens.String))
 	t.Run("To String Test", testValueToString(v, "c test string"))
 	t.Run("GetLen Test", testGetLen(v, -sqtypes.SQStringWidth))
 	t.Run("Equal Test:equal", testEqual(a, equalA, true))
@@ -252,29 +252,29 @@ func TestSQString(t *testing.T) {
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
 	data := []OperationData{
-		{name: "str+str", a: a, b: sqtypes.NewSQString(" !!!"), op: "+", ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: ""},
-		{name: "str-str", a: a, b: sqtypes.NewSQString(" !!!"), op: "-", ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid String Operator -"},
-		{name: "str*str", a: a, b: sqtypes.NewSQString(" !!!"), op: "*", ExpVal: sqtypes.NewSQInt(41956), ExpErr: "Syntax Error: Invalid String Operator *"},
-		{name: "str div str", a: a, b: sqtypes.NewSQString(" !!!"), op: "/", ExpVal: sqtypes.NewSQInt(36), ExpErr: "Syntax Error: Invalid String Operator /"},
-		{name: "str%str", a: a, b: sqtypes.NewSQString(" !!!"), op: "%", ExpVal: sqtypes.NewSQInt(10), ExpErr: "Syntax Error: Invalid String Operator %"},
-		{name: "Invalid operator", a: a, b: sqtypes.NewSQString(" !!!"), op: "~", ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid String Operator ~"},
-		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
-		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a String"},
-		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not a String"},
-		{name: "str=str : false", a: a, b: notEqualA, op: "=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "str=str : true", a: a, b: equalA, op: "=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "str!=str : true", a: a, b: notEqualA, op: "!=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "str!=str : false", a: a, b: equalA, op: "!=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "str<str : true", a: a, b: notEqualA, op: "<", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "str<str : false", a: a, b: equalA, op: "<", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "str>str : true", a: a, b: v, op: ">", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "str>str : false", a: a, b: equalA, op: ">", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "str<=str : true", a: a, b: notEqualA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "str<=str : false", a: a, b: v, op: "<=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "str<=str : Equal true", a: a, b: equalA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "str>=str : true", a: a, b: v, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "str>=str : false", a: a, b: notEqualA, op: ">=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "str>=str : true", a: a, b: equalA, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str+str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Plus, ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: ""},
+		{name: "str-str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid String Operator -"},
+		{name: "str*str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Asterix, ExpVal: sqtypes.NewSQInt(41956), ExpErr: "Syntax Error: Invalid String Operator *"},
+		{name: "str div str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Divide, ExpVal: sqtypes.NewSQInt(36), ExpErr: "Syntax Error: Invalid String Operator /"},
+		{name: "str%str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Modulus, ExpVal: sqtypes.NewSQInt(10), ExpErr: "Syntax Error: Invalid String Operator %"},
+		{name: "Invalid operator", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Asc, ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid String Operator ASC"},
+		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
+		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a String"},
+		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not a String"},
+		{name: "str=str : false", a: a, b: notEqualA, op: tokens.Equal, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str=str : true", a: a, b: equalA, op: tokens.Equal, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str!=str : true", a: a, b: notEqualA, op: tokens.NotEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str!=str : false", a: a, b: equalA, op: tokens.NotEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str<str : true", a: a, b: notEqualA, op: tokens.LessThan, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str<str : false", a: a, b: equalA, op: tokens.LessThan, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str>str : true", a: a, b: v, op: tokens.GreaterThan, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str>str : false", a: a, b: equalA, op: tokens.GreaterThan, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str<=str : true", a: a, b: notEqualA, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str<=str : false", a: a, b: v, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str<=str : Equal true", a: a, b: equalA, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str>=str : true", a: a, b: v, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "str>=str : false", a: a, b: notEqualA, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "str>=str : true", a: a, b: equalA, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
 	}
 	for _, row := range data {
 		t.Run(row.name, testOperation(row))
@@ -286,7 +286,7 @@ func TestSQBool(t *testing.T) {
 	b := sqtypes.NewSQBool(false)
 	equalA := sqtypes.NewSQBool(true)
 	notEqualA := sqtypes.NewSQBool(false)
-	t.Run("Type Test", testValueType(v, tokens.TypeBool))
+	t.Run("Type Test", testValueType(v, tokens.Bool))
 	t.Run("To String Test", testValueToString(v, "true"))
 	t.Run("GetLen Test", testGetLen(v, sqtypes.SQBoolWidth))
 	t.Run("Equal Test:equal", testEqual(a, equalA, true))
@@ -301,23 +301,23 @@ func TestSQBool(t *testing.T) {
 	t.Run("Write/Read true", testWriteRead(a))
 	t.Run("Write/Read false", testWriteRead(notEqualA))
 	data := []OperationData{
-		{name: "bool+bool", a: a, b: b, op: "+", ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: "Syntax Error: Invalid Bool Operator +"},
-		{name: "bool-bool", a: a, b: b, op: "-", ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid Bool Operator -"},
-		{name: "bool*bool", a: a, b: b, op: "*", ExpVal: sqtypes.NewSQInt(41956), ExpErr: "Syntax Error: Invalid Bool Operator *"},
-		{name: "bool div bool", a: a, b: b, op: "/", ExpVal: sqtypes.NewSQInt(36), ExpErr: "Syntax Error: Invalid Bool Operator /"},
-		{name: "bool%bool", a: a, b: b, op: "%", ExpVal: sqtypes.NewSQInt(10), ExpErr: "Syntax Error: Invalid Bool Operator %"},
-		{name: "Invalid operator", a: a, b: b, op: "~", ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid Bool Operator ~"},
-		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
-		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a Bool"},
-		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not a Bool"},
-		{name: "bool=bool : false", a: a, b: notEqualA, op: "=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "bool=bool : true", a: a, b: equalA, op: "=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "bool!=bool : true", a: a, b: notEqualA, op: "!=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "bool!=bool : false", a: a, b: equalA, op: "!=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "bool<bool : true", a: a, b: notEqualA, op: "<", ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator <"},
-		{name: "bool>bool : true", a: a, b: v, op: ">", ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator >"},
-		{name: "bool<=bool : true", a: a, b: notEqualA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator <="},
-		{name: "bool>=bool : true", a: a, b: v, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator >="},
+		{name: "bool+bool", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: "Syntax Error: Invalid Bool Operator +"},
+		{name: "bool-bool", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid Bool Operator -"},
+		{name: "bool*bool", a: a, b: b, op: tokens.Asterix, ExpVal: sqtypes.NewSQInt(41956), ExpErr: "Syntax Error: Invalid Bool Operator *"},
+		{name: "bool div bool", a: a, b: b, op: tokens.Divide, ExpVal: sqtypes.NewSQInt(36), ExpErr: "Syntax Error: Invalid Bool Operator /"},
+		{name: "bool%bool", a: a, b: b, op: tokens.Modulus, ExpVal: sqtypes.NewSQInt(10), ExpErr: "Syntax Error: Invalid Bool Operator %"},
+		{name: "Invalid operator", a: a, b: b, op: tokens.Asc, ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid Bool Operator ASC"},
+		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
+		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a Bool"},
+		{name: "Type Mismatch float", a: a, b: sqtypes.NewSQFloat(1.01), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 1.01 is not a Bool"},
+		{name: "bool=bool : false", a: a, b: notEqualA, op: tokens.Equal, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "bool=bool : true", a: a, b: equalA, op: tokens.Equal, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "bool!=bool : true", a: a, b: notEqualA, op: tokens.NotEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "bool!=bool : false", a: a, b: equalA, op: tokens.NotEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "bool<bool : true", a: a, b: notEqualA, op: tokens.LessThan, ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator <"},
+		{name: "bool>bool : true", a: a, b: v, op: tokens.GreaterThan, ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator >"},
+		{name: "bool<=bool : true", a: a, b: notEqualA, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator <="},
+		{name: "bool>=bool : true", a: a, b: v, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: "Syntax Error: Invalid Bool Operator >="},
 		{name: "bool and bool : true", a: a, b: v, op: tokens.And, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
 		{name: "bool and bool : false", a: a, b: b, op: tokens.And, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
 		{name: "bool or bool : true", a: a, b: b, op: tokens.Or, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
@@ -333,7 +333,7 @@ func TestSQNull(t *testing.T) {
 	equalA := sqtypes.NewSQNull()
 	notEqualA := sqtypes.NewSQNull()
 	t.Run("Type Test", testValueType(v, tokens.Null))
-	t.Run("To String Test", testValueToString(v, tokens.Null))
+	t.Run("To String Test", testValueToString(v, tokens.IDName(tokens.Null)))
 	t.Run("GetLen Test", testGetLen(v, 7))
 	t.Run("Equal Test:equal", testEqual(a, equalA, false))
 	t.Run("Equal Test:not equal", testEqual(a, notEqualA, false))
@@ -345,7 +345,7 @@ func TestSQNull(t *testing.T) {
 	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
 	t.Run("IsNull", testisNull(a, true))
 	t.Run("Write/Read", testWriteRead(a))
-	t.Run("Operation", testOperation(OperationData{name: "Operation", a: a, b: notEqualA, op: "+", ExpVal: v, ExpErr: ""}))
+	t.Run("Operation", testOperation(OperationData{name: "Operation", a: a, b: notEqualA, op: tokens.Plus, ExpVal: v, ExpErr: ""}))
 
 }
 
@@ -355,7 +355,7 @@ func TestSQFloat(t *testing.T) {
 	b := sqtypes.NewSQFloat(5.9)
 	equalA := sqtypes.NewSQFloat(1234.9876)
 	notEqualA := sqtypes.NewSQFloat(4321.0)
-	t.Run("Type Test", testValueType(v, tokens.TypeFloat))
+	t.Run("Type Test", testValueType(v, tokens.Float))
 	t.Run("To String Test", testValueToString(v, "9.876543210987655E+18"))
 	t.Run("To String Test", testValueToString(a, "1234.9876"))
 	t.Run("GetLen Test", testGetLen(v, sqtypes.SQFloatWidth))
@@ -370,29 +370,29 @@ func TestSQFloat(t *testing.T) {
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
 	data := []OperationData{
-		{name: "float+float", a: a, b: b, op: "+", ExpVal: sqtypes.NewSQFloat(1240.8876), ExpErr: ""},
-		{name: "float-float", a: a, b: b, op: "-", ExpVal: sqtypes.NewSQFloat(1229.0875999999998), ExpErr: ""},
-		{name: "float*float", a: a, b: b, op: "*", ExpVal: sqtypes.NewSQFloat(7286.42684), ExpErr: ""},
-		{name: "float div float", a: a, b: b, op: "/", ExpVal: sqtypes.NewSQFloat(209.3199322033898), ExpErr: ""},
-		{name: "float%float", a: a, b: b, op: "%", ExpVal: sqtypes.NewSQInt(10), ExpErr: "Syntax Error: Invalid Float Operator %"},
-		{name: "Invalid operator", a: a, b: b, op: "~", ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid Float Operator ~"},
-		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
-		{name: "Type Mismatch string", a: a, b: sqtypes.NewSQString("test"), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: test is not a Float"},
-		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: "+", ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a Float"},
-		{name: "float=float : false", a: a, b: notEqualA, op: "=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "float=float : true", a: a, b: equalA, op: "=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "float!=float : true", a: a, b: notEqualA, op: "!=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "float!=float : false", a: a, b: equalA, op: "!=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "float<float : true", a: a, b: notEqualA, op: "<", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "float<float : false", a: a, b: equalA, op: "<", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "float>float : true", a: a, b: b, op: ">", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "float>float : false", a: a, b: equalA, op: ">", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "float<=float : true", a: a, b: notEqualA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "float<=float : false", a: a, b: b, op: "<=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "float<=float : Equal true", a: a, b: equalA, op: "<=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "float>=float : true", a: a, b: b, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
-		{name: "float>=float : false", a: a, b: notEqualA, op: ">=", ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
-		{name: "float>=float : true", a: a, b: equalA, op: ">=", ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float+float", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQFloat(1240.8876), ExpErr: ""},
+		{name: "float-float", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQFloat(1229.0875999999998), ExpErr: ""},
+		{name: "float*float", a: a, b: b, op: tokens.Asterix, ExpVal: sqtypes.NewSQFloat(7286.42684), ExpErr: ""},
+		{name: "float div float", a: a, b: b, op: tokens.Divide, ExpVal: sqtypes.NewSQFloat(209.3199322033898), ExpErr: ""},
+		{name: "float%float", a: a, b: b, op: tokens.Modulus, ExpVal: sqtypes.NewSQInt(10), ExpErr: "Syntax Error: Invalid Float Operator %"},
+		{name: "Invalid operator", a: a, b: b, op: tokens.Asc, ExpVal: sqtypes.NewSQInt(1268), ExpErr: "Syntax Error: Invalid Float Operator ASC"},
+		{name: "Null Value", a: a, b: sqtypes.NewSQNull(), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: ""},
+		{name: "Type Mismatch string", a: a, b: sqtypes.NewSQString("test"), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: test is not a Float"},
+		{name: "Type Mismatch int", a: a, b: sqtypes.NewSQInt(123), op: tokens.Plus, ExpVal: sqtypes.NewSQNull(), ExpErr: "Error: Type Mismatch: 123 is not a Float"},
+		{name: "float=float : false", a: a, b: notEqualA, op: tokens.Equal, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float=float : true", a: a, b: equalA, op: tokens.Equal, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float!=float : true", a: a, b: notEqualA, op: tokens.NotEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float!=float : false", a: a, b: equalA, op: tokens.NotEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float<float : true", a: a, b: notEqualA, op: tokens.LessThan, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float<float : false", a: a, b: equalA, op: tokens.LessThan, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float>float : true", a: a, b: b, op: tokens.GreaterThan, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float>float : false", a: a, b: equalA, op: tokens.GreaterThan, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float<=float : true", a: a, b: notEqualA, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float<=float : false", a: a, b: b, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float<=float : Equal true", a: a, b: equalA, op: tokens.LessThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float>=float : true", a: a, b: b, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
+		{name: "float>=float : false", a: a, b: notEqualA, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(false), ExpErr: ""},
+		{name: "float>=float : true", a: a, b: equalA, op: tokens.GreaterThanEqual, ExpVal: sqtypes.NewSQBool(true), ExpErr: ""},
 	}
 	for _, row := range data {
 		t.Run(row.name, testOperation(row))
@@ -402,7 +402,7 @@ func TestSQFloat(t *testing.T) {
 type ConvertData struct {
 	TestName string
 	V        sqtypes.Value
-	NewType  string
+	NewType  tokens.TokenID
 	ExpVal   sqtypes.Raw
 	ExpErr   string
 }
@@ -430,189 +430,189 @@ func TestConvert(t *testing.T) {
 		{
 			TestName: "Int to Int",
 			V:        sqtypes.NewSQInt(1234),
-			NewType:  tokens.TypeInt,
+			NewType:  tokens.Int,
 			ExpVal:   1234,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Int to Bool",
 			V:        sqtypes.NewSQInt(1234),
-			NewType:  tokens.TypeBool,
+			NewType:  tokens.Bool,
 			ExpVal:   true,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Int to Float",
 			V:        sqtypes.NewSQInt(1234),
-			NewType:  tokens.TypeFloat,
+			NewType:  tokens.Float,
 			ExpVal:   1234.0,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Int to String",
 			V:        sqtypes.NewSQInt(1234),
-			NewType:  tokens.TypeString,
+			NewType:  tokens.String,
 			ExpVal:   "1234",
 			ExpErr:   "",
 		},
 		{
 			TestName: "Int to Invalid",
 			V:        sqtypes.NewSQInt(1234),
-			NewType:  "Invalid",
+			NewType:  tokens.NilToken,
 			ExpVal:   "1234",
 			ExpErr:   "Error: A value of type INT can not be converted to type Invalid",
 		},
 		{
 			TestName: "Bool to Int True",
 			V:        sqtypes.NewSQBool(true),
-			NewType:  tokens.TypeInt,
+			NewType:  tokens.Int,
 			ExpVal:   1,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Bool to Int False",
 			V:        sqtypes.NewSQBool(false),
-			NewType:  tokens.TypeInt,
+			NewType:  tokens.Int,
 			ExpVal:   0,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Bool to Bool",
 			V:        sqtypes.NewSQBool(true),
-			NewType:  tokens.TypeBool,
+			NewType:  tokens.Bool,
 			ExpVal:   true,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Bool to Float True",
 			V:        sqtypes.NewSQBool(true),
-			NewType:  tokens.TypeFloat,
+			NewType:  tokens.Float,
 			ExpVal:   1.0,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Bool to Float false",
 			V:        sqtypes.NewSQBool(false),
-			NewType:  tokens.TypeFloat,
+			NewType:  tokens.Float,
 			ExpVal:   0.0,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Bool to String True",
 			V:        sqtypes.NewSQBool(true),
-			NewType:  tokens.TypeString,
+			NewType:  tokens.String,
 			ExpVal:   "true",
 			ExpErr:   "",
 		},
 		{
 			TestName: "Bool to String False",
 			V:        sqtypes.NewSQBool(false),
-			NewType:  tokens.TypeString,
+			NewType:  tokens.String,
 			ExpVal:   "false",
 			ExpErr:   "",
 		},
 		{
 			TestName: "Bool to Invalid",
 			V:        sqtypes.NewSQBool(true),
-			NewType:  "Invalid",
+			NewType:  tokens.NilToken,
 			ExpVal:   "1234",
 			ExpErr:   "Error: A value of type BOOL can not be converted to type Invalid",
 		},
 		{
 			TestName: "Float to Int",
 			V:        sqtypes.NewSQFloat(1234.5678),
-			NewType:  tokens.TypeInt,
+			NewType:  tokens.Int,
 			ExpVal:   1234,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Float to Bool",
 			V:        sqtypes.NewSQFloat(1234.5678),
-			NewType:  tokens.TypeBool,
+			NewType:  tokens.Bool,
 			ExpVal:   true,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Float to Float",
 			V:        sqtypes.NewSQFloat(1234.5678),
-			NewType:  tokens.TypeFloat,
+			NewType:  tokens.Float,
 			ExpVal:   1234.5678,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Float to String",
 			V:        sqtypes.NewSQFloat(1234.5678),
-			NewType:  tokens.TypeString,
+			NewType:  tokens.String,
 			ExpVal:   "1234.5678",
 			ExpErr:   "",
 		},
 		{
 			TestName: "Float to Invalid",
 			V:        sqtypes.NewSQFloat(1234.5678),
-			NewType:  "Invalid",
+			NewType:  tokens.NilToken,
 			ExpVal:   "1234",
 			ExpErr:   "Error: A value of type FLOAT can not be converted to type Invalid",
 		},
 		{
 			TestName: "String to Int",
 			V:        sqtypes.NewSQString("1234"),
-			NewType:  tokens.TypeInt,
+			NewType:  tokens.Int,
 			ExpVal:   1234,
 			ExpErr:   "",
 		},
 		{
 			TestName: "String to Int Err",
 			V:        sqtypes.NewSQString("1234FAB"),
-			NewType:  tokens.TypeInt,
+			NewType:  tokens.Int,
 			ExpVal:   1234,
 			ExpErr:   "Error: Unable to Convert \"1234FAB\" to an INT",
 		},
 		{
 			TestName: "String to Bool TRUE",
 			V:        sqtypes.NewSQString("TruE"),
-			NewType:  tokens.TypeBool,
+			NewType:  tokens.Bool,
 			ExpVal:   true,
 			ExpErr:   "",
 		},
 		{
 			TestName: "String to Bool FALSE",
 			V:        sqtypes.NewSQString("false"),
-			NewType:  tokens.TypeBool,
+			NewType:  tokens.Bool,
 			ExpVal:   false,
 			ExpErr:   "",
 		},
 		{
 			TestName: "String to Bool Err",
 			V:        sqtypes.NewSQString("Going to Fail"),
-			NewType:  tokens.TypeBool,
+			NewType:  tokens.Bool,
 			ExpVal:   true,
 			ExpErr:   "Error: Unable to convert string to bool",
 		},
 		{
 			TestName: "String to Float",
 			V:        sqtypes.NewSQString("1234.5678"),
-			NewType:  tokens.TypeFloat,
+			NewType:  tokens.Float,
 			ExpVal:   1234.5678,
 			ExpErr:   "",
 		},
 		{
 			TestName: "String to String",
 			V:        sqtypes.NewSQString("DirectCopy"),
-			NewType:  tokens.TypeString,
+			NewType:  tokens.String,
 			ExpVal:   "DirectCopy",
 			ExpErr:   "",
 		},
 		{
 			TestName: "String to Invalid",
 			V:        sqtypes.NewSQString("Invalid"),
-			NewType:  "Invalid",
+			NewType:  tokens.NilToken,
 			ExpVal:   "1234",
 			ExpErr:   "Error: A value of type STRING can not be converted to type Invalid",
 		},
 		{
 			TestName: "Null Convert",
 			V:        sqtypes.NewSQNull(),
-			NewType:  tokens.TypeString,
+			NewType:  tokens.String,
 			ExpVal:   nil,
 			ExpErr:   "",
 		},
@@ -628,53 +628,41 @@ func TestConvert(t *testing.T) {
 type tokenValTest struct {
 	Name    string
 	Tkn     tokens.Token
-	ErrTxt  string
-	ExpType string
+	ExpErr  string
+	ExpType tokens.TokenID
 }
 
 func TestCreateValueFromToken(t *testing.T) {
+	defer sqtest.PanicTestRecovery(t, false)
+
 	//Tokentype,
 	data := []tokenValTest{
-		{"Int test", *tokens.CreateToken(tokens.Num, "1234"), "", tokens.TypeInt},
-		{"Negative Int test", *tokens.CreateToken(tokens.Num, "-1234"), "", tokens.TypeInt},
-		{"Int test invalid number", *tokens.CreateToken(tokens.Num, "1234AS"), "Syntax Error: \"1234AS\" is not a number", tokens.TypeInt},
-		{"Float test", *tokens.CreateToken(tokens.Num, "123.456789"), "", tokens.TypeFloat},
-		{"String Test", *tokens.CreateToken(tokens.Quote, "This Is a test"), "", tokens.TypeString},
-		{"Bool TRUE Test", *tokens.CreateToken(tokens.RWTrue, "TRUE"), "", tokens.TypeBool},
-		{"Bool FALSE Test", *tokens.CreateToken(tokens.RWFalse, "FALSE"), "", tokens.TypeBool},
-		{"Null Test", *tokens.CreateToken(tokens.Null, tokens.Null), "", tokens.Null},
-		{"Not A Value Token Test", *tokens.CreateToken(tokens.Ident, "This Is a test"), "Internal Error: \"[IDENT=This Is a test]\" is not a valid Value", tokens.TypeString},
+		{"Int test", tokens.NewValueToken(tokens.Num, "1234"), "", tokens.Int},
+		{"Negative Int test", tokens.NewValueToken(tokens.Num, "-1234"), "", tokens.Int},
+		{"Int test invalid number", tokens.NewValueToken(tokens.Num, "1234AS"), "Syntax Error: \"1234AS\" is not a number", tokens.Int},
+		{"Float test", tokens.NewValueToken(tokens.Num, "123.456789"), "", tokens.Float},
+		{"String Test", tokens.NewValueToken(tokens.Quote, "This Is a test"), "", tokens.String},
+		{"Bool TRUE Test", tokens.GetWordToken(tokens.RWTrue), "", tokens.Bool},
+		{"Bool FALSE Test", tokens.GetWordToken(tokens.RWFalse), "", tokens.Bool},
+		{"Null Test", tokens.GetWordToken(tokens.Null), "", tokens.Null},
+		{"Not A Value Token Test", tokens.NewValueToken(tokens.Ident, "This Is a test"), "Internal Error: \"[IDENT=This Is a test]\" is not a valid Value", tokens.String},
 	}
 
 	for _, row := range data {
-		t.Run(row.Name, testCreateValueFromToken(row.Tkn, row.ErrTxt, row.ExpType))
+		t.Run(row.Name, testCreateValueFromToken(row))
 	}
 }
 
-func testCreateValueFromToken(tkn tokens.Token, errTxt string, expType string) func(*testing.T) {
+func testCreateValueFromToken(d tokenValTest) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
-		v, err := sqtypes.CreateValueFromToken(tkn)
-		if err != nil {
-			log.Println(err.Error())
-			if errTxt == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
-				return
-			}
-			if errTxt != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", errTxt, err.Error()))
-				return
-			}
-			// received expected error
+		v, err := sqtypes.CreateValueFromToken(d.Tkn)
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && errTxt != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", errTxt))
-			return
-		}
-		if v.Type() != expType {
-			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", expType, v.Type()))
+		if v.Type() != d.ExpType {
+			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", tokens.IDName(d.ExpType), tokens.IDName(v.Type())))
 		}
 	}
 }

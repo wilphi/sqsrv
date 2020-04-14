@@ -1,138 +1,35 @@
 package tokens
 
 import (
+	"fmt"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
 
-// Token - Individual token for parser
-type Token struct {
-	tokenID    string
-	tokenValue string
-	flags      uint8
+// TokenID type
+type TokenID uint8
+
+// TokenFlags type
+type TokenFlags uint8
+
+// Token token interface
+type Token interface {
+	ID() TokenID
+	Name() string
+	String() string
+	TestFlags(mask TokenFlags) bool
 }
 
 // Token Flags
 const (
-	IsType     = 1
-	IsFunction = 2
-	IsAgregate = 4
-	IsNoArg    = 8
-	IsOneArg   = 16
-)
-
-// Token Constants
-const (
-	Err              = "ERR"
-	Unk              = "UNK"
-	Ws               = "WS"
-	Ident            = "IDENT"
-	Quote            = "QUOTE"
-	Num              = "NUM"
-	Asterix          = "ASTERIX"
-	Period           = "PERIOD"
-	Equal            = "EQUAL"
-	OpenBracket      = "OPENBRACKET"
-	CloseBracket     = "CLOSEBRACKET"
-	Comma            = "COMMA"
-	Colon            = "COLON"
-	UnderScore       = "UnderScore"
-	SemiColon        = "SemiColon"
-	LessThan         = "LessThan"
-	GreaterThan      = "GreaterThan"
-	Minus            = "Minus"
-	Plus             = "Plus"
-	Divide           = "Divide"
-	Modulus          = "Modulus"
-	NotEqual         = "NotEqual"
-	LessThanEqual    = "LessThanEqual"
-	GreaterThanEqual = "GreaterThanEqual"
-)
-
-// SYMBOLS - tokens that are individual runes
-var SYMBOLS = map[string]*Token{
-	"*":  {tokenID: Asterix, tokenValue: "*"},
-	".":  {tokenID: Period, tokenValue: "."},
-	"=":  {tokenID: Equal, tokenValue: "="},
-	"(":  {tokenID: OpenBracket, tokenValue: "("},
-	")":  {tokenID: CloseBracket, tokenValue: ")"},
-	",":  {tokenID: Comma, tokenValue: ","},
-	":":  {tokenID: Colon, tokenValue: ":"},
-	"_":  {tokenID: UnderScore, tokenValue: "_"},
-	";":  {tokenID: SemiColon, tokenValue: ";"},
-	"<":  {tokenID: LessThan, tokenValue: "<"},
-	">":  {tokenID: GreaterThan, tokenValue: ">"},
-	"+":  {tokenID: Plus, tokenValue: "+"},
-	"-":  {tokenID: Minus, tokenValue: "-"},
-	"/":  {tokenID: Divide, tokenValue: "/"},
-	"%":  {tokenID: Modulus, tokenValue: "%"},
-	"!=": {tokenID: NotEqual, tokenValue: "!="},
-	"<=": {tokenID: LessThanEqual, tokenValue: "<="},
-	">=": {tokenID: GreaterThanEqual, tokenValue: ">="},
-}
-
-// SYMBOLW look up symbols by word
-var SYMBOLW = map[string]*Token{
-	Asterix:          SYMBOLS["*"],
-	Period:           SYMBOLS["."],
-	Equal:            SYMBOLS["="],
-	OpenBracket:      SYMBOLS["("],
-	CloseBracket:     SYMBOLS[")"],
-	Comma:            SYMBOLS[","],
-	Colon:            SYMBOLS[":"],
-	UnderScore:       SYMBOLS["_"],
-	SemiColon:        SYMBOLS[";"],
-	LessThan:         SYMBOLS["<"],
-	GreaterThan:      SYMBOLS[">"],
-	Plus:             SYMBOLS["+"],
-	Minus:            SYMBOLS["-"],
-	Divide:           SYMBOLS["/"],
-	Modulus:          SYMBOLS["%"],
-	NotEqual:         SYMBOLS["!"],
-	LessThanEqual:    SYMBOLS["<="],
-	GreaterThanEqual: SYMBOLS[">="],
-}
-
-// Reserved Words
-const (
-	Create   = "CREATE"
-	Table    = "TABLE"
-	Select   = "SELECT"
-	From     = "FROM"
-	Where    = "WHERE"
-	And      = "AND"
-	Insert   = "INSERT"
-	Into     = "INTO"
-	Values   = "VALUES"
-	RWTrue   = "TRUE"
-	RWFalse  = "FALSE"
-	Not      = "NOT"
-	Or       = "OR"
-	Delete   = "DELETE"
-	Count    = "COUNT"
-	Null     = "NULL"
-	Drop     = "DROP"
-	Update   = "UPDATE"
-	Set      = "SET"
-	Order    = "ORDER"
-	By       = "BY"
-	Asc      = "ASC"
-	Desc     = "DESC"
-	Distinct = "DISTINCT"
-	Group    = "GROUP"
-	Min      = "MIN"
-	Max      = "MAX"
-	Avg      = "AVG"
-	Sum      = "SUM"
-)
-
-// Types
-const (
-	TypeInt    = "INT"
-	TypeString = "STRING"
-	TypeBool   = "BOOL"
-	TypeFloat  = "FLOAT"
+	IsWord = 1 << iota
+	IsSymbol
+	IsType
+	IsFunction
+	IsAggregate
+	IsNoArg
+	IsOneArg
 )
 
 //Type Lengths
@@ -143,95 +40,28 @@ const (
 	LenFloat = 20
 )
 
-//AllTypes a list of all the type token names
-var AllTypes = []string{TypeInt, TypeString, TypeBool, TypeFloat}
+// allTokenNames - list of token names by ID
+var allTokenNames map[TokenID]string
 
-// Words - All Reserved Words and Types as tokens
-var Words = map[string]*Token{
-	Create:     {tokenID: Create, tokenValue: Create},
-	Table:      {tokenID: Table, tokenValue: Table},
-	Select:     {tokenID: Select, tokenValue: Select},
-	From:       {tokenID: From, tokenValue: From},
-	Where:      {tokenID: Where, tokenValue: Where},
-	And:        {tokenID: And, tokenValue: And},
-	Insert:     {tokenID: Insert, tokenValue: Insert},
-	Into:       {tokenID: Into, tokenValue: Into},
-	Values:     {tokenID: Values, tokenValue: Values},
-	RWTrue:     {tokenID: RWTrue, tokenValue: RWTrue},
-	RWFalse:    {tokenID: RWFalse, tokenValue: RWFalse},
-	TypeInt:    {tokenID: TypeInt, tokenValue: TypeInt, flags: IsType | IsFunction | IsOneArg},
-	TypeString: {tokenID: TypeString, tokenValue: TypeString, flags: IsType | IsFunction | IsOneArg},
-	TypeBool:   {tokenID: TypeBool, tokenValue: TypeBool, flags: IsType | IsFunction | IsOneArg},
-	TypeFloat:  {tokenID: TypeFloat, tokenValue: TypeFloat, flags: IsType | IsFunction | IsOneArg},
-	Not:        {tokenID: Not, tokenValue: Not},
-	Or:         {tokenID: Or, tokenValue: Or},
-	Delete:     {tokenID: Delete, tokenValue: Delete},
-	Count:      {tokenID: Count, tokenValue: Count, flags: IsFunction | IsOneArg | IsNoArg | IsAgregate},
-	Null:       {tokenID: Null, tokenValue: Null},
-	Drop:       {tokenID: Drop, tokenValue: Drop},
-	Update:     {tokenID: Update, tokenValue: Update},
-	Set:        {tokenID: Set, tokenValue: Set},
-	Order:      {tokenID: Order, tokenValue: Order},
-	By:         {tokenID: By, tokenValue: By},
-	Asc:        {tokenID: Asc, tokenValue: Asc},
-	Desc:       {tokenID: Desc, tokenValue: Desc},
-	Distinct:   {tokenID: Distinct, tokenValue: Distinct},
-	Group:      {tokenID: Group, tokenValue: Group},
-	Min:        {tokenID: Min, tokenValue: Min, flags: IsFunction | IsOneArg | IsAgregate},
-	Max:        {tokenID: Max, tokenValue: Max, flags: IsFunction | IsOneArg | IsAgregate},
-	Avg:        {tokenID: Avg, tokenValue: Avg, flags: IsFunction | IsOneArg | IsAgregate},
-	Sum:        {tokenID: Sum, tokenValue: Sum, flags: IsFunction | IsOneArg | IsAgregate},
-}
-
-// Token Methods
-
-// GetString - Returns a string representation of a token
-func (tkn Token) GetString() string {
-	var tknStr = ""
-	switch tkn.tokenID {
-	case Create, Table, Select, From, Where, And, Insert, Into, Values, RWTrue,
-		RWFalse, Or, Not, Delete, Count, Null, Drop, Update, Set, Order, By, Asc, Desc, Distinct,
-		Group, Min, Max, Avg, Sum:
-		tknStr = tkn.tokenID
-	case TypeInt, TypeString, TypeBool, TypeFloat:
-		tknStr = tkn.tokenValue
-	case Asterix, Period, Equal, OpenBracket, CloseBracket, Comma, Colon, UnderScore,
-		SemiColon, LessThan, GreaterThan, Minus, Plus, Modulus, Divide, NotEqual, LessThanEqual, GreaterThanEqual:
-		tknStr = tkn.tokenValue
-	case Ident:
-		tknStr = "[" + Ident + "=" + tkn.tokenValue + "]"
-	default:
-		tknStr = "[" + tkn.tokenID + ", " + tkn.tokenValue + "]"
-
+func init() {
+	allTokenNames = make(map[TokenID]string)
+	for i, name := range wordNames {
+		allTokenNames[TokenID(i)] = name
 	}
-	return tknStr
+	for i, name := range valueTokenNames {
+		allTokenNames[i] = name
+	}
 }
 
-// TestFlags returns true if all given flags are present
-// Flags include IsType, IsFunction, IsNoArg, IsOneArg, IsAgregate
-func (tkn *Token) TestFlags(mask uint8) bool {
-	return (tkn.flags & mask) == mask
+//IDName gets a string representation of the ID
+func IDName(ID TokenID) string {
+	s, ok := allTokenNames[ID]
+	if !ok {
+		return fmt.Sprintf("ID-%d (not found)", ID)
+	}
+	return s
 }
 
-// GetName - Returns a string with the name of the token
-func (tkn *Token) GetName() string {
-	return tkn.tokenID
-}
-
-// GetValue - Returns string with the value of token
-func (tkn *Token) GetValue() string {
-	return tkn.tokenValue
-}
-
-// SetValue - replaces the value of token with v
-func (tkn *Token) SetValue(v string) {
-	tkn.tokenValue = v
-}
-
-//CreateToken - Returns a token based on name. value inputs
-func CreateToken(name string, value string) *Token {
-	return &Token{tokenID: name, tokenValue: value}
-}
 func isWhiteSpace(ch rune) bool {
 	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }
@@ -249,10 +79,10 @@ func getWhiteSpace(r []rune) []rune {
 	return r
 }
 
-func checkKeyWords(word string) *Token {
-	tkn, ok := Words[strings.ToUpper(word)]
+func checkKeyWords(word string) Token {
+	tkn, ok := WordMap[strings.ToUpper(word)]
 	if !ok {
-		tkn = CreateToken(Ident, word)
+		tkn = NewValueToken(Ident, word)
 	}
 	return tkn
 }
@@ -260,7 +90,7 @@ func checkKeyWords(word string) *Token {
 func isLetter(ch rune) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
-func getIdentifier(r []rune) ([]rune, *Token) {
+func getIdentifier(r []rune) ([]rune, Token) {
 	word := ""
 
 	// loop until identifier complete
@@ -284,7 +114,7 @@ func isUnderScore(ch rune) bool {
 	return (ch == '_')
 }
 
-func getQuote(r []rune) ([]rune, *Token) {
+func getQuote(r []rune) ([]rune, Token) {
 	var quoteVal = ""
 
 	//eat first quote
@@ -295,14 +125,14 @@ func getQuote(r []rune) ([]rune, *Token) {
 		//make sure that there is a rune to process
 		if len(r) <= 0 {
 			//did not find end of quote
-			return r, CreateToken(Err, "Missing End Quote")
+			return r, NewValueToken(Err, "Missing End Quote")
 		}
 
 		if isQuote(r[0]) {
 			//found the end of quote
 			r = r[1:]
 			//break
-			return r, CreateToken(Quote, quoteVal)
+			return r, NewValueToken(Quote, quoteVal)
 		}
 		quoteVal = quoteVal + string(r[0])
 		r = r[1:]
@@ -312,17 +142,18 @@ func getQuote(r []rune) ([]rune, *Token) {
 func isDigit(ch rune) bool {
 	return (ch >= '0' && ch <= '9')
 }
-func getNumber(r []rune) ([]rune, *Token) {
-	tkn := CreateToken(Num, "")
+func getNumber(r []rune) ([]rune, Token) {
+	num := ""
+
 	hasDecimal := false
 	// loop until no more digits
 	for {
 		char := string(r[0])
-		tkn.tokenValue += char
+		num += char
 		r = r[1:]
 		//make sure that there is a rune to process
 		if len(r) <= 0 || !(isDigit(r[0]) || r[0] == '.' && !hasDecimal) {
-			return r, tkn
+			return r, NewValueToken(Num, num)
 		}
 
 		// Allow only one decimal point
@@ -332,7 +163,7 @@ func getNumber(r []rune) ([]rune, *Token) {
 
 // Tokenize - Create a token list given a string
 func Tokenize(str string) *TokenList {
-	var tkn *Token
+	var tkn Token
 
 	log.Debug("Parsing..." + str)
 
@@ -372,35 +203,25 @@ func Tokenize(str string) *TokenList {
 		//check to see if it is a symbol
 		// Check double char symbols first
 		if len(r) > 1 {
-			if Symbl, isSymbl := SYMBOLS[string(r[0])+string(r[1])]; isSymbl {
+			if Symbl, isSymbl := WordMap[string(r[0])+string(r[1])]; isSymbl {
 				tl.Add(Symbl)
 				r = r[2:]
 				continue
 			}
 		}
 		// now single char symbols
-		if Symbl, isSymbl := SYMBOLS[string(r[0])]; isSymbl {
+		if Symbl, isSymbl := WordMap[string(r[0])]; isSymbl {
 			tl.Add(Symbl)
 			r = r[1:]
 			continue
 		}
 
-		tl.Add(CreateToken(Unk, string(r[0])))
+		tl.Add(NewValueToken(Unk, string(r[0])))
 		r = r[1:]
 
 	}
 
-	log.Trace("Finished Parsing...", tl.ToString())
+	log.Trace("Finished Parsing...", tl.String())
 	return tl
 
-}
-
-//GetSymbolFromTokenID returns the symbol from the tokenid
-func GetSymbolFromTokenID(tokenID string) string {
-	for _, tkn := range SYMBOLS {
-		if tkn.tokenID == tokenID {
-			return tkn.tokenValue
-		}
-	}
-	return tokenID
 }

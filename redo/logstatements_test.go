@@ -31,8 +31,8 @@ func TestCreate(t *testing.T) {
 			TestName:  "Recreate table from redo",
 			TableName: "RedoCreate",
 			Cols: []sqtables.ColDef{
-				{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-				{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
+				{ColName: "col1", ColType: tokens.Int, Idx: 1, IsNotNull: false},
+				{ColName: "col2", ColType: tokens.String, Idx: 2, IsNotNull: false},
 			},
 			ID: 123,
 		},
@@ -451,8 +451,8 @@ func TestDelete(t *testing.T) {
 	// Testing Data Setup
 	profile := sqprofile.CreateSQProfile()
 	cols := []sqtables.ColDef{
-		{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-		{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
+		{ColName: "col1", ColType: tokens.Int, Idx: 1, IsNotNull: false},
+		{ColName: "col2", ColType: tokens.String, Idx: 2, IsNotNull: false},
 	}
 	tab := sqtables.CreateTableDef("testDeleteRedo", cols...)
 	err := sqtables.CreateTable(profile, tab)
@@ -587,8 +587,8 @@ type DropTableData struct {
 func TestDropTable(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	cols := []sqtables.ColDef{
-		{ColName: "col1", ColType: tokens.TypeInt, Idx: 1, IsNotNull: false},
-		{ColName: "col2", ColType: tokens.TypeString, Idx: 2, IsNotNull: false},
+		{ColName: "col1", ColType: tokens.Int, Idx: 1, IsNotNull: false},
+		{ColName: "col2", ColType: tokens.String, Idx: 2, IsNotNull: false},
 	}
 	s := redo.NewCreateDDL("testredodrop", cols)
 	if s.Recreate(profile) != nil {

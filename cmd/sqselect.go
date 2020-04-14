@@ -55,31 +55,31 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 	log.Info("SELECT statement...")
 
 	//Verify and eat SELECT token
-	if stmt.tkns.Test(tokens.Select) == "" {
-		return sqerr.NewInternalf("SELECT Token not found: %s is invalid", stmt.tkns.Peek().GetString())
+	if stmt.tkns.Test(tokens.Select) == nil {
+		return sqerr.NewInternalf("SELECT Token not found: %s is invalid", stmt.tkns.Peek().String())
 	}
 	stmt.tkns.Remove()
 
 	// check for a distinct
-	if stmt.tkns.Test(tokens.Distinct) != "" {
+	if stmt.tkns.Test(tokens.Distinct) != nil {
 		stmt.tkns.Remove()
 		stmt.isDistinct = true
 	}
 	// Get the column list. * is special case
-	if stmt.tkns.Test(tokens.Asterix) != "" {
+	if stmt.tkns.Test(tokens.Asterix) != nil {
 		stmt.tkns.Remove()
 		isAsterix = true
 
 	} else {
 		// get the column list
-		stmt.eList, err = GetExprList(stmt.tkns, tokens.Words[tokens.From], tokens.Select)
+		stmt.eList, err = GetExprList(stmt.tkns, tokens.From, tokens.Select)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Get the FROM clause
-	if stmt.tkns.Test(tokens.From) == "" {
+	if stmt.tkns.Test(tokens.From) == nil {
 		// no FROM
 		return sqerr.NewSyntax("Expecting FROM")
 	}
@@ -119,12 +119,12 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 	// loop twice just in case the where clause is after the order by clause
 	for i := 0; i < 2; i++ {
 		// Optional Where clause processing goes here
-		if stmt.tkns.Test(tokens.Where) != "" {
+		if stmt.tkns.Test(tokens.Where) != nil {
 			if stmt.whereExpr != nil {
 				return sqerr.NewSyntax("Duplicate where clause, only one allowed")
 			}
 			stmt.tkns.Remove()
-			stmt.whereExpr, err = ParseWhereClause(stmt.tkns, tokens.SYMBOLW[tokens.Order])
+			stmt.whereExpr, err = ParseWhereClause(stmt.tkns, tokens.Order, tokens.Group)
 			if err != nil {
 				return err
 			}
@@ -134,7 +134,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 			}
 		}
 		// Optional Group By Clause processing goes here
-		if stmt.tkns.Test(tokens.Group) != "" {
+		if stmt.tkns.Test(tokens.Group) != nil {
 			if stmt.groupBy != nil {
 				return sqerr.NewSyntax("Duplicate group by clause, only one allowed")
 			}
@@ -151,7 +151,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 		}
 
 		// Optional Order By clause processing goes here
-		if stmt.tkns.Test(tokens.Order) != "" {
+		if stmt.tkns.Test(tokens.Order) != nil {
 			if stmt.orderBy != nil {
 				return sqerr.NewSyntax("Duplicate order by clause, only one allowed")
 			}
@@ -164,7 +164,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 	}
 
 	if !stmt.tkns.IsEmpty() {
-		return sqerr.NewSyntax("Unexpected tokens after SQL command:" + stmt.tkns.ToString())
+		return sqerr.NewSyntax("Unexpected tokens after SQL command:" + stmt.tkns.String())
 	}
 
 	return nil

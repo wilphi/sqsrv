@@ -177,12 +177,12 @@ func TestAddTable(t *testing.T) {
 		sort.SliceStable(cols, func(i, j int) bool { return cols[i].Idx < cols[j].Idx })
 		sort.SliceStable(cols, func(i, j int) bool { return cols[i].TableName < cols[j].TableName })
 		expCols := []sqtables.ColDef{
-			{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
-			{ColName: "col2", ColType: "STRING", Idx: 1, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
-			{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "tlist2", DisplayTableName: true},
-			{ColName: "col2", ColType: "STRING", Idx: 1, IsNotNull: false, TableName: "tlist2", DisplayTableName: true},
-			{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "tlist3", DisplayTableName: true},
-			{ColName: "col2", ColType: "STRING", Idx: 1, IsNotNull: false, TableName: "tlist3", DisplayTableName: true},
+			{ColName: "col1", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
+			{ColName: "col2", ColType: tokens.String, Idx: 1, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
+			{ColName: "col1", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "tlist2", DisplayTableName: true},
+			{ColName: "col2", ColType: tokens.String, Idx: 1, IsNotNull: false, TableName: "tlist2", DisplayTableName: true},
+			{ColName: "col1", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "tlist3", DisplayTableName: true},
+			{ColName: "col2", ColType: tokens.String, Idx: 1, IsNotNull: false, TableName: "tlist3", DisplayTableName: true},
 		}
 		if !reflect.DeepEqual(expCols, cols) {
 			t.Errorf("Actual cols do not match expected\nActual:%v\nExpect:%v", cols, expCols)
@@ -248,7 +248,7 @@ func TestFindColDef(t *testing.T) {
 			TL:         tList,
 			ColName:    "col123",
 			TableAlias: "",
-			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist2", DisplayTableName: false},
+			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "cdlist2", DisplayTableName: false},
 			ExpErr:     "",
 		},
 		{
@@ -256,7 +256,7 @@ func TestFindColDef(t *testing.T) {
 			TL:         tList,
 			ColName:    "colX",
 			TableAlias: "",
-			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist2", DisplayTableName: false},
+			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "cdlist2", DisplayTableName: false},
 			ExpErr:     "Error: Column \"colX\" not found in Table(s): cdlist1, cdlist2, cdlist3, cdlist3",
 		},
 		{
@@ -264,7 +264,7 @@ func TestFindColDef(t *testing.T) {
 			TL:         tList,
 			ColName:    "col2",
 			TableAlias: "",
-			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist2", DisplayTableName: false},
+			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "cdlist2", DisplayTableName: false},
 			ExpErr:     "Error: Column \"col2\" found in multiple tables, add tablename to differentiate",
 		},
 		{
@@ -272,7 +272,7 @@ func TestFindColDef(t *testing.T) {
 			TL:         tList,
 			ColName:    "col1",
 			TableAlias: "alias2",
-			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist3", DisplayTableName: false},
+			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "cdlist3", DisplayTableName: false},
 			ExpErr:     "",
 		},
 		{
@@ -280,7 +280,7 @@ func TestFindColDef(t *testing.T) {
 			TL:         tList,
 			ColName:    "col1",
 			TableAlias: "cdlist1",
-			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist1", DisplayTableName: false},
+			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "cdlist1", DisplayTableName: false},
 			ExpErr:     "",
 		},
 		{
@@ -288,7 +288,7 @@ func TestFindColDef(t *testing.T) {
 			TL:         tList,
 			ColName:    "colX",
 			TableAlias: "cdlist1",
-			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist2", DisplayTableName: true},
+			ExpCol:     &sqtables.ColDef{ColName: "col123", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "cdlist2", DisplayTableName: true},
 			ExpErr:     "Error: Column \"colX\" not found in Table \"cdlist1\"",
 		},
 		{
@@ -296,7 +296,7 @@ func TestFindColDef(t *testing.T) {
 			TL:         tList,
 			ColName:    "col1",
 			TableAlias: "NotATable",
-			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 0, IsNotNull: false, TableName: "cdlist3", DisplayTableName: true},
+			ExpCol:     &sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 0, IsNotNull: false, TableName: "cdlist3", DisplayTableName: true},
 			ExpErr:     "Error: Table NotATable not found in table list",
 		},
 	}
@@ -363,22 +363,22 @@ func TestTLGetRowData(t *testing.T) {
 	whereExpr := sqtables.NewOpExpr(
 		sqtables.NewOpExpr(
 			sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "country", ColType: "STRING", TableName: "city"}),
-				"=",
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "country"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "country", ColType: tokens.String, TableName: "city"}),
+				tokens.Equal,
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: "country"}),
 			),
-			"AND",
+			tokens.And,
 			sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "short", ColType: "STRING", TableName: "country"}),
-				"!=",
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "short", ColType: tokens.String, TableName: "country"}),
+				tokens.NotEqual,
 				sqtables.NewValueExpr(sqtypes.NewSQString("USA")),
 			),
 		),
-		"AND",
+		tokens.And,
 		sqtables.NewOpExpr(
-			sqtables.NewColExpr(sqtables.ColDef{ColName: "cityid", ColType: "INT", TableName: "city"}),
-			"=",
-			sqtables.NewColExpr(sqtables.ColDef{ColName: "cityid", ColType: "INT", TableName: "person"}),
+			sqtables.NewColExpr(sqtables.ColDef{ColName: "cityid", ColType: tokens.Int, TableName: "city"}),
+			tokens.Equal,
+			sqtables.NewColExpr(sqtables.ColDef{ColName: "cityid", ColType: tokens.Int, TableName: "person"}),
 		),
 	)
 
@@ -475,21 +475,21 @@ func TestTLGetRowData(t *testing.T) {
 			WhereExpr: sqtables.NewOpExpr(
 				sqtables.NewOpExpr(
 					sqtables.NewOpExpr(
-						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
-						"=",
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: tokens.String, TableName: "person"}),
+						tokens.Equal,
 						sqtables.NewValueExpr(sqtypes.NewSQString("Ava")),
 					),
-					"OR",
+					tokens.Or,
 					sqtables.NewOpExpr(
-						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
-						"=",
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: tokens.String, TableName: "person"}),
+						tokens.Equal,
 						sqtables.NewValueExpr(sqtypes.NewSQString("Luna")),
 					),
 				),
-				"AND",
+				tokens.And,
 				sqtables.NewOpExpr(
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "city"}),
-					"=",
+					sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: "city"}),
+					tokens.Equal,
 					sqtables.NewValueExpr(sqtypes.NewSQString("Springfield")),
 				),
 			),
@@ -502,30 +502,30 @@ func TestTLGetRowData(t *testing.T) {
 			TestName: "Multitable Query Cross Join with Cols",
 			TL:       tList,
 			ExprList: sqtables.NewExprList(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname", ColType: "STRING", TableName: "person"}),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "city"}),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "country", ColType: "STRING", TableName: "city"}),
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "country"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: tokens.String, TableName: "person"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "lastname", ColType: tokens.String, TableName: "person"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: "city"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "country", ColType: tokens.String, TableName: "city"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: "country"}),
 			),
 			WhereExpr: sqtables.NewOpExpr(
 				sqtables.NewOpExpr(
 					sqtables.NewOpExpr(
-						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
-						"=",
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: tokens.String, TableName: "person"}),
+						tokens.Equal,
 						sqtables.NewValueExpr(sqtypes.NewSQString("Ava")),
 					),
-					"OR",
+					tokens.Or,
 					sqtables.NewOpExpr(
-						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
-						"=",
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: tokens.String, TableName: "person"}),
+						tokens.Equal,
 						sqtables.NewValueExpr(sqtypes.NewSQString("Luna")),
 					),
 				),
-				"AND",
+				tokens.And,
 				sqtables.NewOpExpr(
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "city"}),
-					"=",
+					sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: "city"}),
+					tokens.Equal,
 					sqtables.NewValueExpr(sqtypes.NewSQString("Springfield")),
 				),
 			),
@@ -548,7 +548,7 @@ func TestTLGetRowData(t *testing.T) {
 		{
 			TestName:  "Single table Query",
 			TL:        sqtables.NewTableList(profile, []sqtables.FromTable{{TableName: "country"}}),
-			ExprList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("short", "STRING", false))),
+			ExprList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("short", tokens.String, false))),
 			WhereExpr: nil,
 			ExpErr:    "",
 			ExpVals: sqtypes.RawVals{
@@ -570,9 +570,9 @@ func TestTLGetRowData(t *testing.T) {
 		{
 			TestName:  "Single table Count() Query group by country",
 			TL:        sqtables.NewTableList(profile, []sqtables.FromTable{{TableName: "city"}}),
-			ExprList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("country", tokens.TypeString, false)), sqtables.NewFuncExpr(tokens.Count, nil)),
+			ExprList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("country", tokens.String, false)), sqtables.NewFuncExpr(tokens.Count, nil)),
 			WhereExpr: nil,
-			GroupBy:   sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("country", "", false))),
+			GroupBy:   sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("country", tokens.NilToken, false))),
 			ExpErr:    "",
 			ExpVals: sqtypes.RawVals{
 				{"Canada", 2},
@@ -585,31 +585,31 @@ func TestTLGetRowData(t *testing.T) {
 			TestName: "Multitable Query Cross Join with Cols Group By firstname",
 			TL:       tList,
 			ExprList: sqtables.NewExprList(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
+				sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: tokens.String, TableName: "person"}),
 				sqtables.NewFuncExpr(tokens.Count, nil),
 			),
 			WhereExpr: sqtables.NewOpExpr(
 				sqtables.NewOpExpr(
 					sqtables.NewOpExpr(
-						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
-						"=",
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: tokens.String, TableName: "person"}),
+						tokens.Equal,
 						sqtables.NewValueExpr(sqtypes.NewSQString("Ava")),
 					),
-					"OR",
+					tokens.Or,
 					sqtables.NewOpExpr(
-						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: "STRING", TableName: "person"}),
-						"=",
+						sqtables.NewColExpr(sqtables.ColDef{ColName: "firstname", ColType: tokens.String, TableName: "person"}),
+						tokens.Equal,
 						sqtables.NewValueExpr(sqtypes.NewSQString("Luna")),
 					),
 				),
-				"AND",
+				tokens.And,
 				sqtables.NewOpExpr(
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: "STRING", TableName: "city"}),
-					"=",
+					sqtables.NewColExpr(sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: "city"}),
+					tokens.Equal,
 					sqtables.NewValueExpr(sqtypes.NewSQString("Springfield")),
 				),
 			),
-			GroupBy: sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("firstname", "", false))),
+			GroupBy: sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("firstname", tokens.NilToken, false))),
 			ExpErr:  "",
 			ExpVals: sqtypes.RawVals{
 				{"Ava", 6},

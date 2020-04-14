@@ -105,7 +105,7 @@ func TestEvalListExpr(t *testing.T) {
 		},
 		{
 			TestName: "Col Expr",
-			List:     []sqtables.Expr{sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false))},
+			List:     []sqtables.Expr{sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))},
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -116,7 +116,7 @@ func TestEvalListExpr(t *testing.T) {
 			TestName: "Col Expr not validated",
 			List: []sqtables.Expr{
 				sqtables.NewValueExpr(sqtypes.NewSQString("Test STring")),
-				sqtables.NewColExpr(sqtables.NewColDef("colX", "INT", false)),
+				sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false)),
 			},
 			profile: profile,
 			Tables:  tables,
@@ -267,14 +267,14 @@ func TestEvalListMisc(t *testing.T) {
 	errList := sqtables.NewExprList(
 		sqtables.NewOpExpr(
 			sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-			"~",
+			tokens.Asc,
 			sqtables.NewValueExpr(sqtypes.NewSQInt(9)),
 		),
 	)
 	t.Run("ExprList GetValues with Err", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
-		ExpErr := "Syntax Error: Invalid Int Operator ~"
+		ExpErr := "Syntax Error: Invalid Int Operator ASC"
 		_, err := errList.GetValues()
 		if sqtest.CheckErr(t, err, ExpErr) {
 			return
@@ -284,10 +284,10 @@ func TestEvalListMisc(t *testing.T) {
 	errList = sqtables.NewExprList(
 		sqtables.NewOpExpr(
 			sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-			"+",
+			tokens.Plus,
 			sqtables.NewValueExpr(sqtypes.NewSQInt(9)),
 		),
-		sqtables.NewColExpr(sqtables.NewColDef("col1", "INT", false)),
+		sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)),
 	)
 	t.Run("ExprList GetValues with Column", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)

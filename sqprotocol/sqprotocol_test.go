@@ -14,6 +14,7 @@ import (
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 type Addr struct {
@@ -275,10 +276,10 @@ func TestConnection(t *testing.T) {
 
 		testConn.Err = nil
 		err := svr.SendColumns([]sqtables.ColDef{
-			sqtables.NewColDef("col1", "INT", false),
-			sqtables.NewColDef("col2", "STRING", true),
-			sqtables.NewColDef("col3", "BOOL", false),
-			sqtables.NewColDef("col4", "FLOAT", true),
+			sqtables.NewColDef("col1", tokens.Int, false),
+			sqtables.NewColDef("col2", tokens.String, true),
+			sqtables.NewColDef("col3", tokens.Bool, false),
+			sqtables.NewColDef("col4", tokens.Float, true),
 		})
 		if err != nil {
 			t.Errorf("Unexpected Error: %s", err.Error())
@@ -290,7 +291,7 @@ func TestConnection(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		testConn.Err = errors.New("Error from Server")
-		err := svr.SendColumns([]sqtables.ColDef{sqtables.NewColDef("Col1", "INT", false), sqtables.NewColDef("col2", "STRING", true)})
+		err := svr.SendColumns([]sqtables.ColDef{sqtables.NewColDef("Col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, true)})
 		ExpErr := "Error from Server"
 		if err == nil {
 			t.Errorf("Unexpected Success, expecting error %s", ExpErr)

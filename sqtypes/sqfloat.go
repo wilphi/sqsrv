@@ -16,8 +16,8 @@ func (fp SQFloat) ToString() string {
 }
 
 // Type - returns the type
-func (fp SQFloat) Type() string {
-	return tokens.TypeFloat
+func (fp SQFloat) Type() tokens.TokenID {
+	return tokens.Float
 }
 
 // Len -
@@ -59,7 +59,7 @@ func (fp SQFloat) Write(c *sqbin.Codec) {
 }
 
 // Operation transforms two SQFloat values based on given operator
-func (fp SQFloat) Operation(op string, v Value) (retVal Value, err error) {
+func (fp SQFloat) Operation(op tokens.TokenID, v Value) (retVal Value, err error) {
 
 	// if v is null then the result is null
 	if v.IsNull() {
@@ -73,28 +73,28 @@ func (fp SQFloat) Operation(op string, v Value) (retVal Value, err error) {
 		return
 	}
 	switch op {
-	case "+":
+	case tokens.Plus:
 		retVal = NewSQFloat(fp.Val + vfp.Val)
-	case "-":
+	case tokens.Minus:
 		retVal = NewSQFloat(fp.Val - vfp.Val)
-	case "*":
+	case tokens.Asterix:
 		retVal = NewSQFloat(fp.Val * vfp.Val)
-	case "/":
+	case tokens.Divide:
 		retVal = NewSQFloat(fp.Val / vfp.Val)
-	case "=":
+	case tokens.Equal:
 		retVal = NewSQBool(fp.Val == vfp.Val)
-	case "!=":
+	case tokens.NotEqual:
 		retVal = NewSQBool(fp.Val != vfp.Val)
-	case "<":
+	case tokens.LessThan:
 		retVal = NewSQBool(fp.Val < vfp.Val)
-	case ">":
+	case tokens.GreaterThan:
 		retVal = NewSQBool(fp.Val > vfp.Val)
-	case "<=":
+	case tokens.LessThanEqual:
 		retVal = NewSQBool(fp.Val <= vfp.Val)
-	case ">=":
+	case tokens.GreaterThanEqual:
 		retVal = NewSQBool(fp.Val >= vfp.Val)
 	default:
-		err = sqerr.NewSyntax("Invalid Float Operator " + op)
+		err = sqerr.NewSyntax("Invalid Float Operator " + tokens.IDName(op))
 		return
 	}
 	return
@@ -102,18 +102,18 @@ func (fp SQFloat) Operation(op string, v Value) (retVal Value, err error) {
 }
 
 // Convert returns the value converted to the given type
-func (fp SQFloat) Convert(newtype string) (retVal Value, err error) {
+func (fp SQFloat) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 	switch newtype {
-	case tokens.TypeInt:
+	case tokens.Int:
 		retVal = NewSQInt(int(fp.Val))
-	case tokens.TypeBool:
+	case tokens.Bool:
 		retVal = NewSQBool(fp.Val > 0)
-	case tokens.TypeFloat:
+	case tokens.Float:
 		retVal = fp
-	case tokens.TypeString:
+	case tokens.String:
 		retVal = NewSQString(strconv.FormatFloat(fp.Val, 'G', -1, 64))
 	default:
-		err = sqerr.Newf("A value of type %s can not be converted to type %s", fp.Type(), newtype)
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", tokens.IDName(fp.Type()), tokens.IDName(newtype))
 	}
 	return
 }

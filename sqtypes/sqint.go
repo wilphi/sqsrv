@@ -16,8 +16,8 @@ func (i SQInt) ToString() string {
 }
 
 // Type - returns the type
-func (i SQInt) Type() string {
-	return tokens.TypeInt
+func (i SQInt) Type() tokens.TokenID {
+	return tokens.Int
 }
 
 // Len -
@@ -61,7 +61,7 @@ func (i SQInt) Write(c *sqbin.Codec) {
 }
 
 // Operation transforms two SQInt values based on given operator
-func (i SQInt) Operation(op string, v Value) (retVal Value, err error) {
+func (i SQInt) Operation(op tokens.TokenID, v Value) (retVal Value, err error) {
 
 	vint, ok := v.(SQInt)
 	if !ok {
@@ -73,30 +73,30 @@ func (i SQInt) Operation(op string, v Value) (retVal Value, err error) {
 		return
 	}
 	switch op {
-	case "+":
+	case tokens.Plus:
 		retVal = NewSQInt(i.Val + vint.Val)
-	case "-":
+	case tokens.Minus:
 		retVal = NewSQInt(i.Val - vint.Val)
-	case "*":
+	case tokens.Asterix:
 		retVal = NewSQInt(i.Val * vint.Val)
-	case "/":
+	case tokens.Divide:
 		retVal = NewSQInt(i.Val / vint.Val)
-	case "%":
+	case tokens.Modulus:
 		retVal = NewSQInt(i.Val % vint.Val)
-	case "=":
+	case tokens.Equal:
 		retVal = NewSQBool(i.Val == vint.Val)
-	case "!=":
+	case tokens.NotEqual:
 		retVal = NewSQBool(i.Val != vint.Val)
-	case "<":
+	case tokens.LessThan:
 		retVal = NewSQBool(i.Val < vint.Val)
-	case ">":
+	case tokens.GreaterThan:
 		retVal = NewSQBool(i.Val > vint.Val)
-	case "<=":
+	case tokens.LessThanEqual:
 		retVal = NewSQBool(i.Val <= vint.Val)
-	case ">=":
+	case tokens.GreaterThanEqual:
 		retVal = NewSQBool(i.Val >= vint.Val)
 	default:
-		err = sqerr.NewSyntax("Invalid Int Operator " + op)
+		err = sqerr.NewSyntax("Invalid Int Operator " + tokens.IDName(op))
 		return
 	}
 	return
@@ -104,18 +104,18 @@ func (i SQInt) Operation(op string, v Value) (retVal Value, err error) {
 }
 
 // Convert returns the value converted to the given type
-func (i SQInt) Convert(newtype string) (retVal Value, err error) {
+func (i SQInt) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 	switch newtype {
-	case tokens.TypeInt:
+	case tokens.Int:
 		retVal = i
-	case tokens.TypeBool:
+	case tokens.Bool:
 		retVal = NewSQBool(i.Val > 0)
-	case tokens.TypeFloat:
+	case tokens.Float:
 		retVal = NewSQFloat(float64(i.Val))
-	case tokens.TypeString:
+	case tokens.String:
 		retVal = NewSQString(strconv.Itoa(i.Val))
 	default:
-		err = sqerr.Newf("A value of type %s can not be converted to type %s", i.Type(), newtype)
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", tokens.IDName(i.Type()), tokens.IDName(newtype))
 	}
 	return
 }

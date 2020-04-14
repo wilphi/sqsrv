@@ -10,6 +10,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 // FromTable structure holds the alias name, actual tableName and pointer to actual table
@@ -385,7 +386,7 @@ func findCol(a []ColDef, b ColDef) int {
 }
 func findJoin(whereExpr Expr, joinedTables []JoinTable, tableName string) (validJoin bool, lColDef, rColDef ColDef, joinidx int) {
 	tableName = strings.ToLower(tableName)
-	opExprs := findOps(whereExpr, "=")
+	opExprs := findOps(whereExpr, tokens.Equal)
 	tnames := make([]string, len(joinedTables))
 	for i, jt := range joinedTables {
 		tnames[i] = jt.Name
@@ -420,7 +421,7 @@ func contain(a []string, str string) int {
 	}
 	return -1
 }
-func findOps(whereExpr Expr, op string) (ret []Expr) {
+func findOps(whereExpr Expr, op tokens.TokenID) (ret []Expr) {
 	var lOk, rOk bool
 	lEx := whereExpr.Left()
 	rEx := whereExpr.Right()

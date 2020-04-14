@@ -457,7 +457,7 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 func createTransLog(testFileName string, tableName string) error {
 
 	data := []LogStatement{
-		NewCreateDDL(tableName, []sqtables.ColDef{sqtables.NewColDef("col1", tokens.TypeInt, false)}),
+		NewCreateDDL(tableName, []sqtables.ColDef{sqtables.NewColDef("col1", tokens.Int, false)}),
 		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1}, {2}, {3}}), sqptr.SQPtrs{1, 2, 3}),
 		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{4}, {5}, {6}}), sqptr.SQPtrs{4, 5, 6}),
 		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{7}, {8}, {9}}), sqptr.SQPtrs{7, 8, 9}),

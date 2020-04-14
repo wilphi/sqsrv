@@ -26,7 +26,7 @@ type DataSet struct {
 // OrderItem stores information for ORDER BY clause
 type OrderItem struct {
 	ColName  string
-	SortType string
+	SortType tokens.TokenID
 	idx      int
 }
 
@@ -296,12 +296,12 @@ func finalizeGroup(valRow []sqtypes.Value, funcEx []*FuncExpr, funcIdx []int, mc
 		case tokens.Count:
 			valRow[funcIdx[j]] = sqtypes.NewSQInt(mcnt)
 		case tokens.Avg:
-			numer, err := valRow[funcIdx[j]].Convert(tokens.TypeFloat)
+			numer, err := valRow[funcIdx[j]].Convert(tokens.Float)
 			if err != nil {
 				return nil, err
 			}
 			denom := sqtypes.NewSQFloat(float64(colCnt[funcIdx[j]]))
-			v, err := numer.Operation("/", denom)
+			v, err := numer.Operation(tokens.Divide, denom)
 			if err != nil {
 				return nil, err
 			}
@@ -340,9 +340,9 @@ func calcAggregates(vals, result []sqtypes.Value,
 				} else {
 					switch fex.Cmd {
 					case tokens.Sum:
-						result[k], err = result[k].Operation("+", v)
+						result[k], err = result[k].Operation(tokens.Plus, v)
 					case tokens.Min:
-						lt, err := v.Operation("<", result[k])
+						lt, err := v.Operation(tokens.LessThan, result[k])
 						if err == nil {
 							b, ok := lt.(sqtypes.SQBool)
 							if b.Val && ok {
@@ -350,7 +350,7 @@ func calcAggregates(vals, result []sqtypes.Value,
 							}
 						}
 					case tokens.Max:
-						lt, err := v.Operation(">", result[k])
+						lt, err := v.Operation(tokens.GreaterThan, result[k])
 						if err == nil {
 							b, ok := lt.(sqtypes.SQBool)
 							if b.Val && ok {
@@ -358,10 +358,10 @@ func calcAggregates(vals, result []sqtypes.Value,
 							}
 						}
 					case tokens.Avg:
-						result[k], err = result[k].Operation("+", v)
+						result[k], err = result[k].Operation(tokens.Plus, v)
 						colCnt[k]++
 					default:
-						return nil, nil, sqerr.NewInternalf("Function %s is not a valid aggregate function", fex.Cmd)
+						return nil, nil, sqerr.NewInternalf("Function %s is not a valid aggregate function", tokens.IDName(fex.Cmd))
 					}
 					if err != nil {
 						return nil, nil, err

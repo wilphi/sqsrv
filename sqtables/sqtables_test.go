@@ -124,7 +124,7 @@ func TestGetRowData(t *testing.T) {
 			Tab:      testT,
 			Cols: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.TypeString, false)),
+				sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.String, false)),
 			),
 			WhereStr: "",
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): rowdatatest",
@@ -136,8 +136,8 @@ func TestGetRowData(t *testing.T) {
 			Cols: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 				sqtables.NewFuncExpr(
-					tokens.TypeFloat,
-					sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.TypeString, false)),
+					tokens.Float,
+					sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.String, false)),
 				),
 			),
 			WhereStr: "col2=\"d test string\"",
@@ -655,7 +655,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 			ExpErr:   "Error: Column \"ColX\" not found in Table(s): updaterowsfromptrstest",
 			Ptrs:     sqptr.SQPtrs{1},
 			Cols:     []string{"col4"},
-			ExpList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("ColX", tokens.TypeFloat, false))),
+			ExpList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("ColX", tokens.Float, false))),
 			ExpData: sqtypes.RawVals{
 				{1, 5, "d test string", 10, true},
 				{2, 7, "f test string", 100, true},

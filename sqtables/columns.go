@@ -12,7 +12,7 @@ import (
 // ColDef - column definition
 type ColDef struct {
 	ColName          string
-	ColType          string
+	ColType          tokens.TokenID
 	TableName        string
 	Idx              int
 	IsNotNull        bool
@@ -29,7 +29,7 @@ type ColList struct {
 }
 
 // NewColDef -
-func NewColDef(colName string, colType string, isNotNull bool) ColDef {
+func NewColDef(colName string, colType tokens.TokenID, isNotNull bool) ColDef {
 	return ColDef{ColName: colName, ColType: colType, Idx: -1, IsNotNull: isNotNull, DisplayTableName: false}
 }
 
@@ -44,7 +44,7 @@ func (c *ColDef) ToString() string {
 		tName = c.TableName
 	}
 
-	ret := "{" + Ternary(tName != "", tName+".", "") + c.ColName + ", " + c.ColType + ntype + "}"
+	ret := "{" + Ternary(tName != "", tName+".", "") + c.ColName + ", " + tokens.IDName(c.ColType) + ntype + "}"
 	return ret
 }
 
@@ -77,7 +77,7 @@ func MergeColDef(colA, colB ColDef) (ColDef, error) {
 func (c *ColDef) Encode(enc *sqbin.Codec) {
 
 	enc.WriteString(c.ColName)
-	enc.WriteString(c.ColType)
+	enc.WriteUint64(uint64(c.ColType))
 	enc.WriteInt(c.Idx)
 	enc.WriteBool(c.IsNotNull)
 	enc.WriteString(c.TableName)
@@ -88,7 +88,7 @@ func (c *ColDef) Encode(enc *sqbin.Codec) {
 func (c *ColDef) Decode(dec *sqbin.Codec) {
 
 	c.ColName = dec.ReadString()
-	c.ColType = dec.ReadString()
+	c.ColType = tokens.TokenID(dec.ReadUint64())
 	c.Idx = dec.ReadInt()
 	c.IsNotNull = dec.ReadBool()
 	c.TableName = dec.ReadString()
@@ -133,8 +133,8 @@ func (cl *ColList) Validate(profile *sqprofile.SQProfile, tables *TableList) err
 	cl.isCount = false
 	cl.isCols = false
 	for i, cd := range cl.colD {
-		if cd.ColName == tokens.Count {
-			cl.colD[i].ColType = "FUNCTION"
+		if cd.ColName == tokens.IDName(tokens.Count) {
+			cl.colD[i].ColType = tokens.Count
 			cl.isCount = true
 		} else {
 			col, err := tables.FindColDef(profile, cd.ColName, cd.TableName)

@@ -17,8 +17,8 @@ func (s SQString) ToString() string {
 }
 
 // Type - returns the type
-func (s SQString) Type() string {
-	return tokens.TypeString
+func (s SQString) Type() tokens.TokenID {
+	return tokens.String
 }
 
 // Len -
@@ -56,7 +56,7 @@ func (s SQString) Write(c *sqbin.Codec) {
 }
 
 // Operation transforms two SQString values based on given operator
-func (s SQString) Operation(op string, v Value) (retVal Value, err error) {
+func (s SQString) Operation(op tokens.TokenID, v Value) (retVal Value, err error) {
 	vStr, ok := v.(SQString)
 	if !ok {
 		if v.IsNull() {
@@ -67,22 +67,22 @@ func (s SQString) Operation(op string, v Value) (retVal Value, err error) {
 		return
 	}
 	switch op {
-	case "+":
+	case tokens.Plus:
 		retVal = NewSQString(s.Val + vStr.Val)
-	case "=":
+	case tokens.Equal:
 		retVal = NewSQBool(s.Val == vStr.Val)
-	case "!=":
+	case tokens.NotEqual:
 		retVal = NewSQBool(s.Val != vStr.Val)
-	case "<":
+	case tokens.LessThan:
 		retVal = NewSQBool(s.Val < vStr.Val)
-	case ">":
+	case tokens.GreaterThan:
 		retVal = NewSQBool(s.Val > vStr.Val)
-	case "<=":
+	case tokens.LessThanEqual:
 		retVal = NewSQBool(s.Val <= vStr.Val)
-	case ">=":
+	case tokens.GreaterThanEqual:
 		retVal = NewSQBool(s.Val >= vStr.Val)
 	default:
-		err = sqerr.NewSyntax("Invalid String Operator " + op)
+		err = sqerr.NewSyntax("Invalid String Operator " + tokens.IDName(op))
 		return
 	}
 	return
@@ -90,19 +90,19 @@ func (s SQString) Operation(op string, v Value) (retVal Value, err error) {
 }
 
 // Convert returns the value converted to the given type
-func (s SQString) Convert(newtype string) (retVal Value, err error) {
+func (s SQString) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 	var i int
 	var f float64
 
 	switch newtype {
-	case tokens.TypeInt:
+	case tokens.Int:
 		i, err = strconv.Atoi(s.Val)
 		if err == nil {
 			retVal = NewSQInt(i)
 		} else {
 			err = sqerr.Newf("Unable to Convert %q to an INT", s.Val)
 		}
-	case tokens.TypeBool:
+	case tokens.Bool:
 		switch strings.ToUpper(strings.TrimSpace(s.Val)) {
 		case "TRUE":
 			retVal = NewSQBool(true)
@@ -111,15 +111,15 @@ func (s SQString) Convert(newtype string) (retVal Value, err error) {
 		default:
 			err = sqerr.Newf("Unable to convert string to bool")
 		}
-	case tokens.TypeFloat:
+	case tokens.Float:
 		f, err = strconv.ParseFloat(s.Val, 64)
 		if err == nil {
 			retVal = NewSQFloat(f)
 		}
-	case tokens.TypeString:
+	case tokens.String:
 		retVal = s
 	default:
-		err = sqerr.Newf("A value of type %s can not be converted to type %s", s.Type(), newtype)
+		err = sqerr.Newf("A value of type %s can not be converted to type %s", tokens.IDName(s.Type()), tokens.IDName(newtype))
 	}
 	return
 }

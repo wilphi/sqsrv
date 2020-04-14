@@ -310,7 +310,7 @@ func (e *ColExpr) SetAlias(alias string) {
 // OpExpr allows for an operator to create a value based on two other values
 type OpExpr struct {
 	exL, exR Expr
-	Operator string
+	Operator tokens.TokenID
 	alias    string
 }
 
@@ -336,7 +336,7 @@ func (e *OpExpr) SetRight(ex Expr) {
 
 // ToString - string representation of Expression. Will traverse to child conditions to form full string
 func (e *OpExpr) ToString() string {
-	str := "(" + e.exL.ToString() + e.Operator + e.exR.ToString() + ")"
+	str := "(" + e.exL.ToString() + tokens.IDName(e.Operator) + e.exR.ToString() + ")"
 	if e.alias != "" {
 		str += " " + e.alias
 	}
@@ -450,7 +450,7 @@ func (e *OpExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) e
 }
 
 // NewOpExpr creates a new OpExpr and returns it as an Expr
-func NewOpExpr(exL Expr, op string, exR Expr) Expr {
+func NewOpExpr(exL Expr, op tokens.TokenID, exR Expr) Expr {
 	return &OpExpr{exL: exL, Operator: op, exR: exR}
 }
 
@@ -462,7 +462,7 @@ func (e *OpExpr) Encode() *sqbin.Codec {
 	enc.Writebyte(IDOpExpr)
 	enc.WriteString(e.alias)
 
-	enc.WriteString(e.Operator)
+	enc.WriteUint64(uint64(e.Operator))
 
 	tmp := e.exL.Encode()
 	enc.Write(tmp.Bytes())
@@ -480,7 +480,7 @@ func (e *OpExpr) Decode(dec *sqbin.Codec) {
 		log.Panic("Found wrong statement type. Expecting IDOpExpr")
 	}
 	e.alias = dec.ReadString()
-	e.Operator = dec.ReadString()
+	e.Operator = tokens.TokenID(dec.ReadUint64())
 	e.exL = DecodeExpr(dec)
 
 	e.exR = DecodeExpr(dec)
@@ -647,7 +647,7 @@ func (e *NegateExpr) SetAlias(alias string) {
 
 // FuncExpr stores information about a function to allow Evaluate() to determine the correct Value
 type FuncExpr struct {
-	Cmd   string
+	Cmd   tokens.TokenID
 	exL   Expr
 	alias string
 }
@@ -677,9 +677,9 @@ func (e *FuncExpr) SetRight(ex Expr) {
 func (e *FuncExpr) ToString() string {
 	var str string
 	if e.exL != nil {
-		str = e.Cmd + "(" + e.exL.ToString() + ")"
+		str = tokens.IDName(e.Cmd) + "(" + e.exL.ToString() + ")"
 	} else {
-		str = e.Cmd + "()"
+		str = tokens.IDName(e.Cmd) + "()"
 	}
 
 	if e.alias != "" {
@@ -699,7 +699,8 @@ func (e *FuncExpr) Name() string {
 // ColDef returns a column definition for the expression
 func (e *FuncExpr) ColDef() ColDef {
 	name := e.Name()
-	colType := Ternary(name == tokens.Count+"()", "INT", "FUNC")
+	//???? INT for Count, FUNC otherwise????????
+	colType := e.Cmd
 
 	return ColDef{ColName: name, ColType: colType}
 }
@@ -739,16 +740,16 @@ func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...
 	return
 }
 
-func evalFunc(cmd string, v sqtypes.Value) (retVal sqtypes.Value, err error) {
+func evalFunc(cmd tokens.TokenID, v sqtypes.Value) (retVal sqtypes.Value, err error) {
 
 	switch cmd {
-	case tokens.TypeFloat, tokens.TypeInt, tokens.TypeBool, tokens.TypeString:
+	case tokens.Float, tokens.Int, tokens.Bool, tokens.String:
 		retVal, err = v.Convert(cmd)
 	case tokens.Count, tokens.Sum, tokens.Avg, tokens.Min, tokens.Max:
 		// aggregate functions are evaluated elsewhere, just pass the data along
 		retVal = v
 	default:
-		err = sqerr.NewSyntaxf("%q is not a valid function", cmd)
+		err = sqerr.NewSyntaxf("%q is not a valid function", tokens.IDName(cmd))
 	}
 	return
 }
@@ -792,7 +793,7 @@ func (e *FuncExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList)
 }
 
 // NewFuncExpr creates a new CountExpr object
-func NewFuncExpr(cmd string, lExp Expr) Expr {
+func NewFuncExpr(cmd tokens.TokenID, lExp Expr) Expr {
 	return &FuncExpr{Cmd: cmd, exL: lExp}
 
 }

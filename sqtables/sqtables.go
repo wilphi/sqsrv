@@ -12,6 +12,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	sqtypes "github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 // Type of delete to be carried out by delete functions
@@ -235,7 +236,7 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 }
 
 // FindCol - Returns the col index and col Type index < 0 if not found
-func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, string) {
+func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, tokens.TokenID) {
 	var i int
 	var col ColDef
 	for i, col = range t.tableCols {
@@ -243,7 +244,7 @@ func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, stri
 			return i, col.ColType
 		}
 	}
-	return -1, ""
+	return -1, tokens.NilToken
 }
 
 // FindColDef - Returns coldef based on name

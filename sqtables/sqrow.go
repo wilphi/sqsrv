@@ -6,6 +6,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/tokens"
 )
 
 // RowDef - in memory construct for rows
@@ -67,7 +68,7 @@ func (r *RowDef) UpdateRow(profile *sqprofile.SQProfile, cols []string, vals []s
 			return e.Newf("Column %q in Table %q can not be NULL", col, r.table.tableName)
 		}
 		if colDef.ColType != vals[i].Type() && !vals[i].IsNull() {
-			return e.Newf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, r.table.tableName, colDef.ColType, vals[i].Type())
+			return e.Newf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, r.table.tableName, tokens.IDName(colDef.ColType), tokens.IDName(vals[i].Type()))
 		}
 		r.Data[colDef.Idx] = vals[i]
 
@@ -108,7 +109,7 @@ func CreateRow(profile *sqprofile.SQProfile, rowPtr sqptr.SQPtr, table *TableDef
 			return nil, e.Newf("Column %q in Table %q can not be NULL", col, row.table.tableName)
 		}
 		if colDef.ColType != vals[i].Type() && !vals[i].IsNull() {
-			return nil, e.Newf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, row.table.tableName, colDef.ColType, vals[i].Type())
+			return nil, e.Newf("Type Mismatch: Column %s in Table %s has a type of %s, Unable to set value of type %s", colDef.ColName, row.table.tableName, tokens.IDName(colDef.ColType), tokens.IDName(vals[i].Type()))
 		}
 
 		row.Data[colDef.Idx] = vals[i]
@@ -141,7 +142,7 @@ func (r *RowDef) GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Va
 	}
 	if c.ColType != ctype {
 		//type error
-		return nil, e.Newf("%s's type of %s does not match table definition for table %s", c.ColName, c.ColType, r.table.GetName(profile))
+		return nil, e.Newf("%s's type of %s does not match table definition for table %s", c.ColName, tokens.IDName(c.ColType), r.table.GetName(profile))
 
 	}
 	return r.Data[idx], nil

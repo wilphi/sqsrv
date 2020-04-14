@@ -110,16 +110,16 @@ func (srv *SvrConfig) SendRow(rowNum int, data []sqtypes.Value) error {
 	return nil
 }
 
-func getTypeWidth(typeName string) int {
+func getTypeWidth(typeName tokens.TokenID) int {
 	var ret int
 	switch typeName {
-	case tokens.TypeInt:
+	case tokens.Int:
 		ret = sqtypes.SQIntWidth
-	case tokens.TypeString:
+	case tokens.String:
 		ret = -sqtypes.SQStringWidth
-	case tokens.TypeBool:
+	case tokens.Bool:
 		ret = sqtypes.SQBoolWidth
-	case tokens.TypeFloat:
+	case tokens.Float:
 		ret = sqtypes.SQFloatWidth
 	default:
 		// This should never happen

@@ -22,21 +22,21 @@ func TestColDef(t *testing.T) {
 		{
 			TestName:    "NewColDef with nulls",
 			ColName:     "col1",
-			ColType:     tokens.TypeInt,
+			ColType:     tokens.Int,
 			IsNotNull:   false,
 			ExpToString: "{col1, INT}",
 		},
 		{
 			TestName:    "NewColDef without nulls",
 			ColName:     "col1",
-			ColType:     tokens.TypeInt,
+			ColType:     tokens.Int,
 			IsNotNull:   true,
 			ExpToString: "{col1, INT NOT NULL}",
 		},
 		{
 			TestName:         "NewColDef all values",
 			ColName:          "col1",
-			ColType:          tokens.TypeInt,
+			ColType:          tokens.Int,
 			IsNotNull:        true,
 			Idx:              5,
 			TableName:        "testTab",
@@ -46,7 +46,7 @@ func TestColDef(t *testing.T) {
 		{
 			TestName:         "NewColDef do not display tablename",
 			ColName:          "col1",
-			ColType:          tokens.TypeInt,
+			ColType:          tokens.Int,
 			IsNotNull:        true,
 			Idx:              5,
 			TableName:        "testTab",
@@ -56,19 +56,19 @@ func TestColDef(t *testing.T) {
 		{
 			TestName:    "NewColDef Merge",
 			ColName:     "col1",
-			ColType:     tokens.TypeInt,
+			ColType:     tokens.Int,
 			IsNotNull:   true,
-			MergeCD:     &sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
-			ExpCD:       sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
+			MergeCD:     &sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
+			ExpCD:       sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
 			ExpToString: "{col1, INT NOT NULL}",
 		},
 		{
 			TestName:    "NewColDef Merge Error",
 			ColName:     "col1",
-			ColType:     tokens.TypeInt,
+			ColType:     tokens.Int,
 			IsNotNull:   true,
-			MergeCD:     &sqtables.ColDef{ColName: "col2", ColType: "INT", Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
-			ExpCD:       sqtables.ColDef{ColName: "col1", ColType: "INT", Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
+			MergeCD:     &sqtables.ColDef{ColName: "col2", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
+			ExpCD:       sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
 			ExpToString: "{col1, INT NOT NULL}",
 			ExpErr:      "Internal Error: Can't merge ColDef col1, col2",
 		},
@@ -85,7 +85,7 @@ func TestColDef(t *testing.T) {
 type ColDefData struct {
 	TestName         string
 	ColName          string
-	ColType          string
+	ColType          tokens.TokenID
 	TableName        string
 	Idx              int
 	IsNotNull        bool
@@ -233,7 +233,7 @@ func TestColListValidate(t *testing.T) {
 		},
 		{
 			TestName: "Coldef ColList Cols",
-			CList:    sqtables.NewColListDefs([]sqtables.ColDef{sqtables.NewColDef("col1", tokens.TypeInt, false), sqtables.NewColDef("col2", tokens.TypeString, false)}),
+			CList:    sqtables.NewColListDefs([]sqtables.ColDef{sqtables.NewColDef("col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, false)}),
 			ExpErr:   "",
 			profile:  profile,
 			tables:   sqtables.NewTableListFromTableDef(profile, tab),
@@ -251,8 +251,8 @@ func TestColListValidate(t *testing.T) {
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestColListFindColDef(t *testing.T) {
-	col1CD := sqtables.NewColDef("col1", tokens.TypeInt, false)
-	colList := sqtables.NewColListDefs([]sqtables.ColDef{col1CD, sqtables.NewColDef("col2", tokens.TypeString, false)})
+	col1CD := sqtables.NewColDef("col1", tokens.Int, false)
+	colList := sqtables.NewColListDefs([]sqtables.ColDef{col1CD, sqtables.NewColDef("col2", tokens.String, false)})
 
 	t.Run("Found ColDef", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)

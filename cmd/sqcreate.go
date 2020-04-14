@@ -22,23 +22,23 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 	var cols []sqtables.ColDef
 
 	log.Info("CREATE TABLE command")
-	if tkns.Test(tokens.Create) != "" {
+	if tkns.Test(tokens.Create) != nil {
 		tkns.Remove()
 	}
 	//eat TABLE tokens (Create is already gone)
-	if tkns.Test(tokens.Table) != "" {
+	if tkns.Test(tokens.Table) != nil {
 		tkns.Remove()
 	}
 
 	// make sure the next token is an Ident
-	if val := tkns.Test(tokens.Ident); val != "" {
-		tableName = val
+	if tkn := tkns.Test(tokens.Ident); tkn != nil {
+		tableName = tkn.(*tokens.ValueToken).Value()
 		tkns.Remove()
 	} else {
 		return "", sqerr.NewSyntax("Expecting name of table to create")
 	}
 
-	if tkns.Test(tokens.OpenBracket) != "" {
+	if tkns.Test(tokens.OpenBracket) != nil {
 		tkns.Remove()
 	} else {
 		return "", sqerr.NewSyntax("Expecting ( after name of table")
@@ -47,7 +47,7 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 	isHangingComma := false
 	// loop to get the column definitions of table
 	for {
-		if tkns.Test(tokens.CloseBracket) != "" {
+		if tkns.Test(tokens.CloseBracket) != nil {
 			if isHangingComma {
 				return "", sqerr.NewSyntax("Unexpected \",\" before \")\"")
 			}
@@ -58,21 +58,22 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 			return "", sqerr.NewSyntax("Comma is required to separate columns")
 		}
 		// Ident(colName), Ident(typeVal), opt [opt NOT, NULL],  opt comma
-		if cName := tkns.Test(tokens.Ident); cName != "" {
+		if tkn := tkns.Test(tokens.Ident); tkn != nil {
+			cName := tkn.(*tokens.ValueToken).Value()
 			tkns.Remove()
-			typeVal := tkns.Test(tokens.AllTypes...)
-			if typeVal == "" {
+			typeTkn := tkns.Test(tokens.AllTypes...)
+			if typeTkn == nil {
 				return "", sqerr.NewSyntax("Expecting column type")
 			}
 			tkns.Remove()
 			// Check for optional NOT NULL or NULL
 			isNot := false
 			isNull := false
-			if tkns.Test(tokens.Not) != "" {
+			if tkns.Test(tokens.Not) != nil {
 				tkns.Remove()
 				isNot = true
 			}
-			if tkns.Test(tokens.Null) != "" {
+			if tkns.Test(tokens.Null) != nil {
 				tkns.Remove()
 				isNull = true
 			}
@@ -81,12 +82,12 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 				return "", sqerr.NewSyntax("Expecting a NULL after NOT in Column definition")
 			}
 
-			col := sqtables.NewColDef(cName, typeVal, isNot)
+			col := sqtables.NewColDef(cName, typeTkn.ID(), isNot)
 			cols = append(cols, col)
 			i++
 
 			// check for optional comma
-			if tkns.Test(tokens.Comma) != "" {
+			if tkns.Test(tokens.Comma) != nil {
 				isHangingComma = true
 				tkns.Remove()
 			} else {
@@ -101,7 +102,7 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 	}
 
 	if !tkns.IsEmpty() {
-		return "", sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+		return "", sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
 	}
 
 	log.Debug("Creating table ", tableName)

@@ -9,11 +9,11 @@ import (
 
 // ToString - return string representation of type
 func (n SQNull) ToString() string {
-	return tokens.Null
+	return tokens.IDName(tokens.Null)
 }
 
 // Type - returns the type
-func (n SQNull) Type() string {
+func (n SQNull) Type() tokens.TokenID {
 	return tokens.Null
 }
 
@@ -49,12 +49,12 @@ func (n SQNull) Write(c *sqbin.Codec) {
 }
 
 // Operation is always NULL for Null values
-func (n SQNull) Operation(op string, v Value) (Value, error) {
+func (n SQNull) Operation(op tokens.TokenID, v Value) (Value, error) {
 	return SQNull{}, nil
 }
 
 // Convert returns the value converted to the given type
-func (n SQNull) Convert(newtype string) (retVal Value, err error) {
+func (n SQNull) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 	retVal = n
 	return
 }

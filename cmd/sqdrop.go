@@ -19,16 +19,17 @@ func DropTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *s
 	log.Debug("DROP TABLE command")
 
 	// Eat the DROP TABLE tokens if they are there
-	if tkns.Test(tokens.Drop) != "" {
+	if tkns.Test(tokens.Drop) != nil {
 		tkns.Remove()
 	}
 
-	if tkns.Test(tokens.Table) != "" {
+	if tkns.Test(tokens.Table) != nil {
 		tkns.Remove()
 	}
 
 	// make sure the next token is an Ident
-	if val := tkns.Test(tokens.Ident); val != "" {
+	if tkn := tkns.Test(tokens.Ident); tkn != nil {
+		val := tkn.(*tokens.ValueToken).Value()
 		tableName = strings.ToLower(val)
 		tkns.Remove()
 	} else {
@@ -36,7 +37,7 @@ func DropTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *s
 	}
 
 	if !tkns.IsEmpty() {
-		return "", nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.ToString())
+		return "", nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
 	}
 
 	err := sqtables.DropTable(profile, tableName)

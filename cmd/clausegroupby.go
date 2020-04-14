@@ -9,15 +9,15 @@ import (
 //GroupByClause processing
 func GroupByClause(tkns *tokens.TokenList) (*sqtables.ExprList, error) {
 
-	if tkns.Test(tokens.Group) != "" {
+	if tkns.Test(tokens.Group) != nil {
 		tkns.Remove()
 	}
-	if tkns.Test(tokens.By) == "" {
+	if tkns.Test(tokens.By) == nil {
 		return nil, sqerr.NewSyntax("GROUP missing BY")
 	}
 	tkns.Remove()
 
-	eList, err := GetExprList(tkns, nil, tokens.Group)
+	eList, err := GetExprList(tkns, tokens.NilToken, tokens.Group)
 	if err != nil {
 		return nil, err
 	}
