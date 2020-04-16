@@ -431,18 +431,74 @@ func TestSQPtrsArray(t *testing.T) {
 	}
 
 }
-func TestInsertInt64(t *testing.T) {
-	testArray := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
-	encdec := sqbin.NewCodec(testArray)
+func TestInsert(t *testing.T) {
 
-	encdec.InsertInt64(1)
-	if len(testArray)+9 != encdec.Len() {
-		t.Error("Int64 was not added to codec")
+	data := []dataInsert{
+		{
+			TestName:  "Insert One Int64",
+			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+			ExpPrefix: []byte{sqbin.Int64Marker, 255, 255, 255, 255, 255, 255, 255, 255},
+			Values:    []interface{}{int64(-1)},
+			ExpPanic:  false,
+		},
+		{
+			TestName:  "Insert One Uint64",
+			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+			ExpPrefix: []byte{sqbin.Uint64Marker, 1, 0, 0, 0, 0, 0, 0, 0},
+			Values:    []interface{}{uint64(1)},
+			ExpPanic:  false,
+		},
+		{
+			TestName:  "Insert One string",
+			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+			ExpPrefix: []byte{sqbin.StringMarker, 116, 101, 115, 116},
+			Values:    []interface{}{"test"},
+			ExpPanic:  true,
+		},
+		{
+			TestName:  "Insert Uint64,Int64 ",
+			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+			ExpPrefix: []byte{sqbin.Uint64Marker, 1, 0, 0, 0, 0, 0, 0, 0, sqbin.Int64Marker, 255, 255, 255, 255, 255, 255, 255, 255},
+			Values:    []interface{}{uint64(1), int64(-1)},
+			ExpPanic:  false,
+		}, {
+			TestName:  "Insert Int64, Uint64",
+			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+			ExpPrefix: []byte{sqbin.Int64Marker, 255, 255, 255, 255, 255, 255, 255, 255, sqbin.Uint64Marker, 1, 0, 0, 0, 0, 0, 0, 0},
+			Values:    []interface{}{int64(-1), uint64(1)},
+			ExpPanic:  false,
+		},
 	}
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testInsertFunc(row))
 
-	finalArray := []byte{sqbin.Int64Marker, 1, 0, 0, 0, 0, 0, 0, 0}
-	finalArray = append(finalArray, testArray...)
-	if !bytes.Equal(finalArray, encdec.Bytes()) {
-		t.Error("Expected results do not match actual results")
+	}
+}
+
+type dataInsert struct {
+	TestName  string
+	TestArray []byte
+	ExpPrefix []byte
+	ExpLen    int
+	Values    []interface{}
+	ExpPanic  bool
+}
+
+func testInsertFunc(d dataInsert) func(*testing.T) {
+	return func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
+
+		encdec := sqbin.NewCodec(d.TestArray)
+		encdec.Insert(d.Values...)
+
+		ExpArray := append(d.ExpPrefix, d.TestArray...)
+
+		if !bytes.Equal(ExpArray, encdec.Bytes()) {
+			t.Error("Expected results do not match actual results")
+			t.Errorf("Expected: %v", ExpArray)
+			t.Errorf("  Actual: %v)", encdec.Bytes())
+			return
+		}
 	}
 }

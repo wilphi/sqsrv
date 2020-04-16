@@ -266,7 +266,7 @@ func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 }
 
 func writeCodecAt(file *os.File, offset, alloc, size int64, enc *sqbin.Codec) error {
-	enc.InsertInt64(alloc, size)
+	enc.Insert(alloc, size)
 
 	n, err := file.WriteAt(enc.Bytes(), offset)
 	if err != nil {

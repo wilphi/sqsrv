@@ -26,23 +26,22 @@ const (
 // LogStatement - Interface to represent each type of redo statement
 type LogStatement interface {
 	Recreate(profile *sqprofile.SQProfile) error
-	Identify() string
-	SetID(uint64)
-	GetID() uint64
+	Identify(ID uint64) string
 	Encode() *sqbin.Codec
 	Decode(*sqbin.Codec)
 }
 
 // CreateLogMsg sends a logstatement plus a channel to reply with a possible error
 func CreateLogMsg(resp chan error, stmt LogStatement) LogMsg {
-	return LogMsg{stmt: stmt, respond: resp}
+	enc := stmt.Encode()
+	return LogMsg{buffer: enc.Bytes(), respond: resp}
 }
 
 // CreateDDL - Transaction Recording for Create Statement
 type CreateDDL struct {
 	TableName string
 	Cols      []sqtables.ColDef
-	ID        uint64
+	//	ID        uint64
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
@@ -51,7 +50,7 @@ func (c *CreateDDL) Encode() *sqbin.Codec {
 	// Identify the type of logstatment
 	enc.Writebyte(IDCreateDDL)
 	// Id of transaction statement
-	enc.WriteUint64(c.ID)
+	//	enc.WriteUint64(c.ID)
 
 	enc.WriteString(c.TableName)
 	encColDef(enc, c.Cols)
@@ -65,7 +64,7 @@ func (c *CreateDDL) Decode(dec *sqbin.Codec) {
 		log.Panic("Found wrong statement type. Expecting IDCreateDDL")
 	}
 	// Id of transaction statement
-	c.ID = dec.ReadUint64()
+	//	c.ID = dec.ReadUint64()
 
 	c.TableName = dec.ReadString()
 	c.Cols = decColDef(dec)
@@ -82,19 +81,8 @@ func (c *CreateDDL) Recreate(profile *sqprofile.SQProfile) error {
 }
 
 // Identify - returns a short string to identify the transaction log statement
-func (c *CreateDDL) Identify() string {
-	return fmt.Sprintf("#%d - CREATE TABLE %s", c.ID, c.TableName)
-}
-
-// SetID is used by the transaction logger to indicate the what order the message was sent to the
-//   transaction log. It should be a monotonically increasing number.
-func (c *CreateDDL) SetID(id uint64) {
-	c.ID = id
-}
-
-// GetID returns the ID of the transaction statement. ID = 0 means that it is not valid
-func (c *CreateDDL) GetID() uint64 {
-	return c.ID
+func (c *CreateDDL) Identify(ID uint64) string {
+	return fmt.Sprintf("#%d - CREATE TABLE %s", ID, c.TableName)
 }
 
 // NewCreateDDL returns a logstatement that is a CREATE TABLE
@@ -108,7 +96,6 @@ type InsertRows struct {
 	Cols      []string
 	Data      [][]sqtypes.Value
 	RowPtrs   sqptr.SQPtrs
-	ID        uint64
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
@@ -116,8 +103,6 @@ func (i *InsertRows) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
 	enc.Writebyte(IDInsertRows)
-	// Id of transaction statement
-	enc.WriteUint64(i.ID)
 
 	enc.WriteString(i.TableName)
 
@@ -125,6 +110,7 @@ func (i *InsertRows) Encode() *sqbin.Codec {
 	enc.WriteArrayString(i.Cols)
 	enc.WriteSQPtrs(i.RowPtrs)
 	encodeData(enc, i.Data)
+
 	return enc
 }
 
@@ -136,7 +122,7 @@ func (i *InsertRows) Decode(dec *sqbin.Codec) {
 	}
 
 	// Id of transaction statement
-	i.ID = dec.ReadUint64()
+	//	i.ID = dec.ReadUint64()
 
 	i.TableName = dec.ReadString()
 
@@ -148,6 +134,7 @@ func (i *InsertRows) Decode(dec *sqbin.Codec) {
 
 // Recreate - reprocess the recorded transaction log SQL statement to restore the database
 func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
+
 	// make sure there is a valid table
 	tab, err := sqtables.GetTable(profile, i.TableName)
 	if err != nil {
@@ -176,19 +163,9 @@ func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 }
 
 // Identify - returns a short string to identify the transaction log statement
-func (i *InsertRows) Identify() string {
-	return fmt.Sprintf("#%d - INSERT INTO %s : Rows = %d", i.ID, i.TableName, len(i.Data))
-}
+func (i *InsertRows) Identify(ID uint64) string {
 
-// SetID is used by the transaction logger to indicate the what order the message was sent to the
-//   transaction log. It should be a monotonically increasing number.
-func (i *InsertRows) SetID(id uint64) {
-	i.ID = id
-}
-
-// GetID returns the ID of the transaction statement. ID = 0 means that it is not valid
-func (i *InsertRows) GetID() uint64 {
-	return i.ID
+	return fmt.Sprintf("#%d - INSERT INTO %s : Rows = %d", ID, i.TableName, len(i.Data))
 }
 
 // NewInsertRows -  returns a logstatement that is a INSERT INTO
@@ -203,7 +180,7 @@ type UpdateRows struct {
 	Cols      []string
 	EList     *sqtables.ExprList
 	RowPtrs   sqptr.SQPtrs
-	ID        uint64
+	//	ID        uint64
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
@@ -212,7 +189,7 @@ func (u *UpdateRows) Encode() *sqbin.Codec {
 	// Identify the type of logstatment
 	enc.Writebyte(IDUpdateRows)
 	// Id of transaction statement
-	enc.WriteUint64(u.ID)
+	//	enc.WriteUint64(u.ID)
 
 	enc.WriteString(u.TableName)
 
@@ -234,7 +211,7 @@ func (u *UpdateRows) Decode(dec *sqbin.Codec) {
 	}
 
 	// Id of transaction statement
-	u.ID = dec.ReadUint64()
+	//	u.ID = dec.ReadUint64()
 
 	u.TableName = dec.ReadString()
 
@@ -261,19 +238,8 @@ func (u *UpdateRows) Recreate(profile *sqprofile.SQProfile) error {
 }
 
 // Identify - returns a short string to identify the transaction log statement
-func (u *UpdateRows) Identify() string {
-	return fmt.Sprintf("#%d - UPDATE  %s : Rows = %d", u.ID, u.TableName, len(u.RowPtrs))
-}
-
-// SetID is used by the transaction logger to indicate the what order the message was sent to the
-//   transaction log. It should be a monotonically increasing number.
-func (u *UpdateRows) SetID(id uint64) {
-	u.ID = id
-}
-
-// GetID returns the ID of the transaction statement. ID = 0 means that it is not valid
-func (u *UpdateRows) GetID() uint64 {
-	return u.ID
+func (u *UpdateRows) Identify(ID uint64) string {
+	return fmt.Sprintf("#%d - UPDATE  %s : Rows = %d", ID, u.TableName, len(u.RowPtrs))
 }
 
 // NewUpdateRows -  returns a logstatement that is a UPDATE statement
@@ -287,7 +253,7 @@ func NewUpdateRows(TableName string, cols []string, eList *sqtables.ExprList, pt
 type DeleteRows struct {
 	TableName string
 	RowPtrs   sqptr.SQPtrs
-	ID        uint64
+	//	ID        uint64
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
@@ -296,7 +262,7 @@ func (d *DeleteRows) Encode() *sqbin.Codec {
 	// Identify the type of logstatment
 	enc.Writebyte(IDDeleteRows)
 	// Id of transaction statement
-	enc.WriteUint64(d.ID)
+	//	enc.WriteUint64(d.ID)
 
 	enc.WriteString(d.TableName)
 
@@ -314,7 +280,7 @@ func (d *DeleteRows) Decode(dec *sqbin.Codec) {
 	}
 
 	// Id of transaction statement
-	d.ID = dec.ReadUint64()
+	//	d.ID = dec.ReadUint64()
 
 	d.TableName = dec.ReadString()
 
@@ -340,19 +306,8 @@ func (d *DeleteRows) Recreate(profile *sqprofile.SQProfile) error {
 }
 
 // Identify - returns a short string to identify the transaction log statement
-func (d *DeleteRows) Identify() string {
-	return fmt.Sprintf("#%d - DELETE FROM  %s : Rows = %d", d.ID, d.TableName, len(d.RowPtrs))
-}
-
-// SetID is used by the transaction logger to indicate the what order the message was sent to the
-//   transaction log. It should be a monotonically increasing number.
-func (d *DeleteRows) SetID(id uint64) {
-	d.ID = id
-}
-
-// GetID returns the ID of the transaction statement. ID = 0 means that it is not valid
-func (d *DeleteRows) GetID() uint64 {
-	return d.ID
+func (d *DeleteRows) Identify(ID uint64) string {
+	return fmt.Sprintf("#%d - DELETE FROM  %s : Rows = %d", ID, d.TableName, len(d.RowPtrs))
 }
 
 // NewDeleteRows -
@@ -487,19 +442,8 @@ func (d *DropDDL) Recreate(profile *sqprofile.SQProfile) error {
 }
 
 // Identify - returns a short string to identify the transaction log statement
-func (d *DropDDL) Identify() string {
-	return fmt.Sprintf("#%d - DROP TABLE %s", d.ID, d.TableName)
-}
-
-// SetID is used by the transaction logger to indicate the what order the message was sent to the
-//   transaction log. It should be a monotonically increasing number.
-func (d *DropDDL) SetID(id uint64) {
-	d.ID = id
-}
-
-// GetID returns the ID of the transaction statement. ID = 0 means that it is not valid
-func (d *DropDDL) GetID() uint64 {
-	return d.ID
+func (d *DropDDL) Identify(ID uint64) string {
+	return fmt.Sprintf("#%d - DROP TABLE %s", ID, d.TableName)
 }
 
 // NewDropDDL returns a logstatement that is a CREATE TABLE

@@ -32,7 +32,8 @@ var doDirOnce sync.Once
 
 // LogMsg is a structure to send a LogStatement across a channel and giving a reponse channel
 type LogMsg struct {
-	stmt    LogStatement
+	//	stmt    LogStatement
+	buffer  []byte
 	respond chan error
 }
 
@@ -112,7 +113,7 @@ func transProc() {
 	file, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//	log.Fatal(err)
-		panic(err.Error())
+		log.Panic(err.Error())
 	}
 
 	defer file.Close()
@@ -128,13 +129,13 @@ func transProc() {
 		}
 
 		// unpack the log statement and encode it
-		stmt := sent.stmt
+		//stmt := sent.stmt
+		encStmt := sqbin.NewCodec(sent.buffer)
+		//	encStmt := stmt.Encode()
 
-		// set the transaction log ID
-		stmt.SetID(transid.GetNextID())
-
-		encStmt := stmt.Encode()
-		encStmt.InsertInt64(int64(encStmt.Len()))
+		// set the transaction log ID & Length of log
+		tID := transid.GetNextID()
+		encStmt.Insert(tID, int64(encStmt.Len()))
 
 		n, err := file.Write(encStmt.Bytes())
 		// If there was an error put it on the respond channel from the sender
@@ -145,7 +146,7 @@ func transProc() {
 
 		//Sync the file to make sure that the logstatment is durably written to disk
 		err = file.Sync()
-		log.Debugf("%d written to transaction log", stmt.GetID())
+		log.Debugf("%d written to transaction log", tID)
 		sent.respond <- err
 	}
 }
@@ -191,8 +192,20 @@ func ReadTlog(profile *sqprofile.SQProfile, f io.Reader) error {
 	int64buff := make([]byte, 9)
 
 	for {
-		// get marker + len
+		// Get the transID
 		n, err := f.Read(int64buff)
+		if err != nil || n != 9 {
+			if err == io.EOF {
+				break
+			}
+			log.Error("Error Reading recovery transaction log: ", err)
+			return err
+		}
+		dec.Write(int64buff)
+		tID := dec.ReadUint64()
+
+		// get marker + len
+		n, err = f.Read(int64buff)
 		if err != nil || n != 9 {
 			if err == io.EOF {
 				break
@@ -211,19 +224,19 @@ func ReadTlog(profile *sqprofile.SQProfile, f io.Reader) error {
 
 		dec.Write(buff)
 		s = DecodeStatement(dec)
-		if s.GetID() <= transid.GetTransID() {
+		if tID <= transid.GetTransID() {
 			// statement is already in database
-			log.Debugf("Skipping recover statement: %s transid < current Id (%d < %d)", s.Identify(), s.GetID(), transid.GetTransID())
+			log.Debugf("Skipping recover statement: %s transid < current Id (%d < %d)", s.Identify(tID), tID, transid.GetTransID())
 		} else {
-			log.Debug("Attempting to recover statement: ", s.Identify())
+			log.Debug("Attempting to recover statement: ", s.Identify(tID))
 			if err := s.Recreate(profile); err != nil {
-				log.Error("Unable to recreate from: ", s.Identify())
+				log.Error("Unable to recreate from: ", s.Identify(tID))
 				return err
 			}
-			log.Info("Recovered: ", s.Identify())
+			log.Info("Recovered: ", s.Identify(tID))
 
 			// make sure memory reflects current transaction completed
-			transid.SetTransID(s.GetID())
+			transid.SetTransID(tID)
 
 		}
 	}

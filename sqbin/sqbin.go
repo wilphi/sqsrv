@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/wilphi/sqsrv/sqptr"
@@ -278,6 +279,41 @@ func (c *Codec) ReadSQPtrs() sqptr.SQPtrs {
 	return nArray
 }
 
+// Insert inserts valid types at the beginning of the buffer
+func (c *Codec) Insert(vars ...interface{}) {
+	s := c.buff.String()
+	c.buff.Reset()
+	size := len(s)
+	//Figure out the size
+	for _, vr := range vars {
+		switch vr.(type) {
+		case int64:
+			size += 9
+		case uint64:
+			size += 9
+		default:
+			log.Panicf("unknown type %T in sqbin.Insert", vr)
+		}
+	}
+	// make sure buffer is sized correctly
+	c.buff.Grow(size)
+
+	for _, vr := range vars {
+		switch v := vr.(type) {
+		case int64:
+			c.WriteInt64(v)
+		case uint64:
+			c.WriteUint64(v)
+		default:
+			log.Panicf("unknown type %T in sqbin.Insert", v)
+		}
+	}
+
+	c.buff.WriteString(s)
+
+}
+
+/*
 //InsertInt64 inserts any number of Int64s at the beginning of the buffer
 func (c *Codec) InsertInt64(nums ...int64) {
 	s := c.buff.String()
@@ -287,6 +323,17 @@ func (c *Codec) InsertInt64(nums ...int64) {
 	}
 	c.buff.WriteString(s)
 }
+
+//InsertUint64 inserts any number of Uint64s at the beginning of the buffer
+func (c *Codec) InsertUint64(nums ...uint64) {
+	s := c.buff.String()
+	c.buff.Reset()
+	for _, num := range nums {
+		c.WriteUint64(num)
+	}
+	c.buff.WriteString(s)
+}
+*/
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
@@ -318,6 +365,6 @@ func (c *Codec) getTypeMarker(tm byte) {
 		panic("Unable to sqbin.Readbyte from codec buffer")
 	}
 	if tm != b {
-		panic(fmt.Sprintf("Type marker did not match expected: Actual = %d, Expected = %d", b, tm))
+		panic(fmt.Sprintf("Type marker did not match expected: Actual = %d-%s, Expected = %d-%s", b, TypeMarkerStrings[b], tm, TypeMarkerStrings[tm]))
 	}
 }

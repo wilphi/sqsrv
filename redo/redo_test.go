@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/wilphi/sqsrv/sqbin"
@@ -34,7 +33,6 @@ var Items []string
 // TestStmt -
 type TestStmt struct {
 	Str string
-	ID  uint64
 }
 
 func init() {
@@ -58,7 +56,7 @@ func (t *TestStmt) Encode() *sqbin.Codec {
 	// Identify the type of logstatment
 	enc.Writebyte(IDTestStmt)
 	// Id of transaction statement
-	enc.WriteUint64(t.ID)
+	//	enc.WriteUint64(t.ID)
 
 	enc.WriteString(t.Str)
 	return enc
@@ -72,7 +70,7 @@ func (t *TestStmt) Decode(dec *sqbin.Codec) {
 		log.Panicf("Found wrong statement type (%s). Expecting IDTestStmt", sqbin.TypeMarkerStrings[mkr])
 	}
 	// Id of transaction statement
-	t.ID = dec.ReadUint64()
+	//	t.ID = dec.ReadUint64()
 
 	t.Str = dec.ReadString()
 
@@ -85,10 +83,11 @@ func (t *TestStmt) Recreate(profile *sqprofile.SQProfile) error {
 }
 
 // Identify for TestStmt
-func (t *TestStmt) Identify() string {
+func (t *TestStmt) Identify(ID uint64) string {
 	return "Test Statement: " + t.Str
 }
 
+/*
 // SetID is used by the transaction logger to indicate the what order the message was sent to the
 //   transaction log. It should be a monotonically increasing number.
 func (t *TestStmt) SetID(id uint64) {
@@ -99,11 +98,11 @@ func (t *TestStmt) SetID(id uint64) {
 func (t *TestStmt) GetID() uint64 {
 	return t.ID
 }
+*/
 
 // TestWithErr - for testing error paths in software
 type TestWithErr struct {
 	Str string
-	ID  uint64
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
@@ -112,7 +111,7 @@ func (t *TestWithErr) Encode() *sqbin.Codec {
 	// Identify the type of logstatment
 	enc.Writebyte(IDTestWithErr)
 	// Id of transaction statement
-	enc.WriteUint64(t.ID)
+	//	enc.WriteUint64(t.ID)
 
 	enc.WriteString(t.Str)
 	return enc
@@ -126,7 +125,7 @@ func (t *TestWithErr) Decode(dec *sqbin.Codec) {
 	}
 
 	// Id of transaction statement
-	t.ID = dec.ReadUint64()
+	//	t.ID = dec.ReadUint64()
 
 	t.Str = dec.ReadString()
 
@@ -140,10 +139,11 @@ func (t *TestWithErr) Recreate(profile *sqprofile.SQProfile) error {
 }
 
 // Recreate TestWithErr for testing error paths
-func (t *TestWithErr) Identify() string {
+func (t *TestWithErr) Identify(ID uint64) string {
 	return "Test With Error: " + t.Str
 }
 
+/*
 // SetID is used by the transaction logger to indicate the what order the message was sent to the
 //   transaction log. It should be a monotonically increasing number.
 func (t *TestWithErr) SetID(id uint64) {
@@ -154,6 +154,7 @@ func (t *TestWithErr) SetID(id uint64) {
 func (t *TestWithErr) GetID() uint64 {
 	return t.ID
 }
+*/
 
 // TestMain - Setup logging for tests to make sure it does not go to stdio
 func TestMain(m *testing.M) {
@@ -210,21 +211,21 @@ func TestReadTlog(t *testing.T) {
 	var data = []TestData{
 		{
 			TestName: "Recreate",
-			Stmts:    []LogStatement{&TestStmt{"Test0", 1}, &TestStmt{"Test1", 2}, &TestStmt{"Test2", 3}, &TestStmt{"Test3", 4}, &TestStmt{"Test4", 5}},
+			Stmts:    []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}, &TestStmt{"Test3"}, &TestStmt{"Test4"}},
 			ErrAfter: -1,
 			ExpErr:   "",
 			ExpItems: []string{"Recreated Test0", "Recreated Test1", "Recreated Test2", "Recreated Test3", "Recreated Test4"},
 		},
 		{
 			TestName: "Error Recreating",
-			Stmts:    []LogStatement{&TestStmt{"ErrTest0", 1}, &TestWithErr{"ErrTest1", 2}},
+			Stmts:    []LogStatement{&TestStmt{"ErrTest0"}, &TestWithErr{"ErrTest1"}},
 			ErrAfter: -1,
 			ExpErr:   "Internal Error: Testing Error Handling: ErrTest1",
 			ExpItems: []string{"Recreated ErrTest0", "Not Recreated ErrTest1"},
 		},
 		{
 			TestName: "Error Reading Log",
-			Stmts:    []LogStatement{&TestStmt{"Test0", 1}, &TestStmt{"Test1", 2}, &TestStmt{"Test2", 3}},
+			Stmts:    []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}},
 			ErrAfter: 2,
 			ExpPanic: true,
 			ExpErr:   "",
@@ -232,7 +233,7 @@ func TestReadTlog(t *testing.T) {
 		},
 		{
 			TestName: "Recreate with skip",
-			Stmts:    []LogStatement{&TestStmt{"Test0", 1}, &TestStmt{"Test1", 2}, &TestStmt{"Test2", 3}, &TestStmt{"Test3", 4}, &TestStmt{"Test4", 5}},
+			Stmts:    []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}, &TestStmt{"Test3"}, &TestStmt{"Test4"}},
 			ErrAfter: -1,
 			ExpErr:   "",
 			ExpItems: []string{"Recreated Test2", "Recreated Test3", "Recreated Test4"},
@@ -269,6 +270,9 @@ func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T)
 				enc.WriteString("Test Object")
 			} else {
 				tmpenc := stmt.Encode()
+
+				// TransID must start at 1
+				enc.WriteUint64(uint64(i + 1))
 				enc.WriteInt64(int64(tmpenc.Len()))
 				enc.Write(tmpenc.Bytes())
 			}
@@ -279,20 +283,7 @@ func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T)
 		b := enc.Bytes()
 		file := bytes.NewBuffer(b)
 		err = ReadTlog(profile, file)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
-				return
-			}
-			return
-		}
-		if err == nil && d.ExpErr != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
 
@@ -474,10 +465,10 @@ func createTransLog(testFileName string, tableName string) error {
 	defer file.Close()
 	for id, stmt := range data {
 		// set the transaction log ID
-		stmt.SetID(uint64(id + 10))
+		//		stmt.SetID(uint64(id + 10))
 
 		encStmt := stmt.Encode()
-		encStmt.InsertInt64(int64(encStmt.Len()))
+		encStmt.Insert(uint64(id+10), int64(encStmt.Len()))
 
 		_, err := file.Write(encStmt.Bytes())
 		// If there was an error put it on the respond channel from the sender
@@ -491,23 +482,24 @@ func createTransLog(testFileName string, tableName string) error {
 }
 
 func TestTransProc(t *testing.T) {
-	t.Run("File Error", func(t *testing.T) {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Errorf("%s did not panic", t.Name())
-				return
-			}
-			s, ok := r.(string)
-			expErr := "no such file or directory"
-			if !(ok && strings.Contains(s, expErr)) {
-				t.Errorf("%s: Actual Error %q does not match expected %q", t.Name(), s, expErr)
-				return
-			}
-		}()
-		transProc()
+	/*	t.Run("File Error", func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if r == nil {
+					t.Errorf("%s did not panic", t.Name())
+					return
+				}
+				s, ok := r.(string)
+				expErr := "no such file or directory"
+				if !(ok && strings.Contains(s, expErr)) {
+					t.Errorf("%s: Actual Error %q does not match expected %q", t.Name(), s, expErr)
+					return
+				}
+			}()
+			transProc()
 
-	})
+		})
+	*/
 	// Setup Files
 	tmpDir, err := ioutil.TempDir("", "sqsrvtest")
 	if err != nil {
@@ -549,7 +541,7 @@ func TestTransProc(t *testing.T) {
 	t.Run("Send", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
-		stmt := &TestStmt{"Test0", 1}
+		stmt := &TestStmt{"Test0"}
 		Send(stmt)
 	})
 	t.Run("Stop", func(t *testing.T) {

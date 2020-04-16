@@ -50,17 +50,11 @@ func testCreateFunc(d CreateData) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		s := redo.NewCreateDDL(d.TableName, d.Cols)
-		// Test Get/Set Id
-		s.SetID(d.ID)
-		if s.GetID() != d.ID {
-			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-			return
-		}
 
 		// Test identity string
 		idstr := fmt.Sprintf("#%d - CREATE TABLE %s", d.ID, d.TableName)
-		if idstr != s.Identify() {
-			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), idstr)
+		if idstr != s.Identify(d.ID) {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(d.ID), idstr)
 			return
 		}
 
@@ -175,16 +169,9 @@ func testInsertFunc(d InsertData) func(*testing.T) {
 		data := sqtypes.CreateValuesFromRaw(d.Data)
 		s := redo.NewInsertRows(d.TableName, d.Cols, data, d.RowPtrs)
 
-		// Test Get/Set ID
-		s.SetID(d.ID)
-		if s.GetID() != d.ID {
-			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-			return
-		}
-
 		// Test the Identifier
-		if d.Identstr != s.Identify() {
-			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
+		if d.Identstr != s.Identify(d.ID) {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(d.ID), d.Identstr)
 			return
 		}
 		// Test Encode/Decode
@@ -360,14 +347,15 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			t.Error("Columns do not match expected")
 		}
 
-		// verify Get/Set for ID
-		s.SetID(d.ID)
-		if s.GetID() != d.ID {
-			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-		}
+		/*		// verify Get/Set for ID
+				s.SetID(d.ID)
+				if s.GetID() != d.ID {
+					t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
+				}
+		*/
 		// Test the identstr
-		if d.Identstr != s.Identify() {
-			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
+		if d.Identstr != s.Identify(d.ID) {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(d.ID), d.Identstr)
 		}
 		// test Encode/Decode
 		cdr := s.Encode()
@@ -511,16 +499,17 @@ func testDeleteFunc(d DeleteData) func(*testing.T) {
 
 		var err error
 		s := redo.NewDeleteRows(d.TableName, d.RowPtrs)
-		// Test Set/Get ID
-		s.SetID(d.ID)
-		if s.GetID() != d.ID {
-			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-			return
-		}
+		/*		// Test Set/Get ID
+				s.SetID(d.ID)
+				if s.GetID() != d.ID {
+					t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
+					return
+				}
+		*/
 
 		// Test Identify string
-		if d.Identstr != s.Identify() {
-			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
+		if d.Identstr != s.Identify(d.ID) {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(d.ID), d.Identstr)
 			return
 		}
 
@@ -624,16 +613,16 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 
 		s := redo.NewDropDDL(d.TableName)
 
-		// Test Set/Get ID
-		s.SetID(d.ID)
-		if s.GetID() != d.ID {
-			t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-			return
-		}
-
+		/*	// Test Set/Get ID
+			s.SetID(d.ID)
+			if s.GetID() != d.ID {
+				t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
+				return
+			}
+		*/
 		// Test Identify
-		if d.Identstr != s.Identify() {
-			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(), d.Identstr)
+		if d.Identstr != s.Identify(d.ID) {
+			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(d.ID), d.Identstr)
 			return
 		}
 
