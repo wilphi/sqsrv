@@ -19,16 +19,16 @@ func DropTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *s
 	log.Debug("DROP TABLE command")
 
 	// Eat the DROP TABLE tokens if they are there
-	if tkns.Test(tokens.Drop) != nil {
+	if tkns.IsA(tokens.Drop) {
 		tkns.Remove()
 	}
 
-	if tkns.Test(tokens.Table) != nil {
+	if tkns.IsA(tokens.Table) {
 		tkns.Remove()
 	}
 
 	// make sure the next token is an Ident
-	if tkn := tkns.Test(tokens.Ident); tkn != nil {
+	if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 		val := tkn.(*tokens.ValueToken).Value()
 		tableName = strings.ToLower(val)
 		tkns.Remove()

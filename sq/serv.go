@@ -227,7 +227,7 @@ func cmdGC(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Respons
 func cmdLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	tkns.Remove()
-	if tkns.Test(tk.Ident) != nil {
+	if tkns.IsA(tk.Ident) {
 		tkn := tkns.Peek()
 		tableName := tkn.(*tokens.ValueToken).Value()
 		td, err := sqtables.GetTable(profile, tableName)
@@ -256,7 +256,7 @@ func cmdLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Respo
 func cmdUnLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	tkns.Remove()
-	if tkns.Test(tk.Ident) != nil {
+	if tkns.IsA(tk.Ident) {
 		tkn := tkns.Peek()
 		tableName := tkn.(*tokens.ValueToken).Value()
 		td, err := sqtables.GetTable(profile, tableName)
@@ -297,7 +297,7 @@ func cmdShowTable(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.
 	resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	tkns.Remove()
 	tkns.Remove()
-	if tkns.Test(tk.Ident) != nil {
+	if tkns.IsA(tk.Ident) {
 		tkn := tkns.Peek()
 		tableName := tkn.(*tokens.ValueToken).Value()
 		td, err := sqtables.GetTable(profile, tableName)

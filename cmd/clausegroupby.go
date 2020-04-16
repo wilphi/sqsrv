@@ -9,10 +9,10 @@ import (
 //GroupByClause processing
 func GroupByClause(tkns *tokens.TokenList) (*sqtables.ExprList, error) {
 
-	if tkns.Test(tokens.Group) != nil {
+	if tkns.IsA(tokens.Group) {
 		tkns.Remove()
 	}
-	if tkns.Test(tokens.By) == nil {
+	if !tkns.IsA(tokens.By) {
 		return nil, sqerr.NewSyntax("GROUP missing BY")
 	}
 	tkns.Remove()

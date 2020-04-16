@@ -1,8 +1,10 @@
 package tokens_test
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -37,7 +39,7 @@ func TestTokenList(t *testing.T) {
 	})
 
 	t.Run("Test when no tokens", func(t *testing.T) {
-		if tl.Test(tokens.Create) != nil {
+		if tl.TestTkn(tokens.Create) != nil {
 			t.Error("Unexpected return when Testing an empty list")
 		}
 	})
@@ -60,19 +62,139 @@ func TestTokenList(t *testing.T) {
 		}
 	})
 	t.Run("Test for Create token", func(t *testing.T) {
-		if tl.Test(tokens.Create).ID() != tokens.Create {
+		if tl.TestTkn(tokens.Create).ID() != tokens.Create {
 			t.Error("Unexpected return when Testing an empty list")
 		}
 	})
 	t.Run("Test for Wrong token", func(t *testing.T) {
-		if tl.Test(tokens.Null) != nil {
+		if tl.TestTkn(tokens.Null) != nil {
 			t.Error("Unexpected return when Testing wrong token")
 		}
 	})
 	t.Run("Test for mulitple tokens", func(t *testing.T) {
-		if tl.Test(tokens.Create, tokens.Not, tokens.Ident, tokens.Null).ID() != tokens.Create {
+		if tl.TestTkn(tokens.Create, tokens.Not, tokens.Ident, tokens.Null).ID() != tokens.Create {
 			t.Error("Unexpected return when Testing mulitple tokens")
 		}
 	})
 
+}
+
+func TestTList(t *testing.T) {
+
+	data := []TListData{
+		{
+			TestName: "Add to Empty List",
+			TestStr:  "",
+			AddTkns:  []tokens.Token{tokens.GetWordToken(tokens.Select)},
+			ExpLen:   1,
+			ExpList:  "SELECT",
+			IsA:      tokens.Select,
+			IsAret:   true,
+			IsWord:   true,
+		},
+		{
+			TestName: "Add to List",
+			TestStr:  "SELECT * FROM ",
+			AddTkns:  []tokens.Token{tokens.NewValueToken(tokens.Ident, "tableA")},
+			ExpLen:   4,
+			ExpList:  "SELECT * FROM [IDENT=tableA]",
+			IsA:      tokens.Ident,
+			IsAret:   false,
+			IsWord:   true,
+		},
+		{
+			TestName: "Add multiple to List",
+			TestStr:  "SELECT * FROM ",
+			AddTkns:  []tokens.Token{tokens.NewValueToken(tokens.Ident, "tableA"), tokens.GetWordToken(tokens.Where), tokens.NewValueToken(tokens.Ident, "col1")},
+			ExpLen:   6,
+			ExpList:  "SELECT * FROM [IDENT=tableA] WHERE [IDENT=col1]",
+			IsWord:   true,
+		},
+		{
+			TestName: "Remove from Empty List",
+			TestStr:  "",
+			AddTkns:  nil,
+			Remove:   1,
+			ExpLen:   0,
+			ExpList:  "",
+			IsA:      tokens.Ident,
+			IsAret:   false,
+			IsWord:   false,
+		},
+		{
+			TestName: "Remove from List",
+			TestStr:  "SELECT * FROM ",
+			AddTkns:  nil,
+			Remove:   1,
+			ExpLen:   2,
+			ExpList:  "* FROM",
+			IsWord:   false,
+		},
+		{
+			TestName: "Empty out List",
+			TestStr:  "SELECT * FROM ",
+			AddTkns:  nil,
+			Remove:   4,
+			ExpLen:   0,
+			ExpList:  "",
+			IsWord:   false,
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testTListFunc(row))
+
+	}
+
+}
+
+type TListData struct {
+	TestName string
+	TestStr  string
+	AddTkns  []tokens.Token
+	Remove   int
+	IsA      tokens.TokenID
+	IsAret   bool
+	IsWord   bool
+	ExpLen   int
+	ExpList  string
+}
+
+func testTListFunc(d TListData) func(t *testing.T) {
+	return func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, false)
+
+		tkns := tokens.Tokenize(d.TestStr)
+		if d.AddTkns != nil {
+			for _, tkn := range d.AddTkns {
+				tkns.Add(tkn)
+			}
+		}
+		for i := 0; i < d.Remove; i++ {
+			tkns.Remove()
+		}
+
+		if tkns.IsReservedWord() != d.IsWord {
+			t.Errorf("IsReservedWord was %t when is should have been %t", !d.IsWord, d.IsWord)
+			return
+		}
+		if tkns.IsA(d.IsA) != d.IsAret {
+			t.Errorf("IsA(%s) returned %t when it should not have", tokens.IDName(d.IsA), !d.IsAret)
+			return
+		}
+		// Check IsEmpty
+		if tkns.IsEmpty() != (d.ExpLen <= 0) {
+			t.Errorf("IsEmpty = %t does not match expected %t", tkns.IsEmpty(), (d.ExpLen <= 0))
+			return
+		}
+		if tkns.Len() != d.ExpLen {
+			t.Errorf("Actual Len %d does not match Expected %d", tkns.Len(), d.ExpLen)
+			return
+		}
+		if tkns.String() != d.ExpList {
+			t.Errorf("Token list %q does not match expected list %q", tkns.String(), d.ExpList)
+			return
+		}
+	}
 }

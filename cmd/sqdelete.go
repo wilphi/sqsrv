@@ -34,7 +34,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	tkns.Remove()
 
 	// eat the From
-	if tkns.Test(tokens.From) == nil {
+	if !tkns.IsA(tokens.From) {
 		// no FROM
 		err = sqerr.NewSyntax("Expecting FROM")
 		return
@@ -42,7 +42,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	tkns.Remove()
 
 	//expecting Ident (tablename)
-	if tkn = tkns.Test(tokens.Ident); tkn == nil {
+	if tkn = tkns.TestTkn(tokens.Ident); tkn == nil {
 		err = sqerr.NewSyntax("Expecting table name in Delete statement")
 		return
 	}
@@ -60,7 +60,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	}
 
 	// Optional Where clause processing goes here
-	if tkns.Test(tokens.Where) != nil {
+	if tkns.IsA(tokens.Where) {
 		tkns.Remove()
 		whereExpr, err = ParseWhereClause(tkns, tokens.Order)
 

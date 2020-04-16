@@ -3,6 +3,7 @@ package tokens
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -91,20 +92,19 @@ func isLetter(ch rune) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 func getIdentifier(r []rune) ([]rune, Token) {
-	word := ""
-
+	var i int
 	// loop until identifier complete
-	for {
+	for i = 1; i < len(r); i++ {
 		//make sure that there is a rune to process
-		if len(r) <= 0 || !(isLetter(r[0]) || isDigit(r[0]) || isUnderScore(r[0])) {
-			tkn := checkKeyWords(word)
-			return r, tkn
+		if !(isLetter(r[i]) || isDigit(r[i]) || isUnderScore(r[i])) {
+			break
 		}
-
-		word += string(r[0])
-		r = r[1:]
-
 	}
+	word := string(runesToBytes(r[:i]))
+	r = r[i:]
+	tkn := checkKeyWords(word)
+	return r, tkn
+
 }
 func isQuote(ch rune) bool {
 	return (ch == '"')
@@ -117,48 +117,64 @@ func isUnderScore(ch rune) bool {
 func getQuote(r []rune) ([]rune, Token) {
 	var quoteVal = ""
 
-	//eat first quote
-	r = r[1:]
-
+	//eat first quote by starting at 1
 	// loop until next quote
-	for {
-		//make sure that there is a rune to process
-		if len(r) <= 0 {
-			//did not find end of quote
-			return r, NewValueToken(Err, "Missing End Quote")
-		}
-
-		if isQuote(r[0]) {
+	for idx := 1; idx < len(r); idx++ {
+		if isQuote(r[idx]) {
 			//found the end of quote
-			r = r[1:]
-			//break
+			quoteVal = string(runesToBytes(r[1:idx]))
+			r = r[idx+1:]
 			return r, NewValueToken(Quote, quoteVal)
 		}
-		quoteVal = quoteVal + string(r[0])
-		r = r[1:]
-
 	}
+	r = r[len(r):]
+	return r, NewValueToken(Err, "Missing End Quote")
+
 }
+
+// runesToBytes takes a rune slice and converts it in to bytes
+// It does an accurate tally of how big of a byte slice it will
+// require before allocating it and doing the conversion
+func runesToBytes(rs []rune) []byte {
+	// Calculate how large the slice needs to be
+	size := 0
+	for _, r := range rs {
+		size += utf8.RuneLen(r)
+	}
+
+	// Allocate it
+	bs := make([]byte, size)
+
+	// Now do the conversion to a byte slice
+	count := 0
+	for _, r := range rs {
+		count += utf8.EncodeRune(bs[count:], r)
+	}
+
+	return bs
+}
+
 func isDigit(ch rune) bool {
 	return (ch >= '0' && ch <= '9')
 }
 func getNumber(r []rune) ([]rune, Token) {
-	num := ""
+	i := 1
 
 	hasDecimal := false
 	// loop until no more digits
-	for {
-		char := string(r[0])
-		num += char
-		r = r[1:]
+	for i = 1; i < len(r); i++ {
 		//make sure that there is a rune to process
-		if len(r) <= 0 || !(isDigit(r[0]) || r[0] == '.' && !hasDecimal) {
-			return r, NewValueToken(Num, num)
+		if !(isDigit(r[i]) || r[i] == '.' && !hasDecimal) {
+			break
 		}
 
 		// Allow only one decimal point
-		hasDecimal = hasDecimal || char == "."
+		hasDecimal = hasDecimal || r[i] == '.'
 	}
+	num := string(runesToBytes(r[:i]))
+	r = r[i:]
+	return r, NewValueToken(Num, num)
+
 }
 
 // Tokenize - Create a token list given a string
@@ -221,7 +237,6 @@ func Tokenize(str string) *TokenList {
 
 	}
 
-	log.Trace("Finished Parsing...", tl.String())
 	return tl
 
 }

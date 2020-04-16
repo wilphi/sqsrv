@@ -32,13 +32,13 @@ func GetIdentList(tkns *tokens.TokenList, terminatorID tokens.TokenID) ([]string
 			return nil, sqerr.NewSyntax("Comma is required to separate columns")
 		}
 		// Ident(colName),  opt comma
-		if tkn := tkns.Test(tokens.Ident); tkn != nil {
+		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 			cName := tkn.(*tokens.ValueToken).Value()
 			ids = append(ids, cName)
 			tkns.Remove()
 
 			// check for optional comma
-			if tkns.Test(tokens.Comma) != nil {
+			if tkns.IsA(tokens.Comma) {
 				isHangingComma = true
 				tkns.Remove()
 			} else {
@@ -65,10 +65,10 @@ func OrderByClause(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
 	var sortType tokens.TokenID
 	var orderBy []sqtables.OrderItem
 
-	if tkns.Test(tokens.Order) != nil {
+	if tkns.IsA(tokens.Order) {
 		tkns.Remove()
 	}
-	if tkns.Test(tokens.By) == nil {
+	if !tkns.IsA(tokens.By) {
 		return nil, sqerr.NewSyntax("ORDER missing BY")
 	}
 	tkns.Remove()
@@ -76,15 +76,15 @@ func OrderByClause(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
 	for {
 
 		// colName ASC/DESC, ...
-		if tkn := tkns.Test(tokens.Ident); tkn != nil {
+		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 			sortCol = tkn.(*tokens.ValueToken).Value()
 			if !hangingComma {
 				return nil, sqerr.NewSyntax("Missing comma in ORDER BY clause")
 			}
 			tkns.Remove()
-			if tkns.Test(tokens.Period) != nil {
+			if tkns.IsA(tokens.Period) {
 				tkns.Remove()
-				if tkn := tkns.Test(tokens.Ident); tkn != nil {
+				if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 					sortCol += "." + tkn.(*tokens.ValueToken).Value()
 				} else {
 					//Must be an Ident after TableName.
@@ -93,14 +93,14 @@ func OrderByClause(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
 				tkns.Remove()
 			}
 			hangingComma = false
-			if tkn := tkns.Test(tokens.Asc, tokens.Desc); tkn != nil {
+			if tkn := tkns.TestTkn(tokens.Asc, tokens.Desc); tkn != nil {
 				sortType = tkns.Peek().ID()
 				tkns.Remove()
 			} else {
 				sortType = tokens.Asc
 			}
 			orderBy = append(orderBy, sqtables.OrderItem{ColName: sortCol, SortType: sortType})
-			if tkns.Test(tokens.Comma) != nil {
+			if tkns.IsA(tokens.Comma) {
 				tkns.Remove()
 				hangingComma = true
 				continue
@@ -122,14 +122,14 @@ func getValCol(tkns *tokens.TokenList) (exp sqtables.Expr, err error) {
 	var v sqtypes.Value
 	var tName string
 
-	if tkns.Test(tokens.Minus) != nil {
+	if tkns.IsA(tokens.Minus) {
 		mSign = true
 		tkns.Remove()
 	}
-	if tkns.Test(tokens.OpenBracket) != nil {
+	if tkns.IsA(tokens.OpenBracket) {
 		tkns.Remove()
 		exp, err = GetExpr(tkns, nil, 0, tokens.CloseBracket)
-		if tkns.Test(tokens.CloseBracket) == nil {
+		if !tkns.IsA(tokens.CloseBracket) {
 			return nil, sqerr.NewSyntax("'(' does not have a matching ')'")
 		}
 		tkns.Remove()
@@ -149,15 +149,15 @@ func getValCol(tkns *tokens.TokenList) (exp sqtables.Expr, err error) {
 			return exp, nil
 		}
 		// is token a ColName
-		if tkn := tkns.Test(tokens.Ident); tkn != nil {
+		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 			cName := tkn.(*tokens.ValueToken).Value()
 			tName = ""
 			displayTable := false
 			tkns.Remove()
-			if tkns.Test(tokens.Period) != nil {
+			if tkns.IsA(tokens.Period) {
 				tkns.Remove()
 				tName = cName
-				if tkn = tkns.Test(tokens.Ident); tkn == nil {
+				if tkn = tkns.TestTkn(tokens.Ident); tkn == nil {
 					//Not the expected table name
 					return nil, sqerr.NewSyntaxf("Expecting column after %s.", tName)
 				}
@@ -251,7 +251,7 @@ func GetExpr(tkns *tokens.TokenList, lExp sqtables.Expr, minPrecedence int, term
 	var err error
 
 	// Is token the terminatorID or a comma
-	if tkns.Test(terminators...) != nil || tkns.IsEmpty() {
+	if tkns.TestTkn(terminators...) != nil || tkns.IsEmpty() {
 		return nil, nil
 	}
 
@@ -339,19 +339,19 @@ func GetExprList(tkns *tokens.TokenList, terminatorID tokens.TokenID, listtype t
 		}
 
 		// Check for optional alias
-		if tkn := tkns.Test(tokens.Ident); tkn != nil {
+		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 			alias := tkn.(*tokens.ValueToken).Value()
 			tkns.Remove()
 			exp2.SetAlias(alias)
 		}
 		eList.Add(exp2)
 		// Is token the terminatorID
-		if tkns.Test(terminatorID) != nil || terminatorID == tokens.NilToken && tkns.IsEmpty() || tkns.IsReservedWord() {
+		if tkns.IsA(terminatorID) || terminatorID == tokens.NilToken && tkns.IsEmpty() || tkns.IsReservedWord() {
 			break
 		}
-		if tkns.Test(tokens.Comma) != nil {
+		if tkns.IsA(tokens.Comma) {
 			tkns.Remove()
-			if tkns.Test(terminatorID) != nil {
+			if tkns.IsA(terminatorID) {
 
 				return nil, sqerr.NewSyntaxf("Unexpected %q before %q", ",", tokens.IDName(terminatorID))
 			}
@@ -374,7 +374,7 @@ func GetExprList(tkns *tokens.TokenList, terminatorID tokens.TokenID, listtype t
 		return nil, sqerr.NewSyntax(errStr)
 	}
 
-	if !(terminatorID == tokens.NilToken && tkns.IsEmpty()) && tkns.Test(terminatorID) == nil && !tkns.IsReservedWord() {
+	if !(terminatorID == tokens.NilToken && tkns.IsEmpty()) && !tkns.IsA(terminatorID) && !tkns.IsReservedWord() {
 		errStr := ""
 		switch listtype {
 		case tokens.Values:
@@ -399,7 +399,7 @@ func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminat
 	tables := sqtables.NewTableList(profile, nil)
 	// loop to get the table names
 	for {
-		if tkns.IsEmpty() || tkns.Test(terminators...) != nil {
+		if tkns.IsEmpty() || tkns.TestTkn(terminators...) != nil {
 			if isHangingComma {
 				return nil, sqerr.NewSyntax("Unexpected ',' in From clause")
 			}
@@ -409,12 +409,12 @@ func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminat
 			return nil, sqerr.NewSyntax("Comma is required to separate tables")
 		}
 		// Ident(tableName),  opt comma
-		if tkn := tkns.Test(tokens.Ident); tkn != nil {
+		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 			tName := tkn.(*tokens.ValueToken).Value()
 			tkns.Remove()
 
 			// Check for an Alias
-			if tkn := tkns.Test(tokens.Ident); tkn != nil {
+			if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 				aName := tkn.(*tokens.ValueToken).Value()
 				err = tables.Add(profile, sqtables.FromTable{TableName: tName, Alias: aName})
 				tkns.Remove()
@@ -425,7 +425,7 @@ func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminat
 				return nil, err
 			}
 			// check for optional comma
-			if tkns.Test(tokens.Comma) != nil {
+			if tkns.IsA(tokens.Comma) {
 				isHangingComma = true
 				tkns.Remove()
 			} else {

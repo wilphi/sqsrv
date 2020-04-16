@@ -24,12 +24,12 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 	log.Info("Update statement...")
 
 	// Eat Update Token
-	if tkns.Test(tokens.Update) != nil {
+	if tkns.IsA(tokens.Update) {
 		tkns.Remove()
 	}
 
 	//expecting Ident (tablename)
-	tkn := tkns.Test(tokens.Ident)
+	tkn := tkns.TestTkn(tokens.Ident)
 	if tkn == nil {
 		return "", nil, sqerr.NewSyntax("Expecting table name in Update statement")
 	}
@@ -45,7 +45,7 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 	}
 
 	// eat the SET
-	if tkns.Test(tokens.Set) == nil {
+	if !tkns.IsA(tokens.Set) {
 		// no SET
 		return "", nil, sqerr.NewSyntax("Expecting SET")
 	}
@@ -54,11 +54,11 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 	// col = value
 	for {
 		// stop if end of tokens or a WHERE
-		if tkns.Len() <= 0 || tkns.Test(tokens.Where) != nil {
+		if tkns.Len() <= 0 || tkns.IsA(tokens.Where) {
 			break
 		}
 		// Identifier first
-		if tkn := tkns.Test(tokens.Ident); tkn != nil {
+		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 			colName := tkn.(*tokens.ValueToken).Value()
 			cd := tab.FindColDef(profile, colName)
 			if cd == nil {
@@ -66,7 +66,7 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 			}
 			tkns.Remove()
 			// Then an EQUAL sign
-			if tkns.Test(tokens.Equal) == nil {
+			if !tkns.IsA(tokens.Equal) {
 				return "", nil, sqerr.NewSyntaxf("Expecting = after column name %s in UPDATE SET", colName)
 			}
 			tkns.Remove()
@@ -86,7 +86,7 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 			setCols = append(setCols, colName)
 			setExprs.Add(ex)
 			isValidSetExpression = true
-			if tkns.Test(tokens.Comma) != nil {
+			if tkns.IsA(tokens.Comma) {
 				tkns.Remove()
 			} else {
 				break
@@ -98,7 +98,7 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 		return "", nil, sqerr.NewSyntax("Expecting valid SET expression")
 	}
 	// Optional Where Clause
-	if tkns.Len() > 0 && tkns.Test(tokens.Where) != nil {
+	if tkns.Len() > 0 && tkns.IsA(tokens.Where) {
 		tkns.Remove()
 		whereExpr, err = ParseWhereClause(tkns)
 		if err != nil {

@@ -449,7 +449,7 @@ func testGetExprListFunc(d GetExprListData) func(*testing.T) {
 			return
 		}
 
-		if tkns.Test(d.Terminator) == nil {
+		if !tkns.IsA(d.Terminator) {
 			t.Error("Remaining token should be Terminator")
 			return
 		}

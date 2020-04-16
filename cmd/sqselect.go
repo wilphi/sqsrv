@@ -55,18 +55,18 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 	log.Info("SELECT statement...")
 
 	//Verify and eat SELECT token
-	if stmt.tkns.Test(tokens.Select) == nil {
+	if !stmt.tkns.IsA(tokens.Select) {
 		return sqerr.NewInternalf("SELECT Token not found: %s is invalid", stmt.tkns.Peek().String())
 	}
 	stmt.tkns.Remove()
 
 	// check for a distinct
-	if stmt.tkns.Test(tokens.Distinct) != nil {
+	if stmt.tkns.IsA(tokens.Distinct) {
 		stmt.tkns.Remove()
 		stmt.isDistinct = true
 	}
 	// Get the column list. * is special case
-	if stmt.tkns.Test(tokens.Asterix) != nil {
+	if stmt.tkns.IsA(tokens.Asterix) {
 		stmt.tkns.Remove()
 		isAsterix = true
 
@@ -79,7 +79,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 	}
 
 	// Get the FROM clause
-	if stmt.tkns.Test(tokens.From) == nil {
+	if !stmt.tkns.IsA(tokens.From) {
 		// no FROM
 		return sqerr.NewSyntax("Expecting FROM")
 	}
@@ -119,7 +119,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 	// loop twice just in case the where clause is after the order by clause
 	for i := 0; i < 2; i++ {
 		// Optional Where clause processing goes here
-		if stmt.tkns.Test(tokens.Where) != nil {
+		if stmt.tkns.IsA(tokens.Where) {
 			if stmt.whereExpr != nil {
 				return sqerr.NewSyntax("Duplicate where clause, only one allowed")
 			}
@@ -134,7 +134,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 			}
 		}
 		// Optional Group By Clause processing goes here
-		if stmt.tkns.Test(tokens.Group) != nil {
+		if stmt.tkns.IsA(tokens.Group) {
 			if stmt.groupBy != nil {
 				return sqerr.NewSyntax("Duplicate group by clause, only one allowed")
 			}
@@ -151,7 +151,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 		}
 
 		// Optional Order By clause processing goes here
-		if stmt.tkns.Test(tokens.Order) != nil {
+		if stmt.tkns.IsA(tokens.Order) {
 			if stmt.orderBy != nil {
 				return sqerr.NewSyntax("Duplicate order by clause, only one allowed")
 			}

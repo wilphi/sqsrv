@@ -37,11 +37,11 @@ func InsertInto(profile *sqprofile.SQProfile, tl *tokens.TokenList) (string, *sq
 func NewInsertStmt(tl *tokens.TokenList) (*InsertStmt, error) {
 
 	// make that this is an Insert
-	if tl.Test(tokens.Insert) == nil {
+	if !tl.IsA(tokens.Insert) {
 		return nil, sqerr.New("Expecting INSERT INTO to start the statement")
 	}
 	tl.Remove()
-	if tl.Test(tokens.Into) == nil {
+	if !tl.IsA(tokens.Into) {
 		return nil, sqerr.New("Expecting INSERT INTO to start the statement")
 	}
 	tl.Remove()
@@ -56,14 +56,14 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 	log.Debug("Decoding INSERT INTO statement....")
 
 	// make sure the next token is an Ident - TableName
-	if tkn := ins.tkns.Test(tokens.Ident); tkn != nil {
+	if tkn := ins.tkns.TestTkn(tokens.Ident); tkn != nil {
 		ins.tableName = tkn.(*tokens.ValueToken).Value()
 		ins.tkns.Remove()
 	} else {
 		return sqerr.NewSyntax("Expecting name of table for insert")
 	}
 
-	if ins.tkns.Test(tokens.OpenBracket) != nil {
+	if ins.tkns.IsA(tokens.OpenBracket) {
 		ins.tkns.Remove()
 	} else {
 		return sqerr.NewSyntax("Expecting ( after name of table")
@@ -103,12 +103,12 @@ func (ins *InsertStmt) getInsertValues() error {
 	var vals []sqtypes.Value
 	var err error
 
-	if ins.tkns.Test(tokens.Values) != nil {
+	if ins.tkns.IsA(tokens.Values) {
 		ins.tkns.Remove()
 	} else {
 		return sqerr.NewSyntax("Expecting keyword VALUES")
 	}
-	if ins.tkns.Test(tokens.OpenBracket) == nil {
+	if !ins.tkns.IsA(tokens.OpenBracket) {
 		return sqerr.NewSyntax("Expecting ( after keyword VALUES")
 	}
 
@@ -119,7 +119,7 @@ func (ins *InsertStmt) getInsertValues() error {
 		}
 		ins.data.Vals = append(ins.data.Vals, vals)
 
-		if ins.tkns.Test(tokens.Comma) != nil {
+		if ins.tkns.IsA(tokens.Comma) {
 			ins.tkns.Remove()
 		} else {
 			break
@@ -131,7 +131,7 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 	var vals []sqtypes.Value
 	vals = make([]sqtypes.Value, ins.data.NumCols())
 
-	if ins.tkns.Test(tokens.OpenBracket) != nil {
+	if ins.tkns.IsA(tokens.OpenBracket) {
 		ins.tkns.Remove()
 	} else {
 		return nil, sqerr.NewSyntax("Expecting ( to start next row of VALUES")
@@ -141,7 +141,7 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ins.tkns.Test(tokens.CloseBracket) != nil {
+	if ins.tkns.IsA(tokens.CloseBracket) {
 		ins.tkns.Remove()
 	} else {
 		return nil, sqerr.NewSyntax("Expecting ) to finish row of VALUES")
