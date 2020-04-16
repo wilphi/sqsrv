@@ -226,7 +226,10 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 	if err = whereExpr.ValidateCols(profile, tl); err != nil {
 		return nil, err
 	}
-	log.Printf("Where expression = %s", whereExpr.ToString())
+	// Added if statement to prevent the exection of ToString unless required
+	if log.GetLevel() >= log.DebugLevel {
+		log.Debugf("Where expression = %s", whereExpr.ToString())
+	}
 	var joins []JoinTable
 	var joined []JoinTable
 
