@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime/pprof"
 	"sync"
 	"time"
 
@@ -21,14 +22,15 @@ import (
 )
 
 // SQVersion  - version of software
-const SQVersion = "SQSRV v0.12.0"
+const SQVersion = "SQSRV v0.12.1"
 
 //Options are the values set by the flag package
 var Options struct {
-	host    string
-	port    string
-	tlog    string
-	dbfiles string
+	host       string
+	port       string
+	tlog       string
+	dbfiles    string
+	cpuprofile string
 }
 
 // Main is the main process function for the SQServer
@@ -43,8 +45,17 @@ func Main() {
 	flag.StringVar(&Options.port, "port", "3333", "TCP port for server to listen on")
 	flag.StringVar(&Options.tlog, "tlog", "./transaction.tlog", "File path/name for the transaction log")
 	flag.StringVar(&Options.dbfiles, "dbfile", "./dbfiles/", "Directory where database files are stored")
+	flag.StringVar(&Options.cpuprofile, "cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 
+	if Options.cpuprofile != "" {
+		f, err := os.Create(Options.cpuprofile)
+		if err != nil {
+			log.Panic(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 	// Set where datafile are
 	sqtables.SetDBDir(Options.dbfiles)
 	redo.SetTLog(Options.tlog)
