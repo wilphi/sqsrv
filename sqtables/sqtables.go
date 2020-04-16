@@ -251,8 +251,9 @@ func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, toke
 func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *ColDef {
 	var col ColDef
 
+	parts := strings.Split(name, ".")
+
 	for _, col = range t.tableCols {
-		parts := strings.Split(name, ".")
 		switch len(parts) {
 		case 1:
 			if col.ColName == name {
