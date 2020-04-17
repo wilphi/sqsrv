@@ -44,14 +44,6 @@ func TestInit(logname string) {
 	})
 }
 
-// Fail reports a failure through
-func Fail(t TestingT, failureMessage string) bool {
-
-	t.Helper()
-	t.Errorf("%s", failureMessage)
-	return false
-}
-
 //CheckErr checks an error to see if it is expected/unexpected
 // Returns:
 //  true if an unsuccessful error check has occurred
@@ -61,15 +53,18 @@ func CheckErr(t TestingT, err error, ExpErr string) bool {
 
 	if err != nil {
 		if ExpErr == "" {
-			return Fail(t, fmt.Sprintf("Unexpected Error: %q", err.Error()))
+			t.Errorf("Unexpected Error: %q", err.Error())
+			return true
 		}
 		if ExpErr != err.Error() {
-			return Fail(t, fmt.Sprintf("Expecting Error %q but got: %q", ExpErr, err.Error()))
+			t.Errorf("Expecting Error %q but got: %q", ExpErr, err.Error())
+			return true
 		}
 		return true
 	}
 	if ExpErr != "" { // && err==nil
-		return Fail(t, fmt.Sprintf("Unexpected Success should have returned error: %q", ExpErr))
+		t.Errorf("Unexpected Success should have returned error: %q", ExpErr)
+		return true
 	}
 	return false
 }
