@@ -552,7 +552,6 @@ func (e *NegateExpr) ColDefs(tables ...*TableDef) []ColDef {
 
 // Evaluate -
 func (e *NegateExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error) {
-	var retVal sqtypes.Value
 
 	vL, err := e.exL.Evaluate(profile, partial, rows...)
 	if err != nil {
@@ -563,22 +562,16 @@ func (e *NegateExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows .
 		//return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
 	}
 
-	switch tp := vL.(type) {
-	case sqtypes.SQInt:
-		retVal = sqtypes.NewSQInt(-tp.Val)
-	case sqtypes.SQFloat:
-		retVal = sqtypes.NewSQFloat(-tp.Val)
-	case sqtypes.SQNull:
-		retVal = tp
-	default:
-		return vL, sqerr.NewSyntax("Only Int & Float values can be negated")
+	n, ok := vL.(sqtypes.Negatable)
+	if !ok {
+		return vL, sqerr.NewSyntaxf("%s values can not be negated", tokens.IDName(vL.Type()))
 	}
-	return retVal, nil
+
+	return n.Negate(), nil
 }
 
 // Reduce will colapse the expression to it's simplest form
 func (e *NegateExpr) Reduce() (Expr, error) {
-	var retVal sqtypes.Value
 
 	eL, err := e.exL.Reduce()
 	if err != nil {
@@ -589,15 +582,12 @@ func (e *NegateExpr) Reduce() (Expr, error) {
 
 	if okL {
 		val := vL.v
-		switch tp := val.(type) {
-		case sqtypes.SQInt:
-			retVal = sqtypes.NewSQInt(-tp.Val)
-		case sqtypes.SQFloat:
-			retVal = sqtypes.NewSQFloat(-tp.Val)
-		default:
-			return vL, sqerr.NewSyntax("Only Int & Float values can be negated")
+		n, ok := val.(sqtypes.Negatable)
+		if !ok {
+			return vL, sqerr.NewSyntaxf("%s values can not be negated", tokens.IDName(val.Type()))
 		}
-		return NewValueExpr(retVal), nil
+
+		return NewValueExpr(n.Negate()), nil
 	}
 	return e, nil
 }

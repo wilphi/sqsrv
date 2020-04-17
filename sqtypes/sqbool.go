@@ -8,6 +8,11 @@ import (
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+// SQBool - Bool type for SQ
+type SQBool struct {
+	Val bool
+}
+
 // SQBool Methods & Functions  =========================================
 
 // ToString - return string representation of type
@@ -116,4 +121,9 @@ func (b SQBool) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 // NewSQBool - creates a new SQBool value
 func NewSQBool(b bool) Value {
 	return SQBool{b}
+}
+
+// Bool returns the bool value of the SQBool
+func (b SQBool) Bool() bool {
+	return b.Val
 }

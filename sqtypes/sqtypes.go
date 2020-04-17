@@ -31,7 +31,7 @@ const (
 	SQFloatType     = 5
 )
 
-// Value interface
+// Value interface - All Values must be Immutable
 type Value interface {
 	ToString() string
 	Type() tokens.TokenID
@@ -43,6 +43,11 @@ type Value interface {
 	Write(c *sqbin.Codec)
 	Operation(op tokens.TokenID, v Value) (Value, error)
 	Convert(newtype tokens.TokenID) (Value, error)
+}
+
+// Negatable is an interface for Values that can be negated
+type Negatable interface {
+	Negate() Value
 }
 
 //Raw is a type that can be converted into sq Values
@@ -77,30 +82,6 @@ func ReadValue(c *sqbin.Codec) Value {
 		log.Panicf("Unknown Value TypeID %d", b)
 	}
 	return ret
-}
-
-// SQInt - Integer type for SQ
-type SQInt struct {
-	Val int
-}
-
-// SQString - String type for SQ
-type SQString struct {
-	Val string
-}
-
-// SQBool - Bool type for SQ
-type SQBool struct {
-	Val bool
-}
-
-// SQNull - Null value for SQ
-type SQNull struct {
-}
-
-// SQFloat - Floating point type for SQ
-type SQFloat struct {
-	Val float64
 }
 
 //====================================================================
@@ -194,7 +175,7 @@ func Compare2DValue(a, b [][]Value, aName, bName string, doSort bool) string {
 
 	for i := range a {
 		if len(a[i]) != len(b[i]) {
-			return fmt.Sprintf("The number of cols does not match! %s[%d](%d) %s[%d](%d)", aName, i, len(a[i]), bName, i, len(b[i]))
+			return fmt.Sprintf("The number of cols does not match! %s[%d]-len=%d %s[%d]-len=%d", aName, i, len(a[i]), bName, i, len(b[i]))
 		}
 	}
 	if doSort {

@@ -9,6 +9,11 @@ import (
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+// SQString - String type for SQ
+type SQString struct {
+	Val string
+}
+
 // SQString Methods & Functions  =========================================
 
 // ToString - return string representation of type

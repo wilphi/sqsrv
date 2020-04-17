@@ -710,7 +710,7 @@ func TestEvaluateExpr(t *testing.T) {
 			Tables:   tables,
 			rows:     nil,
 			ExpVal:   sqtypes.NewSQInt(-1234),
-			ExpErr:   "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:   "Syntax Error: STRING values can not be negated",
 		},
 		{
 			TestName: "Double Negate String",
@@ -719,7 +719,7 @@ func TestEvaluateExpr(t *testing.T) {
 			Tables:   tables,
 			rows:     nil,
 			ExpVal:   sqtypes.NewSQInt(-1234),
-			ExpErr:   "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:   "Syntax Error: STRING values can not be negated",
 		},
 		{
 			TestName: "Negate Bool",
@@ -728,7 +728,7 @@ func TestEvaluateExpr(t *testing.T) {
 			Tables:   tables,
 			rows:     nil,
 			ExpVal:   sqtypes.NewSQInt(-1234),
-			ExpErr:   "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:   "Syntax Error: BOOL values can not be negated",
 		},
 		{
 			TestName: "Negate Null",
@@ -909,7 +909,7 @@ func TestReduceExpr(t *testing.T) {
 				sqtables.NewValueExpr(sqtypes.NewSQString(" Test")),
 			),
 			ExpExpr: "",
-			ExpErr:  "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:  "Syntax Error: STRING values can not be negated",
 		},
 		{
 			TestName: "Op Expr Right Error",
@@ -919,7 +919,7 @@ func TestReduceExpr(t *testing.T) {
 				sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQString(" Test"))),
 			),
 			ExpExpr: "",
-			ExpErr:  "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:  "Syntax Error: STRING values can not be negated",
 		},
 		{
 			TestName: "Op Expr Reduced to Value",
@@ -977,7 +977,7 @@ func TestReduceExpr(t *testing.T) {
 				sqtables.NewValueExpr(sqtypes.NewSQString(" Test")),
 			)),
 			ExpExpr: "",
-			ExpErr:  "Syntax Error: Only Int & Float values can be negated",
+			ExpErr:  "Syntax Error: STRING values can not be negated",
 		},
 		{
 			TestName: "Function Int Value Expr",

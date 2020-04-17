@@ -345,7 +345,7 @@ func calcAggregates(vals, result []sqtypes.Value,
 						lt, err := v.Operation(tokens.LessThan, result[k])
 						if err == nil {
 							b, ok := lt.(sqtypes.SQBool)
-							if b.Val && ok {
+							if b.Bool() && ok {
 								result[k] = v
 							}
 						}
@@ -353,7 +353,7 @@ func calcAggregates(vals, result []sqtypes.Value,
 						lt, err := v.Operation(tokens.GreaterThan, result[k])
 						if err == nil {
 							b, ok := lt.(sqtypes.SQBool)
-							if b.Val && ok {
+							if b.Bool() && ok {
 								result[k] = v
 							}
 						}

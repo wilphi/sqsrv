@@ -314,7 +314,7 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted boo
 			if val != nil {
 				boolVal, ok := val.(sqtypes.SQBool)
 				if ok {
-					includeRow = boolVal.Val
+					includeRow = boolVal.Bool()
 				}
 			} else {
 				includeRow = true

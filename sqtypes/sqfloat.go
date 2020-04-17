@@ -8,6 +8,11 @@ import (
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+// SQFloat - Floating point type for SQ
+type SQFloat struct {
+	Val float64
+}
+
 // SQFloat Methods & Functions  =========================================
 
 // ToString - return string representation of type
@@ -121,4 +126,9 @@ func (fp SQFloat) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 // NewSQFloat - creates a new SQInt value
 func NewSQFloat(fp float64) Value {
 	return SQFloat{fp}
+}
+
+// Negate returns minus the current value
+func (fp SQFloat) Negate() Value {
+	return NewSQFloat(-fp.Val)
 }

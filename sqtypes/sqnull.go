@@ -5,6 +5,10 @@ import (
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+// SQNull - Null value for SQ
+type SQNull struct {
+}
+
 //SQNull Methods & Functions ============================================
 
 // ToString - return string representation of type
@@ -62,4 +66,9 @@ func (n SQNull) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 // NewSQNull - creates a new SQNull value
 func NewSQNull() Value {
 	return SQNull{}
+}
+
+// Negate returns minus the current value
+func (n SQNull) Negate() Value {
+	return NewSQNull()
 }

@@ -8,6 +8,11 @@ import (
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+// SQInt - Integer type for SQ
+type SQInt struct {
+	Val int
+}
+
 // SQInt Methods & Functions  =========================================
 
 // ToString - return string representation of type
@@ -35,9 +40,8 @@ func (i SQInt) Equal(v Value) bool {
 // LessThan -
 func (i SQInt) LessThan(v Value) bool {
 	vint, ok := v.(SQInt)
-	ret1 := (i.Val < vint.Val)
-	ret2 := ok && ret1
-	return ret2
+	ret := ok && (i.Val < vint.Val)
+	return ret
 
 }
 
@@ -123,4 +127,9 @@ func (i SQInt) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 // NewSQInt - creates a new SQInt value
 func NewSQInt(i int) Value {
 	return SQInt{i}
+}
+
+// Negate returns minus the current value
+func (i SQInt) Negate() Value {
+	return NewSQInt(-i.Val)
 }
