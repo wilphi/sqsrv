@@ -249,20 +249,10 @@ func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, toke
 
 // FindColDef - Returns coldef based on name
 func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *ColDef {
-	var col ColDef
 
-	parts := strings.Split(name, ".")
-
-	for _, col = range t.tableCols {
-		switch len(parts) {
-		case 1:
-			if col.ColName == name {
-				return &col
-			}
-		case 2:
-			if col.ColName == parts[1] {
-				return &col
-			}
+	for _, col := range t.tableCols {
+		if col.ColName == name {
+			return &col
 		}
 	}
 	return nil
