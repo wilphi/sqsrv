@@ -13,6 +13,9 @@ type SQBool struct {
 	Val bool
 }
 
+var trueSQBool = SQBool{true}
+var falseSQBool = SQBool{false}
+
 // SQBool Methods & Functions  =========================================
 
 // ToString - return string representation of type
@@ -120,7 +123,10 @@ func (b SQBool) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 
 // NewSQBool - creates a new SQBool value
 func NewSQBool(b bool) Value {
-	return SQBool{b}
+	if b {
+		return trueSQBool
+	}
+	return falseSQBool
 }
 
 // Bool returns the bool value of the SQBool

@@ -9,6 +9,8 @@ import (
 type SQNull struct {
 }
 
+var originalNull = &SQNull{}
+
 //SQNull Methods & Functions ============================================
 
 // ToString - return string representation of type
@@ -54,18 +56,17 @@ func (n SQNull) Write(c *sqbin.Codec) {
 
 // Operation is always NULL for Null values
 func (n SQNull) Operation(op tokens.TokenID, v Value) (Value, error) {
-	return SQNull{}, nil
+	return originalNull, nil
 }
 
 // Convert returns the value converted to the given type
 func (n SQNull) Convert(newtype tokens.TokenID) (retVal Value, err error) {
-	retVal = n
-	return
+	return originalNull, nil
 }
 
 // NewSQNull - creates a new SQNull value
 func NewSQNull() Value {
-	return SQNull{}
+	return originalNull
 }
 
 // Negate returns minus the current value
