@@ -451,7 +451,7 @@ func ParseWhereClause(tkns *tokens.TokenList, terminators ...tokens.TokenID) (wh
 		return nil, err
 	}
 	// Make sure that count is not used in where clause
-	if strings.Contains(whereExpr.ToString(), "COUNT()") {
+	if strings.Contains(whereExpr.String(), "COUNT()") {
 		return nil, sqerr.New("Unable to evaluate \"count()\"")
 	}
 

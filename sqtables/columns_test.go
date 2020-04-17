@@ -20,18 +20,18 @@ func init() {
 func TestColDef(t *testing.T) {
 	data := []ColDefData{
 		{
-			TestName:    "NewColDef with nulls",
-			ColName:     "col1",
-			ColType:     tokens.Int,
-			IsNotNull:   false,
-			ExpToString: "{col1, INT}",
+			TestName:  "NewColDef with nulls",
+			ColName:   "col1",
+			ColType:   tokens.Int,
+			IsNotNull: false,
+			ExpString: "{col1, INT}",
 		},
 		{
-			TestName:    "NewColDef without nulls",
-			ColName:     "col1",
-			ColType:     tokens.Int,
-			IsNotNull:   true,
-			ExpToString: "{col1, INT NOT NULL}",
+			TestName:  "NewColDef without nulls",
+			ColName:   "col1",
+			ColType:   tokens.Int,
+			IsNotNull: true,
+			ExpString: "{col1, INT NOT NULL}",
 		},
 		{
 			TestName:         "NewColDef all values",
@@ -41,7 +41,7 @@ func TestColDef(t *testing.T) {
 			Idx:              5,
 			TableName:        "testTab",
 			DisplayTableName: true,
-			ExpToString:      "{testTab.col1, INT NOT NULL}",
+			ExpString:        "{testTab.col1, INT NOT NULL}",
 		},
 		{
 			TestName:         "NewColDef do not display tablename",
@@ -51,26 +51,26 @@ func TestColDef(t *testing.T) {
 			Idx:              5,
 			TableName:        "testTab",
 			DisplayTableName: false,
-			ExpToString:      "{col1, INT NOT NULL}",
+			ExpString:        "{col1, INT NOT NULL}",
 		},
 		{
-			TestName:    "NewColDef Merge",
-			ColName:     "col1",
-			ColType:     tokens.Int,
-			IsNotNull:   true,
-			MergeCD:     &sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
-			ExpCD:       sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
-			ExpToString: "{col1, INT NOT NULL}",
+			TestName:  "NewColDef Merge",
+			ColName:   "col1",
+			ColType:   tokens.Int,
+			IsNotNull: true,
+			MergeCD:   &sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
+			ExpCD:     sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
+			ExpString: "{col1, INT NOT NULL}",
 		},
 		{
-			TestName:    "NewColDef Merge Error",
-			ColName:     "col1",
-			ColType:     tokens.Int,
-			IsNotNull:   true,
-			MergeCD:     &sqtables.ColDef{ColName: "col2", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
-			ExpCD:       sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
-			ExpToString: "{col1, INT NOT NULL}",
-			ExpErr:      "Internal Error: Can't merge ColDef col1, col2",
+			TestName:  "NewColDef Merge Error",
+			ColName:   "col1",
+			ColType:   tokens.Int,
+			IsNotNull: true,
+			MergeCD:   &sqtables.ColDef{ColName: "col2", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: true},
+			ExpCD:     sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
+			ExpString: "{col1, INT NOT NULL}",
+			ExpErr:    "Internal Error: Can't merge ColDef col1, col2",
 		},
 	}
 
@@ -92,7 +92,7 @@ type ColDefData struct {
 	DisplayTableName bool
 	MergeCD          *sqtables.ColDef
 	ExpCD            sqtables.ColDef
-	ExpToString      string
+	ExpString        string
 	ExpErr           string
 }
 
@@ -113,8 +113,8 @@ func testColDefFunc(d ColDefData) func(*testing.T) {
 		}
 
 		cd.DisplayTableName = d.DisplayTableName
-		if d.ExpToString != cd.ToString() {
-			t.Errorf("ToString %q does not match expected: %q", cd.ToString(), d.ExpToString)
+		if d.ExpString != cd.String() {
+			t.Errorf("String %q does not match expected: %q", cd.String(), d.ExpString)
 
 		}
 
@@ -258,8 +258,8 @@ func TestColListFindColDef(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		cd := colList.FindColDef("col1")
-		if cd.ToString() != col1CD.ToString() {
-			t.Errorf("Did not find expected ColDef: Actual: %s, Expected: %s", cd.ToString(), col1CD.ToString())
+		if cd.String() != col1CD.String() {
+			t.Errorf("Did not find expected ColDef: Actual: %s, Expected: %s", cd.String(), col1CD.String())
 		}
 	})
 
@@ -268,7 +268,7 @@ func TestColListFindColDef(t *testing.T) {
 
 		cd := colList.FindColDef("colX")
 		if cd != nil {
-			t.Errorf("ColDef found unexpectedly: %s", cd.ToString())
+			t.Errorf("ColDef found unexpectedly: %s", cd.String())
 		}
 	})
 }

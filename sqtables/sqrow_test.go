@@ -41,13 +41,13 @@ func testUpdateRowFunc(profile *sqprofile.SQProfile, r *UpdateRowData) func(*tes
 		for i, val := range r.Row.Data {
 
 			if (val.IsNull() && !ExpVals[i].IsNull()) || (!val.IsNull() && ExpVals[i].IsNull()) {
-				t.Errorf("Returned value %q does not match expected %q", val.ToString(), ExpVals[i].ToString())
+				t.Errorf("Returned value %q does not match expected %q", val.String(), ExpVals[i].String())
 				return
 			}
 
 			if !(val.IsNull() && ExpVals[i].IsNull()) {
 				if !val.Equal(ExpVals[i]) {
-					t.Errorf("Returned value %q does not match expected %q", val.ToString(), ExpVals[i].ToString())
+					t.Errorf("Returned value %q does not match expected %q", val.String(), ExpVals[i].String())
 					return
 				}
 			}
@@ -197,13 +197,13 @@ func testCreateRowFunc(profile *sqprofile.SQProfile, r *CreateRowData) func(*tes
 		for i, val := range row.Data {
 
 			if (val.IsNull() && !ExpVals[i].IsNull()) || (!val.IsNull() && ExpVals[i].IsNull()) {
-				t.Errorf("Returned value %q does not match expected %q", val.ToString(), ExpVals[i].ToString())
+				t.Errorf("Returned value %q does not match expected %q", val.String(), ExpVals[i].String())
 				return
 			}
 
 			if !(val.IsNull() && ExpVals[i].IsNull()) {
 				if !val.Equal(ExpVals[i]) {
-					t.Errorf("Returned value %q does not match expected %q", val.ToString(), ExpVals[i].ToString())
+					t.Errorf("Returned value %q does not match expected %q", val.String(), ExpVals[i].String())
 					return
 				}
 			}
@@ -345,7 +345,7 @@ func testGetColDataFunc(profile *sqprofile.SQProfile, r *ColData) func(*testing.
 		}
 
 		if !val.Equal(ExpVal) {
-			t.Errorf("Returned value %q does not match expected %q", val.ToString(), ExpVal.ToString())
+			t.Errorf("Returned value %q does not match expected %q", val.String(), ExpVal.String())
 			return
 		}
 
@@ -515,7 +515,7 @@ func TestMiscRowFunctions(t *testing.T) {
 			return
 		}
 		if !v.Equal(expVal) {
-			t.Errorf("Expected Value %s does not match actual value %s", expVal.ToString(), v.ToString())
+			t.Errorf("Expected Value %s does not match actual value %s", expVal.String(), v.String())
 		}
 	})
 	t.Run("GetIdxVal deleted row", func(t *testing.T) {
@@ -533,7 +533,7 @@ func TestMiscRowFunctions(t *testing.T) {
 			return
 		}
 		if !v.Equal(expVal) {
-			t.Errorf("Expected Value %s does not match actual value %s", expVal.ToString(), v.ToString())
+			t.Errorf("Expected Value %s does not match actual value %s", expVal.String(), v.String())
 		}
 	})
 

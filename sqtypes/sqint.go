@@ -15,8 +15,8 @@ type SQInt struct {
 
 // SQInt Methods & Functions  =========================================
 
-// ToString - return string representation of type
-func (i SQInt) ToString() string {
+// String - return string representation of type
+func (i SQInt) String() string {
 	return strconv.Itoa(i.Val)
 }
 
@@ -73,7 +73,7 @@ func (i SQInt) Operation(op tokens.TokenID, v Value) (retVal Value, err error) {
 			retVal = v
 			return
 		}
-		err = sqerr.New("Type Mismatch: " + v.ToString() + " is not an Int")
+		err = sqerr.New("Type Mismatch: " + v.String() + " is not an Int")
 		return
 	}
 	switch op {

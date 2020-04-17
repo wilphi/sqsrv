@@ -69,12 +69,12 @@ func testValueType(v sqtypes.Value, expType tokens.TokenID) func(*testing.T) {
 		}
 	}
 }
-func testValueToString(v sqtypes.Value, expStr string) func(*testing.T) {
+func testValueString(v sqtypes.Value, expStr string) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
-		if v.ToString() != expStr {
-			t.Error(fmt.Sprintf("ToString for type %s produced unexpected results: Actual %q, Expected %q", tokens.IDName(v.Type()), v.ToString(), expStr))
+		if v.String() != expStr {
+			t.Error(fmt.Sprintf("String for type %s produced unexpected results: Actual %q, Expected %q", tokens.IDName(v.Type()), v.String(), expStr))
 		}
 	}
 }
@@ -94,10 +94,10 @@ func testEqual(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 		if expect {
 			if !a.Equal(b) {
-				t.Error(fmt.Sprintf("The values: %s, %s were expected to be equal but are not", a.ToString(), b.ToString()))
+				t.Error(fmt.Sprintf("The values: %s, %s were expected to be equal but are not", a.String(), b.String()))
 			}
 		} else if a.Equal(b) {
-			t.Error(fmt.Sprintf("The values: %s, %s were expected to be NOT equal but are equal", a.ToString(), b.ToString()))
+			t.Error(fmt.Sprintf("The values: %s, %s were expected to be NOT equal but are equal", a.String(), b.String()))
 		}
 	}
 }
@@ -108,10 +108,10 @@ func testLessThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 		if expect {
 			if !a.LessThan(b) {
-				t.Error(fmt.Sprintf("%s was expected to be less than %s", a.ToString(), b.ToString()))
+				t.Error(fmt.Sprintf("%s was expected to be less than %s", a.String(), b.String()))
 			}
 		} else if a.LessThan(b) {
-			t.Error(fmt.Sprintf("%s was NOT expected to be less than %s", a.ToString(), b.ToString()))
+			t.Error(fmt.Sprintf("%s was NOT expected to be less than %s", a.String(), b.String()))
 		}
 	}
 }
@@ -122,10 +122,10 @@ func testGreaterThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 		if expect {
 			if !a.GreaterThan(b) {
-				t.Error(fmt.Sprintf("%s was expected to be greater than %s", a.ToString(), b.ToString()))
+				t.Error(fmt.Sprintf("%s was expected to be greater than %s", a.String(), b.String()))
 			}
 		} else if a.GreaterThan(b) {
-			t.Error(fmt.Sprintf("%s was NOT expected to be greater than %s", a.ToString(), b.ToString()))
+			t.Error(fmt.Sprintf("%s was NOT expected to be greater than %s", a.String(), b.String()))
 		}
 	}
 }
@@ -168,7 +168,7 @@ func testNegate(a, expect sqtypes.Value, ExpPanic bool) func(*testing.T) {
 			return
 		}
 		if !n.Equal(expect) {
-			t.Errorf("Negate actual (%s) does not match expected (%s)", n.ToString(), expect.ToString())
+			t.Errorf("Negate actual (%s) does not match expected (%s)", n.String(), expect.String())
 			return
 		}
 	}
@@ -211,7 +211,7 @@ func testOperation(d OperationData) func(*testing.T) {
 			return
 		}
 		if !actVal.Equal(d.ExpVal) {
-			t.Errorf("Actual value %q does not match expected value %q", actVal.ToString(), d.ExpVal.ToString())
+			t.Errorf("Actual value %q does not match expected value %q", actVal.String(), d.ExpVal.String())
 		}
 	}
 }
@@ -224,7 +224,7 @@ func TestSQInt(t *testing.T) {
 	equalA := sqtypes.NewSQInt(1234)
 	notEqualA := sqtypes.NewSQInt(4321)
 	t.Run("Type Test", testValueType(v, tokens.Int))
-	t.Run("To String Test", testValueToString(v, "987654321"))
+	t.Run("To String Test", testValueString(v, "987654321"))
 	t.Run("GetLen Test", testGetLen(v, sqtypes.SQIntWidth))
 	t.Run("Equal Test:equal", testEqual(a, equalA, true))
 	t.Run("Equal Test:not equal", testEqual(a, notEqualA, false))
@@ -274,7 +274,7 @@ func TestSQString(t *testing.T) {
 	equalA := sqtypes.NewSQString("new test string")
 	notEqualA := sqtypes.NewSQString("zz test string")
 	t.Run("Type Test", testValueType(v, tokens.String))
-	t.Run("To String Test", testValueToString(v, "c test string"))
+	t.Run("To String Test", testValueString(v, "c test string"))
 	t.Run("GetLen Test", testGetLen(v, -sqtypes.SQStringWidth))
 	t.Run("Equal Test:equal", testEqual(a, equalA, true))
 	t.Run("Equal Test:not equal", testEqual(a, notEqualA, false))
@@ -323,7 +323,7 @@ func TestSQBool(t *testing.T) {
 	equalA := sqtypes.NewSQBool(true)
 	notEqualA := sqtypes.NewSQBool(false)
 	t.Run("Type Test", testValueType(v, tokens.Bool))
-	t.Run("To String Test", testValueToString(v, "true"))
+	t.Run("To String Test", testValueString(v, "true"))
 	t.Run("GetLen Test", testGetLen(v, sqtypes.SQBoolWidth))
 	t.Run("Equal Test:equal", testEqual(a, equalA, true))
 	t.Run("Equal Test:not equal", testEqual(a, notEqualA, false))
@@ -372,7 +372,7 @@ func TestSQNull(t *testing.T) {
 	equalA := sqtypes.NewSQNull()
 	notEqualA := sqtypes.NewSQNull()
 	t.Run("Type Test", testValueType(v, tokens.Null))
-	t.Run("To String Test", testValueToString(v, tokens.IDName(tokens.Null)))
+	t.Run("To String Test", testValueString(v, tokens.IDName(tokens.Null)))
 	t.Run("GetLen Test", testGetLen(v, 7))
 	t.Run("Equal Test:equal", testEqual(a, equalA, false))
 	t.Run("Equal Test:not equal", testEqual(a, notEqualA, false))
@@ -397,8 +397,8 @@ func TestSQFloat(t *testing.T) {
 	equalA := sqtypes.NewSQFloat(1234.9876)
 	notEqualA := sqtypes.NewSQFloat(4321.0)
 	t.Run("Type Test", testValueType(v, tokens.Float))
-	t.Run("To String Test", testValueToString(v, "9.876543210987655E+18"))
-	t.Run("To String Test", testValueToString(a, "1234.9876"))
+	t.Run("To String Test", testValueString(v, "9.876543210987655E+18"))
+	t.Run("To String Test", testValueString(a, "1234.9876"))
 	t.Run("GetLen Test", testGetLen(v, sqtypes.SQFloatWidth))
 	t.Run("Equal Test:equal", testEqual(a, equalA, true))
 	t.Run("Equal Test:not equal", testEqual(a, notEqualA, false))
@@ -464,7 +464,7 @@ func testConvertFunc(d ConvertData) func(*testing.T) {
 		}
 		expVal := sqtypes.RawValue(d.ExpVal)
 		if !actVal.Equal(expVal) {
-			t.Errorf("Actual value %q does not match expected value %v", actVal.ToString(), d.ExpVal)
+			t.Errorf("Actual value %q does not match expected value %v", actVal.String(), d.ExpVal)
 		}
 	}
 }
@@ -721,7 +721,7 @@ func TestReadValueFail(t *testing.T) {
 		t.Error("Unexpected nil Value")
 		return
 	}
-	t.Errorf("Unexpected Value returned from ReadValue: %s", val.ToString())
+	t.Errorf("Unexpected Value returned from ReadValue: %s", val.String())
 }
 func TestRawValue(t *testing.T) {
 	data := []RawValueData{
@@ -758,7 +758,7 @@ func testRawValue(d RawValueData) func(*testing.T) {
 			return
 		}
 		if !actVal.Equal(d.expVal) {
-			t.Errorf("Actual Value %q does not match Expected Value %q", actVal.ToString(), d.expVal.ToString())
+			t.Errorf("Actual Value %q does not match Expected Value %q", actVal.String(), d.expVal.String())
 			return
 		}
 	}
@@ -863,7 +863,7 @@ func TestCompare2DValues(t *testing.T) {
 			NameA:  "Actual",
 			NameB:  "Expected",
 			DoSort: false,
-			ExpRet: "Actual[1] = [{2} {3} {99} {5}] Does not match Expected[1] = [{2} {3} {4} {5}]",
+			ExpRet: "Actual[1] = [2 3 99 5] Does not match Expected[1] = [2 3 4 5]",
 		},
 		{
 			TestName: "Different Type",

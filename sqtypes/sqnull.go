@@ -13,8 +13,8 @@ var originalNull = &SQNull{}
 
 //SQNull Methods & Functions ============================================
 
-// ToString - return string representation of type
-func (n SQNull) ToString() string {
+// String - return string representation of type
+func (n SQNull) String() string {
 	return tokens.IDName(tokens.Null)
 }
 

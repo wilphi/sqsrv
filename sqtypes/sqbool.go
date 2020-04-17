@@ -18,8 +18,8 @@ var falseSQBool = SQBool{false}
 
 // SQBool Methods & Functions  =========================================
 
-// ToString - return string representation of type
-func (b SQBool) ToString() string {
+// String - return string representation of type
+func (b SQBool) String() string {
 	return strconv.FormatBool(b.Val)
 }
 
@@ -73,7 +73,7 @@ func (b SQBool) Operation(op tokens.TokenID, v Value) (retVal Value, err error) 
 			retVal = v
 			return
 		}
-		err = sqerr.Newf("Type Mismatch: %s is not a Bool", v.ToString())
+		err = sqerr.Newf("Type Mismatch: %s is not a Bool", v.String())
 		return
 	}
 	switch op {

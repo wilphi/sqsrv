@@ -454,8 +454,8 @@ func testGetExprListFunc(d GetExprListData) func(*testing.T) {
 			return
 		}
 
-		if d.ExpExprTxt != rExprs.ToString() {
-			t.Errorf("Expected Expressions %v do not match actual Expressions %v", d.ExpExprTxt, rExprs.ToString())
+		if d.ExpExprTxt != rExprs.String() {
+			t.Errorf("Expected Expressions %v do not match actual Expressions %v", d.ExpExprTxt, rExprs.String())
 			return
 		}
 

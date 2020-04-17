@@ -93,14 +93,14 @@ func testSetRightFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 		}
 	}
 }
-func testToStringFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.T) {
+func testStringFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		e.SetAlias(alias)
 
-		if e.ToString() != ExpVal {
-			t.Errorf("Actual value %q does not match Expected value %q", e.ToString(), ExpVal)
+		if e.String() != ExpVal {
+			t.Errorf("Actual value %q does not match Expected value %q", e.String(), ExpVal)
 			return
 		}
 	}
@@ -229,7 +229,7 @@ func TestSetRightExpr(t *testing.T) {
 	}
 }
 
-func TestToStringExpr(t *testing.T) {
+func TestStringExpr(t *testing.T) {
 	data := []struct {
 		TestName string
 		TestExpr sqtables.Expr
@@ -285,7 +285,7 @@ func TestToStringExpr(t *testing.T) {
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testToStringFunc(row.TestExpr, row.ExpVal, row.Alias))
+			testStringFunc(row.TestExpr, row.ExpVal, row.Alias))
 	}
 }
 
@@ -388,12 +388,12 @@ func testEvaluateFunc(d EvalData) func(*testing.T) {
 
 		if retVal == nil {
 			if d.ExpVal != nil {
-				t.Errorf("Actual value \"nil\" does not match Expected value %q", d.ExpVal.ToString())
+				t.Errorf("Actual value \"nil\" does not match Expected value %q", d.ExpVal.String())
 			}
 			return
 		}
 		if !reflect.DeepEqual(retVal, d.ExpVal) {
-			t.Errorf("Actual value %q does not match Expected value %q", retVal.ToString(), d.ExpVal.ToString())
+			t.Errorf("Actual value %q does not match Expected value %q", retVal.String(), d.ExpVal.String())
 			return
 		}
 	}
@@ -862,8 +862,8 @@ func testReduceFunc(d ReduceData) func(*testing.T) {
 			}
 			return
 		}
-		if retVal.ToString() != d.ExpExpr {
-			t.Errorf("Actual value %q does not match Expected value %q", retVal.ToString(), d.ExpExpr)
+		if retVal.String() != d.ExpExpr {
+			t.Errorf("Actual value %q does not match Expected value %q", retVal.String(), d.ExpExpr)
 			return
 		}
 	}

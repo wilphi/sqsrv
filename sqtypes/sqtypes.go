@@ -33,7 +33,7 @@ const (
 
 // Value interface - All Values must be Immutable
 type Value interface {
-	ToString() string
+	String() string
 	Type() tokens.TokenID
 	Len() int
 	Equal(v Value) bool

@@ -66,7 +66,7 @@ func NewDataSet(profile *sqprofile.SQProfile, tables *TableList, eList *ExprList
 
 		for _, exp := range groupBy.GetExprs() {
 			if eList.FindName(exp.Name()) == -1 {
-				return nil, sqerr.NewSyntaxf("%s is not in the expression list: %s", exp.Name(), eList.ToString())
+				return nil, sqerr.NewSyntaxf("%s is not in the expression list: %s", exp.Name(), eList.String())
 			}
 		}
 		for _, exp := range eList.exprlist {
@@ -78,7 +78,7 @@ func NewDataSet(profile *sqprofile.SQProfile, tables *TableList, eList *ExprList
 				continue
 			}
 			if groupBy.FindName(exp.Name()) == -1 {
-				return nil, sqerr.NewSyntaxf("%s is not in the group by clause: %v", exp.Name(), groupBy.ToString())
+				return nil, sqerr.NewSyntaxf("%s is not in the group by clause: %v", exp.Name(), groupBy.String())
 			}
 		}
 		eList.ValidateCols(profile, tables)

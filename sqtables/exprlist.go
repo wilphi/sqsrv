@@ -38,15 +38,19 @@ func (el *ExprList) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ..
 	return vals, nil
 }
 
-// ToString returns a string representation of the expression list
-func (el *ExprList) ToString() string {
-	str := ""
+// String returns a string representation of the expression list
+func (el *ExprList) String() string {
+	var b strings.Builder
+
 	for _, e := range el.exprlist {
-		str += e.ToString() + ","
+		e.Build(&b)
+		b.WriteString(",")
 	}
-	if len(str) == 0 {
+
+	if b.Len() == 0 {
 		return ""
 	}
+	str := b.String()
 	return str[:len(str)-1]
 }
 

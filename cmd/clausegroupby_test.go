@@ -31,7 +31,7 @@ func testGroupByFunc(profile *sqprofile.SQProfile, d GroupByData) func(*testing.
 
 		if d.ExpEList != nil {
 			if !reflect.DeepEqual(eList, d.ExpEList) {
-				t.Errorf("Expected Order By expressions do not match actual expressions\n\tExpect: %s\n\tActual: %s", d.ExpEList.ToString(), eList.ToString())
+				t.Errorf("Expected Order By expressions do not match actual expressions\n\tExpect: %s\n\tActual: %s", d.ExpEList.String(), eList.String())
 			}
 		}
 	}

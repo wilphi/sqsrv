@@ -308,7 +308,7 @@ func cmdShowTable(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.
 				resp.Msg = err.Error()
 			}
 		} else {
-			resp.Msg = td.ToString(profile)
+			resp.Msg = td.String(profile)
 		}
 
 	} else {

@@ -1,6 +1,8 @@
 package sqtables
 
 import (
+	"strings"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
@@ -30,7 +32,8 @@ type Expr interface {
 	Right() Expr
 	SetLeft(ex Expr)
 	SetRight(ex Expr)
-	ToString() string
+	String() string
+	Build(b *strings.Builder)
 	Name() string
 	ColDef() ColDef
 	ColDefs(tables ...*TableDef) []ColDef
@@ -71,13 +74,22 @@ func (e *ValueExpr) SetRight(ex Expr) {
 
 }
 
-// ToString - string representation of Expression. Will traverse to child conditions to form full string
-func (e *ValueExpr) ToString() string {
-	str := e.v.ToString()
+// String - string representation of Expression. Will traverse to child conditions to form full string
+func (e *ValueExpr) String() string {
+	var b strings.Builder
+
+	e.Build(&b)
+
+	return b.String()
+}
+
+// Build - uses a Builder to create a string representation of the Expression
+func (e *ValueExpr) Build(b *strings.Builder) {
+	b.WriteString(e.v.String())
 	if e.alias != "" {
-		str += " " + e.alias
+		b.WriteString(" ")
+		b.WriteString(e.alias)
 	}
-	return str
 }
 
 // Name returns the name of the expression
@@ -85,7 +97,7 @@ func (e *ValueExpr) Name() string {
 	if e.alias != "" {
 		return e.alias
 	}
-	return e.ToString()
+	return e.String()
 }
 
 // ColDef returns a column definition for the expression
@@ -177,19 +189,27 @@ func (e *ColExpr) SetRight(ex Expr) {
 
 }
 
-// ToString - string representation of Expression. Will traverse to child conditions to form full string
-func (e *ColExpr) ToString() string {
+// String - string representation of Expression. Will traverse to child conditions to form full string
+func (e *ColExpr) String() string {
+	var b strings.Builder
+
+	e.Build(&b)
+
+	return b.String()
+}
+
+// Build - uses a Builder to create a string representation of the Expression
+func (e *ColExpr) Build(b *strings.Builder) {
 	if e.alias == e.col.ColName {
-		return e.alias
+		b.WriteString(e.alias)
+		return
 	}
 
-	//str := Ternary(e.col.TableName != "", e.col.TableName+".", "") + e.col.ColName
-	str := e.col.DisplayName()
+	b.WriteString(e.col.DisplayName())
 	if e.alias != "" {
-		str += " " + e.alias
+		b.WriteString(" ")
+		b.WriteString(e.alias)
 	}
-
-	return str
 }
 
 // Name returns the name of the expression
@@ -197,7 +217,7 @@ func (e *ColExpr) Name() string {
 	if e.alias != "" {
 		return e.alias
 	}
-	return e.ToString()
+	return e.String()
 }
 
 // ColDef returns a column definition for the expression
@@ -334,13 +354,26 @@ func (e *OpExpr) SetRight(ex Expr) {
 	e.exR = ex
 }
 
-// ToString - string representation of Expression. Will traverse to child conditions to form full string
-func (e *OpExpr) ToString() string {
-	str := "(" + e.exL.ToString() + tokens.IDName(e.Operator) + e.exR.ToString() + ")"
+// String - string representation of Expression. Will traverse to child conditions to form full string
+func (e *OpExpr) String() string {
+	var b strings.Builder
+
+	e.Build(&b)
+	return b.String()
+}
+
+// Build - uses a Builder to create a string representation of the Expression
+func (e *OpExpr) Build(b *strings.Builder) {
+	b.WriteString("(")
+	e.exL.Build(b)
+	b.WriteString(tokens.IDName(e.Operator))
+	e.exR.Build(b)
+	b.WriteString(")")
+
 	if e.alias != "" {
-		str += " " + e.alias
+		b.WriteString(" ")
+		b.WriteString(e.alias)
 	}
-	return str
 }
 
 // Name returns the name of the expression
@@ -348,7 +381,7 @@ func (e *OpExpr) Name() string {
 	if e.alias != "" {
 		return e.alias
 	}
-	return e.ToString()
+	return e.String()
 }
 
 // ColDef returns a column definition for the expression
@@ -521,13 +554,24 @@ func (e *NegateExpr) SetRight(ex Expr) {
 
 }
 
-// ToString - string representation of Expression. Will traverse to child conditions to form full string
-func (e *NegateExpr) ToString() string {
-	str := "(-" + e.exL.ToString() + ")"
+// String - string representation of Expression. Will traverse to child conditions to form full string
+func (e *NegateExpr) String() string {
+	var b strings.Builder
+
+	e.Build(&b)
+	return b.String()
+}
+
+// Build - uses a Builder to create a string representation of the Expression
+func (e *NegateExpr) Build(b *strings.Builder) {
+	b.WriteString("(-")
+	e.exL.Build(b)
+	b.WriteString(")")
+
 	if e.alias != "" {
-		str += " " + e.alias
+		b.WriteString(" ")
+		b.WriteString(e.alias)
 	}
-	return str
 }
 
 // Name returns the name of the expression
@@ -535,7 +579,7 @@ func (e *NegateExpr) Name() string {
 	if e.alias != "" {
 		return e.alias
 	}
-	return e.ToString()
+	return e.String()
 }
 
 // ColDef returns a column definition for the expression
@@ -663,19 +707,27 @@ func (e *FuncExpr) SetRight(ex Expr) {
 
 }
 
-// ToString - string representation of Expression. Will traverse to child conditions to form full string
-func (e *FuncExpr) ToString() string {
-	var str string
+// String - string representation of Expression. Will traverse to child conditions to form full string
+func (e *FuncExpr) String() string {
+	var b strings.Builder
+
+	e.Build(&b)
+	return b.String()
+}
+
+// Build - uses a Builder to create a string representation of the Expression
+func (e *FuncExpr) Build(b *strings.Builder) {
+	b.WriteString(tokens.IDName(e.Cmd))
+	b.WriteString("(")
 	if e.exL != nil {
-		str = tokens.IDName(e.Cmd) + "(" + e.exL.ToString() + ")"
-	} else {
-		str = tokens.IDName(e.Cmd) + "()"
+		e.exL.Build(b)
 	}
+	b.WriteString(")")
 
 	if e.alias != "" {
-		str += " " + e.alias
+		b.WriteString(" ")
+		b.WriteString(e.alias)
 	}
-	return str
 }
 
 // Name returns the name of the expression
@@ -683,7 +735,7 @@ func (e *FuncExpr) Name() string {
 	if e.alias != "" {
 		return e.alias
 	}
-	return e.ToString()
+	return e.String()
 }
 
 // ColDef returns a column definition for the expression

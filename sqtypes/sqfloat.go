@@ -15,8 +15,8 @@ type SQFloat struct {
 
 // SQFloat Methods & Functions  =========================================
 
-// ToString - return string representation of type
-func (fp SQFloat) ToString() string {
+// String - return string representation of type
+func (fp SQFloat) String() string {
 	return strconv.FormatFloat(fp.Val, 'G', -1, 64)
 }
 
@@ -74,7 +74,7 @@ func (fp SQFloat) Operation(op tokens.TokenID, v Value) (retVal Value, err error
 
 	vfp, ok := v.(SQFloat)
 	if !ok {
-		err = sqerr.New("Type Mismatch: " + v.ToString() + " is not a Float")
+		err = sqerr.New("Type Mismatch: " + v.String() + " is not a Float")
 		return
 	}
 	switch op {

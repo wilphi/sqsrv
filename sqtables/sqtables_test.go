@@ -318,13 +318,13 @@ func TestMisc(t *testing.T) {
 		}
 	})
 
-	t.Run("ToString", func(t *testing.T) {
+	t.Run("String", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		expstr := "rowcounttest\n--------------------------------------\n\t{rowid, INT NOT NULL}\n\t{firstname, STRING}\n\t{active, BOOL}\n"
-		str := tab.ToString(profile)
+		str := tab.String(profile)
 		if str != expstr {
-			t.Errorf("ToString = %q \n\n\twhen it should be %q", str, expstr)
+			t.Errorf("String = %q \n\n\twhen it should be %q", str, expstr)
 			return
 		}
 	})

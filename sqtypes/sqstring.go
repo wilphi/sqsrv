@@ -16,8 +16,8 @@ type SQString struct {
 
 // SQString Methods & Functions  =========================================
 
-// ToString - return string representation of type
-func (s SQString) ToString() string {
+// String - return string representation of type
+func (s SQString) String() string {
 	return s.Val
 }
 
@@ -68,7 +68,7 @@ func (s SQString) Operation(op tokens.TokenID, v Value) (retVal Value, err error
 			retVal = v
 			return
 		}
-		err = sqerr.Newf("Type Mismatch: %s is not a String", v.ToString())
+		err = sqerr.Newf("Type Mismatch: %s is not a String", v.String())
 		return
 	}
 	switch op {

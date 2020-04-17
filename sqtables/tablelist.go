@@ -34,8 +34,8 @@ func (tl *TableList) FindTableDef(profile *sqprofile.SQProfile, name string) *Ta
 	return ft.Table
 }
 
-// ToString - generates a string containing the names of the tables in the list
-func (tl *TableList) ToString(profile *sqprofile.SQProfile) string {
+// String - generates a string containing the names of the tables in the list
+func (tl *TableList) String(profile *sqprofile.SQProfile) string {
 	return strings.Join(tl.TableNames(), ", ")
 }
 
@@ -60,7 +60,7 @@ func (tl *TableList) FindColDef(profile *sqprofile.SQProfile, colName, tableAlia
 			}
 		}
 		if !found {
-			return nil, sqerr.Newf("Column %q not found in Table(s): %s", colName, tl.ToString(profile))
+			return nil, sqerr.Newf("Column %q not found in Table(s): %s", colName, tl.String(profile))
 		}
 	} else {
 		tabF, ok := tl.tables[strings.ToLower(tableAlias)]
@@ -226,9 +226,9 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 	if err = whereExpr.ValidateCols(profile, tl); err != nil {
 		return nil, err
 	}
-	// Added if statement to prevent the exection of ToString unless required
+	// Added if statement to prevent the exection of String unless required
 	if log.GetLevel() >= log.DebugLevel {
-		log.Debugf("Where expression = %s", whereExpr.ToString())
+		log.Debugf("Where expression = %s", whereExpr.String())
 	}
 	var joins []JoinTable
 	var joined []JoinTable
@@ -297,7 +297,7 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 			validJoin, lCol, rCol, idx = findJoin(whereExpr, joined, jt.Name)
 
 			if validJoin {
-				log.Infof("Joining Expr %s = %s", lCol.ToString(), rCol.ToString())
+				log.Infof("Joining Expr %s = %s", lCol.String(), rCol.String())
 				joinIdx = i
 				oldIdx = idx
 				break

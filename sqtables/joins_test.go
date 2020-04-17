@@ -93,7 +93,7 @@ func TestMiscJoinRow(t *testing.T) {
 			return
 		}
 		if !v.Equal(expVal) {
-			t.Errorf("Expected Value %s does not match actual value %s", expVal.ToString(), v.ToString())
+			t.Errorf("Expected Value %s does not match actual value %s", expVal.String(), v.String())
 		}
 	})
 
@@ -137,7 +137,7 @@ func TestMiscJoinRow(t *testing.T) {
 			return
 		}
 		if !v.Equal(expVal) {
-			t.Errorf("Expected Value %s does not match actual value %s", expVal.ToString(), v.ToString())
+			t.Errorf("Expected Value %s does not match actual value %s", expVal.String(), v.String())
 		}
 	})
 

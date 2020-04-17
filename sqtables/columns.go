@@ -33,8 +33,8 @@ func NewColDef(colName string, colType tokens.TokenID, isNotNull bool) ColDef {
 	return ColDef{ColName: colName, ColType: colType, Idx: -1, IsNotNull: isNotNull, DisplayTableName: false}
 }
 
-// ToString returns a string representation of the ColDef
-func (c *ColDef) ToString() string {
+// String returns a string representation of the ColDef
+func (c *ColDef) String() string {
 	var tName, ntype string
 
 	if c.IsNotNull {

@@ -86,12 +86,12 @@ func (t *TableDef) RowCount(profile *sqprofile.SQProfile) (int, error) {
 	return cnt, nil
 }
 
-// ToString -
-func (t *TableDef) ToString(profile *sqprofile.SQProfile) string {
+// String -
+func (t *TableDef) String(profile *sqprofile.SQProfile) string {
 	cs := t.tableName + "\n--------------------------------------\n"
 
 	for _, col := range t.tableCols {
-		cs += fmt.Sprintf("\t%s\n", col.ToString())
+		cs += fmt.Sprintf("\t%s\n", col.String())
 	}
 	return cs
 

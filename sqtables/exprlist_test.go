@@ -141,15 +141,15 @@ func testAddFunc(eList *sqtables.ExprList, e sqtables.Expr, hascount bool) func(
 		defer sqtest.PanicTestRecovery(t, false)
 
 		preLen := eList.Len()
-		preStr := eList.ToString()
+		preStr := eList.String()
 		eList.Add(e)
-		postStr := eList.ToString()
+		postStr := eList.String()
 		if eList.Len() != preLen+1 {
 			t.Errorf("Expression List Len before/after (%d/%d) did not increase by one", preLen, eList.Len())
 			return
 		}
-		if commaStr(preStr, e.ToString()) != postStr {
-			t.Errorf("Expression List String before/after (%s/%s) did match expected", commaStr(preStr, e.ToString()), eList.ToString())
+		if commaStr(preStr, e.String()) != postStr {
+			t.Errorf("Expression List String before/after (%s/%s) did match expected", commaStr(preStr, e.String()), eList.String())
 			return
 		}
 		if hascount != eList.HasAggregateFunc() {
@@ -162,7 +162,7 @@ func checkNil(ex sqtables.Expr) string {
 	if ex == nil {
 		return "nil"
 	}
-	return ex.ToString()
+	return ex.String()
 }
 func commaStr(a, b string) string {
 	if a == "" || b == "" {
@@ -175,7 +175,7 @@ func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.
 		defer sqtest.PanicTestRecovery(t, false)
 
 		preLen := eList.Len()
-		preStr := eList.ToString()
+		preStr := eList.String()
 		actExpr := eList.Pop()
 
 		if !reflect.DeepEqual(actExpr, ExpExpr) {
@@ -185,13 +185,13 @@ func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.
 		if actExpr == nil && preLen == 0 {
 			return
 		}
-		postStr := eList.ToString()
+		postStr := eList.String()
 		if eList.Len()+1 != preLen {
 			t.Errorf("Expression List Len before/after (%d/%d) did not increase by one", preLen, eList.Len())
 			return
 		}
-		if preStr != commaStr(postStr, ExpExpr.ToString()) {
-			t.Errorf("Expression List String before/after (%s/%s) did match expected", preStr, commaStr(eList.ToString(), ExpExpr.ToString()))
+		if preStr != commaStr(postStr, ExpExpr.String()) {
+			t.Errorf("Expression List String before/after (%s/%s) did match expected", preStr, commaStr(eList.String(), ExpExpr.String()))
 			return
 		}
 	}
