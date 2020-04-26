@@ -30,11 +30,14 @@ var guardTransProc uint64
 
 var doDirOnce sync.Once
 
+var lazyWrite int // number of seconds between file.Sync - 0 means each write will be synced
+
 // LogMsg is a structure to send a LogStatement across a channel and giving a reponse channel
 type LogMsg struct {
 	//	stmt    LogStatement
 	buffer  []byte
 	respond chan error
+	id      uint64
 }
 
 // TChan is used to send transaction LogStatements to the redo logger
@@ -55,6 +58,13 @@ func SetTLog(path string) {
 	})
 }
 
+// SetLazyTlog sets the LazyWrite attribute for the transaction log. This is less data safe in that committed transactions
+//  may not be durably written to disk in the case of a failure, but can be an order of magnitude faster.
+//  d - number of milliseconds between file.Sync
+func SetLazyTlog(d int) {
+	lazyWrite = d
+}
+
 // Start -
 func Start() TChan {
 	log.Info("Starting Transaction Logging...")
@@ -71,7 +81,7 @@ func Stop() {
 	if !logState.IsStopped() {
 		logState.Stop()
 		for {
-			if len(tlog) == 0 {
+			if atomic.CompareAndSwapUint64(&guardTransProc, 0, 0) {
 				break
 			}
 			// wait for a little bit
@@ -98,6 +108,10 @@ func Send(s LogStatement) error {
 // transProc accepts the LogMessages and durably writes them to disk. Any errors are sent back to the sender
 //   this should be called as a new goroutine that will continually accept LogMsgs until the program shutsdown
 func transProc() {
+	var sent LogMsg
+	var ok, isDirty bool
+	var lastSync time.Time
+	var stack []LogMsg
 
 	// There must be only one transProc running at a time.
 	if !atomic.CompareAndSwapUint64(&guardTransProc, 0, 1) {
@@ -105,33 +119,48 @@ func transProc() {
 		//return
 	}
 
-	// When function exists remove guard
+	// When function exits remove guard
 	defer atomic.StoreUint64(&guardTransProc, 0)
 
 	log.Info("Starting Transaction Logging")
 	// If the file doesn't exist, create it. Append to the file as write only
 	file, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		//	log.Fatal(err)
 		log.Panic(err.Error())
 	}
-
 	defer file.Close()
 	for {
 		// get the log message
-		sent, ok := <-tlog
-		if !ok {
+		select {
+		case sent, ok = <-tlog:
+			if !ok {
+				if logState.IsStopped() {
+					err = file.Sync()
+					stack = clearSentStack(stack, err)
+					return
+				}
+				log.Panic("The Transaction log Channel has been closed")
+
+			}
+		case <-time.After(time.Millisecond):
 			if logState.IsStopped() {
+				err = file.Sync()
+				stack = clearSentStack(stack, err)
 				return
 			}
-			log.Fatal("The Transaction log Channel has been closed")
 
+			if time.Now().After(lastSync.Add(time.Duration(lazyWrite) * time.Millisecond)) {
+				if isDirty {
+					file.Sync()
+					log.Info("Timeout Sync")
+					isDirty = false
+				}
+			}
+			continue
 		}
 
 		// unpack the log statement and encode it
-		//stmt := sent.stmt
 		encStmt := sqbin.NewCodec(sent.buffer)
-		//	encStmt := stmt.Encode()
 
 		// set the transaction log ID & Length of log
 		tID := transid.GetNextID()
@@ -144,11 +173,35 @@ func transProc() {
 			continue
 		}
 
-		//Sync the file to make sure that the logstatment is durably written to disk
-		err = file.Sync()
+		if lazyWrite == 0 {
+			//Sync the file to make sure that the logstatment is durably written to disk
+			// if there is another logstatment is waiting then wait to sync until all waiting logstatements have been processed
+			// This can double the speed of INSERT/UPDATE heavy code
+			sent.id = tID
+			stack = append(stack, sent)
+			if len(tlog) == 0 {
+				err = file.Sync() // Sync is a very expensive operation
+				stack = clearSentStack(stack, err)
+
+			}
+		} else {
+			sent.respond <- err
+			if !isDirty {
+				lastSync = time.Now()
+			}
+			isDirty = true
+		}
 		log.Debugf("%d written to transaction log", tID)
-		sent.respond <- err
+
 	}
+}
+
+func clearSentStack(stack []LogMsg, err error) []LogMsg {
+	for _, s := range stack {
+		log.Debugf("%d written to transaction log", s.id)
+		s.respond <- err
+	}
+	return stack[:0]
 }
 
 // Recovery takes the last backup and the transaction logs to recreate the database to the last transaction

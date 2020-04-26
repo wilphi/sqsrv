@@ -2,11 +2,16 @@ package redo
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"runtime"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
@@ -56,8 +61,6 @@ func (t *TestStmt) Encode() *sqbin.Codec {
 	// Identify the type of logstatment
 	enc.Writebyte(IDTestStmt)
 	// Id of transaction statement
-	//	enc.WriteUint64(t.ID)
-
 	enc.WriteString(t.Str)
 	return enc
 }
@@ -69,8 +72,6 @@ func (t *TestStmt) Decode(dec *sqbin.Codec) {
 	if mkr != IDTestStmt {
 		log.Panicf("Found wrong statement type (%s). Expecting IDTestStmt", sqbin.TypeMarkerStrings[mkr])
 	}
-	// Id of transaction statement
-	//	t.ID = dec.ReadUint64()
 
 	t.Str = dec.ReadString()
 
@@ -87,19 +88,6 @@ func (t *TestStmt) Identify(ID uint64) string {
 	return "Test Statement: " + t.Str
 }
 
-/*
-// SetID is used by the transaction logger to indicate the what order the message was sent to the
-//   transaction log. It should be a monotonically increasing number.
-func (t *TestStmt) SetID(id uint64) {
-	t.ID = id
-}
-
-// GetID returns the ID of the transaction statement. ID = 0 means that it is not valid
-func (t *TestStmt) GetID() uint64 {
-	return t.ID
-}
-*/
-
 // TestWithErr - for testing error paths in software
 type TestWithErr struct {
 	Str string
@@ -110,8 +98,6 @@ func (t *TestWithErr) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
 	enc.Writebyte(IDTestWithErr)
-	// Id of transaction statement
-	//	enc.WriteUint64(t.ID)
 
 	enc.WriteString(t.Str)
 	return enc
@@ -123,9 +109,6 @@ func (t *TestWithErr) Decode(dec *sqbin.Codec) {
 	if mkr != IDTestWithErr {
 		log.Panicf("Found wrong statement type (%s). Expecting IDTestWithErr", sqbin.TypeMarkerStrings[mkr])
 	}
-
-	// Id of transaction statement
-	//	t.ID = dec.ReadUint64()
 
 	t.Str = dec.ReadString()
 
@@ -143,18 +126,36 @@ func (t *TestWithErr) Identify(ID uint64) string {
 	return "Test With Error: " + t.Str
 }
 
-/*
-// SetID is used by the transaction logger to indicate the what order the message was sent to the
-//   transaction log. It should be a monotonically increasing number.
-func (t *TestWithErr) SetID(id uint64) {
-	t.ID = id
+///////////////////////////////////////////////////////////////////////////////////
+// Mock for io.Reader/io.Writer
+
+type IORWErr struct {
+	Buff     bytes.Buffer
+	ErrAfter int
+	Skipcnt  int
+	Err      string
 }
 
-// GetID returns the ID of the transaction statement. ID = 0 means that it is not valid
-func (t *TestWithErr) GetID() uint64 {
-	return t.ID
+func (i *IORWErr) Write(p []byte) (n int, err error) {
+	if i.Err != "" && i.ErrAfter <= i.Skipcnt {
+		return 0, errors.New(i.Err)
+	}
+	i.Skipcnt++
+	return i.Buff.Write(p)
 }
-*/
+
+func (i *IORWErr) Read(p []byte) (n int, err error) {
+	if i.Err != "" && i.ErrAfter <= i.Skipcnt {
+		if i.Err == "EOF" {
+			return 0, io.EOF
+		}
+		return 0, errors.New(i.Err)
+	}
+	i.Skipcnt++
+	return i.Buff.Read(p)
+}
+
+/////////////////////////////////////////////////////////////////////////
 
 // TestMain - Setup logging for tests to make sure it does not go to stdio
 func TestMain(m *testing.M) {
@@ -239,6 +240,42 @@ func TestReadTlog(t *testing.T) {
 			ExpItems: []string{"Recreated Test2", "Recreated Test3", "Recreated Test4"},
 			IDStart:  2,
 		},
+		{
+			TestName:   "IO Error 1",
+			Stmts:      []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}, &TestStmt{"Test3"}, &TestStmt{"Test4"}},
+			ErrAfter:   -1,
+			ExpErr:     "Read Error in Read #1",
+			ExpItems:   []string{"Recreated Test0", "Recreated Test1", "Recreated Test2", "Recreated Test3", "Recreated Test4"},
+			IOErrAfter: 0,
+			IOErrMsg:   "Read Error in Read #1",
+		},
+		{
+			TestName:   "IO Error 2",
+			Stmts:      []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}, &TestStmt{"Test3"}, &TestStmt{"Test4"}},
+			ErrAfter:   -1,
+			ExpErr:     "Read Error in Read #2",
+			ExpItems:   []string{"Recreated Test0", "Recreated Test1", "Recreated Test2", "Recreated Test3", "Recreated Test4"},
+			IOErrAfter: 1,
+			IOErrMsg:   "Read Error in Read #2",
+		},
+		{
+			TestName:   "IO Error 3",
+			Stmts:      []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}, &TestStmt{"Test3"}, &TestStmt{"Test4"}},
+			ErrAfter:   -1,
+			ExpErr:     "Read Error in Read #3",
+			ExpItems:   []string{"Recreated Test0", "Recreated Test1", "Recreated Test2", "Recreated Test3", "Recreated Test4"},
+			IOErrAfter: 2,
+			IOErrMsg:   "Read Error in Read #3",
+		},
+		{
+			TestName:   "IO Error EOF",
+			Stmts:      []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}, &TestStmt{"Test3"}, &TestStmt{"Test4"}},
+			ErrAfter:   -1,
+			ExpErr:     "",
+			ExpItems:   []string{"Recreated Test0", "Recreated Test1", "Recreated Test2", "Recreated Test3"},
+			IOErrAfter: 12,
+			IOErrMsg:   "EOF",
+		},
 	}
 
 	for i, row := range data {
@@ -249,13 +286,15 @@ func TestReadTlog(t *testing.T) {
 }
 
 type TestData struct {
-	TestName string
-	Stmts    []LogStatement
-	ExpItems []string
-	ExpErr   string
-	ErrAfter int
-	ExpPanic bool
-	IDStart  uint64
+	TestName   string
+	Stmts      []LogStatement
+	ExpItems   []string
+	ExpErr     string
+	ErrAfter   int
+	ExpPanic   bool
+	IDStart    uint64
+	IOErrAfter int
+	IOErrMsg   string
 }
 
 func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T) {
@@ -281,7 +320,12 @@ func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T)
 			}
 		}
 		b := enc.Bytes()
-		file := bytes.NewBuffer(b)
+		//file := bytes.NewBuffer(b)
+		file := &IORWErr{}
+		file.Buff.Write(b)
+		file.Err = d.IOErrMsg
+		file.ErrAfter = d.IOErrAfter
+
 		err = ReadTlog(profile, file)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
@@ -317,30 +361,7 @@ func TestRecovery(t *testing.T) {
 			CreateTrans:  false,
 			Profile:      sqprofile.CreateSQProfile(),
 		},
-		/*		{
-					TestName:        "Both Logs",
-					TransLogName:    "transaction.tlog",
-					RecoveryLogName: "recovery.tlog",
-					Started:         false,
-					SourceFile:      "./test_files/transaction.tlog",
-					CopyToTrans:     true,
-					CopyToRecovery:  true,
-					ExpPanic:        false,
-					ExpErr:          "Error: Both the transaction log and recovery log exist",
-					Profile:         sqprofile.CreateSQProfile(),
-				},
-				{
-					TestName:        "Recovery only Log",
-					TransLogName:    "transaction.tlog",
-					RecoveryLogName: "recovery.tlog",
-					Started:         false,
-					SourceFile:      "./test_files/transaction.tlog",
-					CopyToTrans:     false,
-					CopyToRecovery:  true,
-					ExpPanic:        false,
-					ExpErr:          "",
-					Profile:         sqprofile.CreateSQProfile(),
-				},*/
+
 		{
 			TestName:     "Trans only Log",
 			TransLogName: "transaction.tlog",
@@ -425,22 +446,10 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 		}
 		transid.SetTransID(0)
 		err = Recovery(d.Profile)
-		if err != nil {
-			log.Println(err.Error())
-			if d.ExpErr == "" {
-				t.Error(fmt.Sprintf("Unexpected Error in test: %s", err.Error()))
-				return
-			}
-			if d.ExpErr != err.Error() {
-				t.Error(fmt.Sprintf("Expecting Error %s but got: %s", d.ExpErr, err.Error()))
-				return
-			}
+		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
-		if err == nil && d.ExpErr != "" {
-			t.Error(fmt.Sprintf("Unexpected Success, should have returned error: %s", d.ExpErr))
-			return
-		}
+
 		d.Profile.VerifyNoLocks()
 	}
 }
@@ -482,24 +491,34 @@ func createTransLog(testFileName string, tableName string) error {
 }
 
 func TestTransProc(t *testing.T) {
-	/*	t.Run("File Error", func(t *testing.T) {
-			defer func() {
-				r := recover()
-				if r == nil {
-					t.Errorf("%s did not panic", t.Name())
-					return
-				}
-				s, ok := r.(string)
-				expErr := "no such file or directory"
-				if !(ok && strings.Contains(s, expErr)) {
-					t.Errorf("%s: Actual Error %q does not match expected %q", t.Name(), s, expErr)
-					return
-				}
-			}()
-			transProc()
+	t.Run("File Error", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("%s did not panic", t.Name())
+				return
+			}
+			str := ""
+			switch o := r.(type) {
+			case string:
+				str = o
+			case *log.Entry:
+				str = o.Message
+			default:
+				str = "Unknown type in recovery"
+			}
 
-		})
-	*/
+			expErr := "no such file or directory"
+			if !strings.Contains(str, expErr) {
+				t.Errorf("%s: Actual Error %q does not match expected %q", t.Name(), str, expErr)
+				return
+			}
+		}()
+		logFileName = "./notadirectory/transaction.tlog"
+		transProc()
+
+	})
+
 	// Setup Files
 	tmpDir, err := ioutil.TempDir("", "sqsrvtest")
 	if err != nil {
@@ -542,11 +561,45 @@ func TestTransProc(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
 
 		stmt := &TestStmt{"Test0"}
-		Send(stmt)
+		err := Send(stmt)
+		sqtest.CheckErr(t, err, "")
 	})
 	t.Run("Stop", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, false)
-
+		//pause for a bit
+		time.Sleep(5 * time.Millisecond)
 		Stop()
+		if !atomic.CompareAndSwapUint64(&guardTransProc, 0, 0) {
+			t.Error("transProc has not stopped")
+		}
+	})
+	t.Run("Send while stopped", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, false)
+
+		stmt := &TestStmt{"Test0"}
+		err := Send(stmt)
+		sqtest.CheckErr(t, err, "")
+	})
+	t.Run("LazyLog", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, false)
+		tlog = make(TChan, 10)
+
+		SetLazyTlog(10)
+		Start()
+
+		err := Send(&TestStmt{"LazyTest0"})
+		sqtest.CheckErr(t, err, "")
+		err = Send(&TestStmt{"LazyTest1"})
+		sqtest.CheckErr(t, err, "")
+		err = Send(&TestStmt{"LazyTest2"})
+		sqtest.CheckErr(t, err, "")
+		err = Send(&TestStmt{"LazyTest3"})
+		time.Sleep(20 * time.Millisecond)
+		sqtest.CheckErr(t, err, "")
+		err = Send(&TestStmt{"LazyTest4"})
+		sqtest.CheckErr(t, err, "")
+		err = Send(&TestStmt{"LazyTest5"})
+		sqtest.CheckErr(t, err, "")
+
 	})
 }

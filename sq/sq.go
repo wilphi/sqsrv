@@ -31,6 +31,7 @@ var Options struct {
 	tlog       string
 	dbfiles    string
 	cpuprofile string
+	lazytlog   int
 }
 
 // Main is the main process function for the SQServer
@@ -46,6 +47,7 @@ func Main() {
 	flag.StringVar(&Options.tlog, "tlog", "./transaction.tlog", "File path/name for the transaction log")
 	flag.StringVar(&Options.dbfiles, "dbfile", "./dbfiles/", "Directory where database files are stored")
 	flag.StringVar(&Options.cpuprofile, "cpuprofile", "", "write cpu profile to file")
+	flag.IntVar(&Options.lazytlog, "lazytlog", 1000, "Number of milliseconds between file.Sync of the tlog. A value of 0 will sync after every write. Non zero values may lead to n milliseconds of dataloss")
 	flag.Parse()
 
 	if Options.cpuprofile != "" {
@@ -65,6 +67,11 @@ func Main() {
 	log.Println("tlog =", Options.tlog)
 	log.Println("host =", Options.host)
 	log.Println("port =", Options.port)
+	if Options.lazytlog != 0 {
+		log.Printf("Lazy writting interval = %d Milliseconds", Options.lazytlog)
+	} else {
+		log.Println("Transactions are durably written to transaction log")
+	}
 
 	profile := sqprofile.CreateSQProfile()
 
@@ -74,6 +81,7 @@ func Main() {
 		log.Panic("Unable to load database: ", err)
 	}
 
+	redo.SetLazyTlog(Options.lazytlog)
 	if err := redo.Recovery(profile); err != nil {
 		log.Fatal(err)
 	}
