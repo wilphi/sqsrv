@@ -26,7 +26,7 @@ type lockData struct {
 	TestName  string
 	Profile   *SQProfile
 	Function  string
-	ExpPanic  bool
+	ExpPanic  string
 	LockNames []string
 	ExpVals   []int
 }
@@ -35,16 +35,16 @@ func TestLocks(t *testing.T) {
 	profile1 := CreateSQProfile()
 
 	data := []lockData{
-		{TestName: "VerifyNoLocks empty map", Profile: profile1, Function: "VERIFY", ExpPanic: false, LockNames: nil, ExpVals: nil},
-		{TestName: "Add locks", Profile: profile1, Function: "ADD", ExpPanic: false, LockNames: []string{"TEST1-READ", "TEST2-WRITE"}, ExpVals: []int{1, 1}},
-		{TestName: "Check locks", Profile: profile1, Function: "CHECK", ExpPanic: false, LockNames: []string{"TEST1-READ", "TEST2-WRITE"}, ExpVals: []int{1, 1}},
-		{TestName: "Add other locks", Profile: profile1, Function: "ADD", ExpPanic: false, LockNames: []string{"TEST1-READ", "TEST3-READ"}, ExpVals: []int{2, 1}},
-		{TestName: "Check other locks", Profile: profile1, Function: "CHECK", ExpPanic: false, LockNames: []string{"TEST1-READ", "TEST3-READ"}, ExpVals: []int{2, 1}},
-		{TestName: "VerifyNoLocks NON empty map", Profile: profile1, Function: "VERIFY", ExpPanic: true, LockNames: nil, ExpVals: nil},
-		{TestName: "Remove other locks", Profile: profile1, Function: "REMOVE", ExpPanic: false, LockNames: []string{"TEST1-READ", "TEST3-READ"}, ExpVals: []int{1, 0}},
-		{TestName: "Remove locks", Profile: profile1, Function: "REMOVE", ExpPanic: false, LockNames: []string{"TEST1-READ", "TEST2-WRITE"}, ExpVals: []int{0, 0}},
-		{TestName: "VerifyNoLocks emptied map", Profile: profile1, Function: "VERIFY", ExpPanic: false, LockNames: nil, ExpVals: nil},
-		{TestName: "Remove when there is nothing to remove", Profile: profile1, Function: "REMOVE", ExpPanic: true, LockNames: []string{"TEST1-READ", "TEST2-WRITE"}, ExpVals: []int{0, 0}},
+		{TestName: "VerifyNoLocks empty map", Profile: profile1, Function: "VERIFY", ExpPanic: "", LockNames: nil, ExpVals: nil},
+		{TestName: "Add locks", Profile: profile1, Function: "ADD", ExpPanic: "", LockNames: []string{"TEST1-READ", "TEST2-WRITE"}, ExpVals: []int{1, 1}},
+		{TestName: "Check locks", Profile: profile1, Function: "CHECK", ExpPanic: "", LockNames: []string{"TEST1-READ", "TEST2-WRITE"}, ExpVals: []int{1, 1}},
+		{TestName: "Add other locks", Profile: profile1, Function: "ADD", ExpPanic: "", LockNames: []string{"TEST1-READ", "TEST3-READ"}, ExpVals: []int{2, 1}},
+		{TestName: "Check other locks", Profile: profile1, Function: "CHECK", ExpPanic: "", LockNames: []string{"TEST1-READ", "TEST3-READ"}, ExpVals: []int{2, 1}},
+		{TestName: "VerifyNoLocks NON empty map", Profile: profile1, Function: "VERIFY", ExpPanic: "Profile 2 - Mismatched locks are: (TEST1-READ = 2::TEST2-WRITE = 1::TEST3-READ = 1) at: /sqsrv/sqprofile/sqprofile_test.go,:65 github.com/wilphi/sqsrv/sqprofile.testLocksFunc.func1", LockNames: nil, ExpVals: nil},
+		{TestName: "Remove other locks", Profile: profile1, Function: "REMOVE", ExpPanic: "", LockNames: []string{"TEST1-READ", "TEST3-READ"}, ExpVals: []int{1, 0}},
+		{TestName: "Remove locks", Profile: profile1, Function: "REMOVE", ExpPanic: "", LockNames: []string{"TEST1-READ", "TEST2-WRITE"}, ExpVals: []int{0, 0}},
+		{TestName: "VerifyNoLocks emptied map", Profile: profile1, Function: "VERIFY", ExpPanic: "", LockNames: nil, ExpVals: nil},
+		{TestName: "Remove when there is nothing to remove", Profile: profile1, Function: "REMOVE", ExpPanic: "Profile 2 - TEST1-READ is not locked but we are tring to unlock it", LockNames: []string{"TEST1-READ", "TEST2-WRITE"}, ExpVals: []int{0, 0}},
 	}
 
 	for i, row := range data {

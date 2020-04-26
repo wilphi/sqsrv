@@ -18,7 +18,7 @@ type mtxlockData struct {
 	Profile   *sqprofile.SQProfile
 	RW        *SQMtx
 	Function  string
-	ExpPanic  bool
+	ExpPanic  string
 	ErrTxt    string
 	LockNames []string
 	ExpVals   []int
@@ -26,7 +26,7 @@ type mtxlockData struct {
 
 func TestMtxStats(t *testing.T) {
 	t.Run("Test Empty Stats", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		resetMtxStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 		str := GetMtxStats()
@@ -37,7 +37,7 @@ func TestMtxStats(t *testing.T) {
 	})
 
 	t.Run("Test Only Lock Stats", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		resetMtxStats(time.Millisecond*3, 4*time.Millisecond, 2, 7*time.Millisecond, 0, 0, 0, 0, 1, 400*time.Millisecond)
 		str := GetMtxStats()
@@ -48,7 +48,7 @@ func TestMtxStats(t *testing.T) {
 	})
 
 	t.Run("Test Write Lock Stats", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		resetMtxStats(0, 0, 0, 0, time.Millisecond*6, 14*time.Millisecond, 2, 1, 0, 20*time.Millisecond)
 		str := GetMtxStats()
@@ -59,7 +59,7 @@ func TestMtxStats(t *testing.T) {
 	})
 
 	t.Run("Test Read & Write Lock Stats", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		resetMtxStats(time.Millisecond*3, 4*time.Millisecond, 2, 7*time.Millisecond, time.Millisecond*6, 14*time.Millisecond, 2, 1, 3, 20*time.Millisecond)
 		str := GetMtxStats()
@@ -75,19 +75,19 @@ func TestMtxLocks(t *testing.T) {
 	rw1 := NewSQMtx("T")
 
 	data := []mtxlockData{
-		{TestName: "VerifyNoLocks empty map", Profile: profile1, Function: "VERIFY", ExpPanic: false, LockNames: nil, ExpVals: nil},
-		{TestName: "WRITE lock", Profile: profile1, RW: rw1, Function: "LOCK", ExpPanic: false, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}},
-		{TestName: "READ lock after write", Profile: profile1, RW: rw1, Function: "RLOCK", ExpPanic: false, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 2}},
-		{TestName: "VerifyNoLocks NON empty map", Profile: profile1, Function: "VERIFY", ExpPanic: true, LockNames: nil, ExpVals: nil},
-		{TestName: "READ unlock", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: false, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}},
-		{TestName: "WRITE unlock", Profile: profile1, RW: rw1, Function: "UNLOCK", ExpPanic: false, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
-		{TestName: "VerifyNoLocks emptied map", Profile: profile1, Function: "VERIFY", ExpPanic: false, LockNames: nil, ExpVals: nil},
-		{TestName: "READ unlock when no lock", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: true, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}},
-		{TestName: "WRITE unlock when no lock", Profile: profile1, RW: rw1, Function: "UNLOCK", ExpPanic: true, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
-		{TestName: "READ lock before write", Profile: profile1, RW: rw1, Function: "RLOCK", ExpPanic: false, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 1}},
-		{TestName: "WRITE lock after READ", Profile: profile1, RW: rw1, Function: "LOCK", ExpPanic: false, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}, ErrTxt: "has a readlock, so trying for a writelock will deadlock process"},
-		{TestName: "UNLOCK last READ", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: false, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
-		{TestName: "UNLOCK last READ", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: true, LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
+		{TestName: "VerifyNoLocks empty map", Profile: profile1, Function: "VERIFY", ExpPanic: "", LockNames: nil, ExpVals: nil},
+		{TestName: "WRITE lock", Profile: profile1, RW: rw1, Function: "LOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}},
+		{TestName: "READ lock after write", Profile: profile1, RW: rw1, Function: "RLOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 2}},
+		{TestName: "VerifyNoLocks NON empty map", Profile: profile1, Function: "VERIFY", ExpPanic: "Profile 1 - Mismatched locks are: (T-WRITE = 1::T-READ = 2) at: /sqsrv/sqmutex/sqmtx_test.go,:108 github.com/wilphi/sqsrv/sqmutex.testmtxLocksFunc.func1", LockNames: nil, ExpVals: nil},
+		{TestName: "READ unlock", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}},
+		{TestName: "WRITE unlock", Profile: profile1, RW: rw1, Function: "UNLOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
+		{TestName: "VerifyNoLocks emptied map", Profile: profile1, Function: "VERIFY", ExpPanic: "", LockNames: nil, ExpVals: nil},
+		{TestName: "READ unlock when no lock", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: "Profile 1 - T-READ is not locked but we are tring to unlock it", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}},
+		{TestName: "WRITE unlock when no lock", Profile: profile1, RW: rw1, Function: "UNLOCK", ExpPanic: "Profile 1 - T-WRITE is not locked but we are tring to unlock it", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
+		{TestName: "READ lock before write", Profile: profile1, RW: rw1, Function: "RLOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 1}},
+		{TestName: "WRITE lock after READ", Profile: profile1, RW: rw1, Function: "LOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}, ErrTxt: "has a readlock, so trying for a writelock will deadlock process"},
+		{TestName: "UNLOCK last READ", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
+		{TestName: "UNLOCK last READ", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: "Profile 1 - T-READ is not locked but we are tring to unlock it", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
 	}
 
 	for i, row := range data {
@@ -180,7 +180,7 @@ func TestAsyncMtxLocks(t *testing.T) {
 	profile4 := sqprofile.CreateSQProfile()
 	//rwB := NewSQMtx("B")
 	t.Run("Block Write Lock", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		rwA := NewSQMtx("A")
 		rwA.SetTimeout(10 * time.Millisecond)
@@ -202,7 +202,7 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Block & Release Write Lock", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		rwA := NewSQMtx("A")
 		rwA.SetTimeout(10 * time.Millisecond)
@@ -218,7 +218,7 @@ func TestAsyncMtxLocks(t *testing.T) {
 
 	})
 	t.Run("Block & Release Write Lock2", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		rwA := NewSQMtx("A")
 		rwA.SetTimeout(10 * time.Millisecond)
@@ -247,7 +247,7 @@ func TestAsyncMtxLocks(t *testing.T) {
 		profile2.VerifyNoLocks()
 	})
 	t.Run("Double Block with timeout", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		var wg sync.WaitGroup
 		rwA := NewSQMtx("A")
@@ -290,7 +290,7 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Block Read with Write Lock ", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		rwA := NewSQMtx("BLOCKED-READ")
 		rwA.SetTimeout(10 * time.Millisecond)
@@ -317,7 +317,7 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Block Write with Read Lock ", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		lockName := "BLOCK|WITH|READ"
 		rwA := NewSQMtx(lockName)
@@ -345,7 +345,7 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Block Write with 3 Read Locks ", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		status := new(int64)
 		rwA := NewSQMtx("MultiReadLocks")
@@ -393,7 +393,7 @@ func TestAsyncMtxLocks(t *testing.T) {
 	})
 
 	t.Run("Random test with R/W locks", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		rwA := NewSQMtx("RAND")
 		rwA.SetTimeout(100 * time.Millisecond)

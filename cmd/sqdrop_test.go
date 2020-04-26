@@ -24,7 +24,7 @@ type DropData struct {
 
 func testDropFunc(profile *sqprofile.SQProfile, d DropData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 		tkns := tokens.Tokenize(d.Command)
 		_, data, err := cmd.DropTable(profile, tkns)
 		if sqtest.CheckErr(t, err, d.ExpErr) {

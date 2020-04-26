@@ -196,7 +196,7 @@ func TestInterfaces(t *testing.T) {
 
 func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		_, ok := d.i.(LogStatement)
 		if !ok {
@@ -228,7 +228,7 @@ func TestReadTlog(t *testing.T) {
 			TestName: "Error Reading Log",
 			Stmts:    []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}},
 			ErrAfter: 2,
-			ExpPanic: true,
+			ExpPanic: "Type marker did not match expected: Actual = 67-StringMarker, Expected = 64-Uint64Marker",
 			ExpErr:   "",
 			ExpItems: []string{"Recreated Test0", "Recreated Test1"},
 		},
@@ -291,7 +291,7 @@ type TestData struct {
 	ExpItems   []string
 	ExpErr     string
 	ErrAfter   int
-	ExpPanic   bool
+	ExpPanic   string
 	IDStart    uint64
 	IOErrAfter int
 	IOErrMsg   string
@@ -347,7 +347,7 @@ func TestRecovery(t *testing.T) {
 			TestName:     "Logging started",
 			TransLogName: "transaction.tlog",
 			Started:      true,
-			ExpPanic:     true,
+			ExpPanic:     "Recovery must occur before the transaction log has been started",
 			ExpErr:       "",
 			CreateTrans:  false,
 			Profile:      sqprofile.CreateSQProfile(),
@@ -356,7 +356,7 @@ func TestRecovery(t *testing.T) {
 			TestName:     "No Logs",
 			TransLogName: "transaction.tlog",
 			Started:      false,
-			ExpPanic:     false,
+			ExpPanic:     "",
 			ExpErr:       "",
 			CreateTrans:  false,
 			Profile:      sqprofile.CreateSQProfile(),
@@ -367,7 +367,7 @@ func TestRecovery(t *testing.T) {
 			TransLogName: "transaction.tlog",
 			Started:      false,
 			CreateTrans:  true,
-			ExpPanic:     false,
+			ExpPanic:     "",
 			ExpErr:       "",
 			Profile:      sqprofile.CreateSQProfile(),
 		},
@@ -387,7 +387,7 @@ type RecoveryData struct {
 	SourceFile   string
 	CreateTrans  bool
 	Started      bool
-	ExpPanic     bool
+	ExpPanic     string
 	ExpErr       string
 	Profile      *sqprofile.SQProfile
 }
@@ -527,7 +527,7 @@ func TestTransProc(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	t.Run("Verify Tlog file", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		expTlog := tmpDir + "/" + "transaction.tlog"
 		SetTLog(expTlog)
@@ -538,7 +538,7 @@ func TestTransProc(t *testing.T) {
 	})
 
 	t.Run("Double set Tlog file", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		expTlog := tmpDir + "/" + "transaction2.tlog"
 		SetTLog(expTlog)
@@ -551,21 +551,21 @@ func TestTransProc(t *testing.T) {
 	logState.Start()
 
 	t.Run("Double Start", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "transProc is already running")
 
 		Start()
 		runtime.Gosched()
 		transProc()
 	})
 	t.Run("Send", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		stmt := &TestStmt{"Test0"}
 		err := Send(stmt)
 		sqtest.CheckErr(t, err, "")
 	})
 	t.Run("Stop", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 		//pause for a bit
 		time.Sleep(5 * time.Millisecond)
 		Stop()
@@ -574,14 +574,14 @@ func TestTransProc(t *testing.T) {
 		}
 	})
 	t.Run("Send while stopped", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		stmt := &TestStmt{"Test0"}
 		err := Send(stmt)
 		sqtest.CheckErr(t, err, "")
 	})
 	t.Run("LazyLog", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 		tlog = make(TChan, 10)
 
 		SetLazyTlog(10)

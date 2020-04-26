@@ -28,7 +28,7 @@ type DeleteData struct {
 
 func testDeleteFunc(profile *sqprofile.SQProfile, d DeleteData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		//Reset Data
 		if d.Data != nil {
@@ -246,7 +246,7 @@ func TestDeleteFromTable(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 
 	t.Run("Invalid Table Name", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		_, err := cmd.DeleteFromTable(profile, "NotATable", nil)
 		if err.Error() != "Error: Table NotATable does not exist for Delete statement" {

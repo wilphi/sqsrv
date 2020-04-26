@@ -47,7 +47,7 @@ func TestCreate(t *testing.T) {
 
 func testCreateFunc(d CreateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		s := redo.NewCreateDDL(d.TableName, d.Cols)
 
@@ -161,7 +161,7 @@ func TestInsert(t *testing.T) {
 
 func testInsertFunc(d InsertData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		var err error
 		var initPtrs sqptr.SQPtrs
@@ -317,7 +317,7 @@ func TestUpdate(t *testing.T) {
 }
 func testUpdateFunc(d UpdateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		// Create table & data
 		profile := sqprofile.CreateSQProfile()
@@ -495,7 +495,7 @@ func TestDelete(t *testing.T) {
 
 func testDeleteFunc(d DeleteData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		var err error
 		s := redo.NewDeleteRows(d.TableName, d.RowPtrs)
@@ -609,7 +609,7 @@ func TestDropTable(t *testing.T) {
 
 func testDropTableFunc(d DropTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		s := redo.NewDropDDL(d.TableName)
 
@@ -695,7 +695,7 @@ func TestDecodeErr(t *testing.T) {
 	s2 := redo.NewDeleteRows("test", sqptr.SQPtrs{1, 2, 3})
 
 	t.Run("Create", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDCreateDDL")
 
 		// Test Encode/Decode
 		cdr := s.Encode()
@@ -708,7 +708,7 @@ func TestDecodeErr(t *testing.T) {
 
 	})
 	t.Run("Insert", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDInsertRows")
 
 		// Test Encode/Decode
 		cdr := s.Encode()
@@ -721,7 +721,7 @@ func TestDecodeErr(t *testing.T) {
 
 	})
 	t.Run("Update", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDUpdateRows")
 
 		// Test Encode/Decode
 		cdr := s.Encode()
@@ -733,7 +733,7 @@ func TestDecodeErr(t *testing.T) {
 		}
 	})
 	t.Run("Delete", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDDeleteRows")
 
 		// Test Encode/Decode
 		cdr := s.Encode()
@@ -745,7 +745,7 @@ func TestDecodeErr(t *testing.T) {
 		}
 	})
 	t.Run("Drop", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDDropDDL")
 
 		// Test Encode/Decode
 		cdr := s2.Encode()

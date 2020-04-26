@@ -98,7 +98,7 @@ type ColDefData struct {
 
 func testColDefFunc(d ColDefData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		cd := sqtables.NewColDef(d.ColName, d.ColType, d.IsNotNull)
 		if d.ColName != cd.ColName || d.ColType != cd.ColType || cd.Idx != -1 || d.IsNotNull != cd.IsNotNull {
@@ -145,7 +145,7 @@ func testColDefFunc(d ColDefData) func(*testing.T) {
 ///////////////////////////////////////////////////////////////////////////////
 func testColListValidateFunc(d ColListValidateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		err := d.CList.Validate(d.profile, d.tables)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
@@ -255,7 +255,7 @@ func TestColListFindColDef(t *testing.T) {
 	colList := sqtables.NewColListDefs([]sqtables.ColDef{col1CD, sqtables.NewColDef("col2", tokens.String, false)})
 
 	t.Run("Found ColDef", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		cd := colList.FindColDef("col1")
 		if cd.String() != col1CD.String() {
@@ -264,7 +264,7 @@ func TestColListFindColDef(t *testing.T) {
 	})
 
 	t.Run("No ColDef", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		cd := colList.FindColDef("colX")
 		if cd != nil {

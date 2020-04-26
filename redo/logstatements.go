@@ -118,7 +118,7 @@ func (i *InsertRows) Encode() *sqbin.Codec {
 func (i *InsertRows) Decode(dec *sqbin.Codec) {
 	mkr := dec.Readbyte()
 	if mkr != IDInsertRows {
-		log.Panic("Found wrong statement type. Expecting IDCreateDDL")
+		log.Panic("Found wrong statement type. Expecting IDInsertRows")
 	}
 
 	// Id of transaction statement
@@ -207,7 +207,7 @@ func (u *UpdateRows) Encode() *sqbin.Codec {
 func (u *UpdateRows) Decode(dec *sqbin.Codec) {
 	mkr := dec.Readbyte()
 	if mkr != IDUpdateRows {
-		log.Panic("Found wrong statement type. Expecting IDCreateDDL")
+		log.Panic("Found wrong statement type. Expecting IDUpdateRows")
 	}
 
 	// Id of transaction statement

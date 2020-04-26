@@ -139,7 +139,7 @@ func TestTokenize(t *testing.T) {
 func TestMiscFunctions(t *testing.T) {
 
 	t.Run("(Token)String() tests", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		for i, tkn := range wordTokens {
 			if wordNames[i] != tkn.String() {
@@ -160,7 +160,7 @@ func TestMiscFunctions(t *testing.T) {
 		}
 	})
 	t.Run("(Token)Name() tests", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tkn := NewValueToken(Unk, "test")
 		expected := "[UNK=test]"
@@ -169,7 +169,7 @@ func TestMiscFunctions(t *testing.T) {
 		}
 	})
 	t.Run("(Token)SetValue tests", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tkn := NewValueToken(Unk, "test")
 		vtkn := tkn.(*ValueToken)
@@ -184,7 +184,7 @@ func TestMiscFunctions(t *testing.T) {
 
 func testTokenizeFunc(d TokenData) func(t *testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tkns := Tokenize(d.testStr)
 		if tkns.String() != d.Tokens.String() {

@@ -33,7 +33,7 @@ type AddTableData struct {
 
 func testAddTableFunc(d AddTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if d.TL.Len() != d.InitLen {
 			t.Errorf("Expected Len (%d) Pre Add does not match actual len (%d) of TableList", d.InitLen, d.TL.Len())
@@ -53,7 +53,7 @@ func testAddTableFunc(d AddTableData) func(*testing.T) {
 	}
 }
 func TestAddTable(t *testing.T) {
-	defer sqtest.PanicTestRecovery(t, false)
+	defer sqtest.PanicTestRecovery(t, "")
 
 	var err error
 	profile := sqprofile.CreateSQProfile()
@@ -146,7 +146,7 @@ func TestAddTable(t *testing.T) {
 
 	// with the data nicely setup already, will run some one-off tests
 	t.Run("FindTableDef with Name", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tab := tList.FindTableDef(profile, tdata[0].Name)
 		if tab != tdata[0].Tab {
@@ -154,7 +154,7 @@ func TestAddTable(t *testing.T) {
 		}
 	})
 	t.Run("FindTableDef with Alias", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tab := tList.FindTableDef(profile, "alias2")
 		if tab != tdata[2].Tab {
@@ -162,7 +162,7 @@ func TestAddTable(t *testing.T) {
 		}
 	})
 	t.Run("FindTableDef invalid table", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tab := tList.FindTableDef(profile, "NotATable")
 		if tab != nil {
@@ -171,7 +171,7 @@ func TestAddTable(t *testing.T) {
 	})
 
 	t.Run("AllCols", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		cols := tList.AllCols(profile)
 		sort.SliceStable(cols, func(i, j int) bool { return cols[i].Idx < cols[j].Idx })
@@ -201,7 +201,7 @@ func createTestTable(profile *sqprofile.SQProfile, tableName string, cols ...str
 }
 
 func TestFindColDef(t *testing.T) {
-	defer sqtest.PanicTestRecovery(t, false)
+	defer sqtest.PanicTestRecovery(t, "")
 
 	var err error
 
@@ -320,7 +320,7 @@ type FindColDefData struct {
 
 func testFindColDefFunc(d FindColDefData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 		cd, err := d.TL.FindColDef(profile, d.ColName, d.TableAlias)
@@ -336,7 +336,7 @@ func testFindColDefFunc(d FindColDefData) func(*testing.T) {
 
 ////////////////////////////////////////////////////////////////
 func TestTLGetRowData(t *testing.T) {
-	defer sqtest.PanicTestRecovery(t, false)
+	defer sqtest.PanicTestRecovery(t, "")
 
 	//var err error
 	profile := sqprofile.CreateSQProfile()
@@ -638,7 +638,7 @@ type TLGetRowData struct {
 
 func testTLGetRowDataFunc(d TLGetRowData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 		data, err := d.TL.GetRowData(profile, d.ExprList, d.WhereExpr, d.GroupBy)

@@ -19,7 +19,7 @@ type WordTokenData struct {
 	Flag     tokens.TokenFlags
 	FlagVal  bool
 	String   string
-	ExpPanic bool
+	ExpPanic string
 }
 
 func testWordTokenFunc(d WordTokenData) func(t *testing.T) {
@@ -64,7 +64,7 @@ func TestWordToken(t *testing.T) {
 			Flag:     tokens.IsWord,
 			FlagVal:  false,
 			String:   "[IDENT=2ndTest]",
-			ExpPanic: true,
+			ExpPanic: "ID: IDENT is not a valid WorkToken id",
 		},
 		{
 			TestName: "Non Ident token",
@@ -73,7 +73,7 @@ func TestWordToken(t *testing.T) {
 			Flag:     tokens.IsWord,
 			FlagVal:  true,
 			String:   "CREATE",
-			ExpPanic: false,
+			ExpPanic: "",
 		},
 		{
 			TestName: "Invalid token ID",
@@ -82,7 +82,7 @@ func TestWordToken(t *testing.T) {
 			Flag:     tokens.IsWord,
 			FlagVal:  false,
 			String:   "[IDENT=2ndTest]",
-			ExpPanic: true,
+			ExpPanic: "ID: ID-255 (not found) is not a valid WorkToken id",
 		},
 	}
 	for i, row := range data {

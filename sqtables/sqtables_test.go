@@ -36,7 +36,7 @@ type RowDataTest struct {
 
 func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tkns := tokens.Tokenize(d.WhereStr)
 		tWhere, err := cmd.GetExpr(tkns, nil, 0)
@@ -162,7 +162,7 @@ type RowPtrsTest struct {
 
 func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		var tWhere sqtables.Expr
 		var err error
@@ -272,7 +272,7 @@ func TestMisc(t *testing.T) {
 	}
 
 	t.Run("RowCount:No Rows", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		num, err := tab.RowCount(profile)
 		if err != nil {
@@ -305,7 +305,7 @@ func TestMisc(t *testing.T) {
 	}
 
 	t.Run("RowCount:6 Rows", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		num, err := tab.RowCount(profile)
 		if err != nil {
@@ -319,7 +319,7 @@ func TestMisc(t *testing.T) {
 	})
 
 	t.Run("String", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		expstr := "rowcounttest\n--------------------------------------\n\t{rowid, INT NOT NULL}\n\t{firstname, STRING}\n\t{active, BOOL}\n"
 		str := tab.String(profile)
@@ -330,7 +330,7 @@ func TestMisc(t *testing.T) {
 	})
 
 	t.Run("GetRow invalid", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		row := tab.GetRow(profile, 0)
 		if row != nil {
@@ -349,7 +349,7 @@ type DeleteRowsData struct {
 
 func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		var tWhere sqtables.Expr
 
@@ -442,7 +442,7 @@ func TestDeleteRows(t *testing.T) {
 
 	//Do a hard Delete
 	t.Run("DeleteFromPtrs HardDelete", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 
@@ -472,7 +472,7 @@ type GetRowDataFromPtrsData struct {
 
 func testGetRowDataFromPtrsFunc(d *GetRowDataFromPtrsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 
@@ -546,7 +546,7 @@ type UpdateRowsFromPtrsData struct {
 
 func testUpdateRowsFromPtrsFunc(d *UpdateRowsFromPtrsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 
@@ -684,7 +684,7 @@ type AddRowsData struct {
 
 func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 		clist := sqtables.NewColListNames(d.Cols)

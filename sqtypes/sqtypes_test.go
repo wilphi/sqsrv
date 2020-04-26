@@ -50,7 +50,7 @@ func TestInterfaces(t *testing.T) {
 
 func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		_, ok := d.i.(sqtypes.Value)
 		if !ok {
@@ -62,7 +62,7 @@ func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 
 func testValueType(v sqtypes.Value, expType tokens.TokenID) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if v.Type() != expType {
 			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", tokens.IDName(expType), tokens.IDName(v.Type())))
@@ -71,7 +71,7 @@ func testValueType(v sqtypes.Value, expType tokens.TokenID) func(*testing.T) {
 }
 func testValueString(v sqtypes.Value, expStr string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if v.String() != expStr {
 			t.Error(fmt.Sprintf("String for type %s produced unexpected results: Actual %q, Expected %q", tokens.IDName(v.Type()), v.String(), expStr))
@@ -80,7 +80,7 @@ func testValueString(v sqtypes.Value, expStr string) func(*testing.T) {
 }
 func testGetLen(v sqtypes.Value, expLen int) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if v.Len() != expLen {
 			t.Error(fmt.Sprintf("The expected Lenght of %d does not match actual value of %d for type %s", expLen, v.Len(), tokens.IDName(v.Type())))
@@ -90,7 +90,7 @@ func testGetLen(v sqtypes.Value, expLen int) func(*testing.T) {
 
 func testEqual(a, b sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if expect {
 			if !a.Equal(b) {
@@ -104,7 +104,7 @@ func testEqual(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 func testLessThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if expect {
 			if !a.LessThan(b) {
@@ -118,7 +118,7 @@ func testLessThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 func testGreaterThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if expect {
 			if !a.GreaterThan(b) {
@@ -132,7 +132,7 @@ func testGreaterThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 func testisNull(a sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if a.IsNull() != expect {
 			t.Errorf("IsNull actual %t does not match expected %t", a.IsNull(), expect)
@@ -142,7 +142,7 @@ func testisNull(a sqtypes.Value, expect bool) func(*testing.T) {
 }
 func testBoolVal(a sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		b, ok := a.(sqtypes.SQBool)
 		if !ok {
@@ -155,7 +155,7 @@ func testBoolVal(a sqtypes.Value, expect bool) func(*testing.T) {
 		}
 	}
 }
-func testNegate(a, expect sqtypes.Value, ExpPanic bool) func(*testing.T) {
+func testNegate(a, expect sqtypes.Value, ExpPanic string) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, ExpPanic)
 
@@ -175,7 +175,7 @@ func testNegate(a, expect sqtypes.Value, ExpPanic bool) func(*testing.T) {
 }
 func testWriteRead(a sqtypes.Value) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		cdc := sqbin.NewCodec([]byte{})
 		a.Write(cdc)
@@ -200,7 +200,7 @@ type OperationData struct {
 
 func testOperation(d OperationData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		actVal, err := d.a.Operation(d.op, d.b)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
@@ -236,8 +236,8 @@ func TestSQInt(t *testing.T) {
 	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
-	t.Run("Negate", testNegate(a, negA, false))
-	t.Run("-Negate", testNegate(negA, a, false))
+	t.Run("Negate", testNegate(a, negA, ""))
+	t.Run("-Negate", testNegate(negA, a, ""))
 	data := []OperationData{
 		{name: "int+int", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQInt(1268), ExpErr: ""},
 		{name: "int-int", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: ""},
@@ -286,7 +286,7 @@ func TestSQString(t *testing.T) {
 	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
-	t.Run("Negate", testNegate(a, a, true))
+	t.Run("Negate", testNegate(a, a, "sqtypes.SQString is not Negatable"))
 	data := []OperationData{
 		{name: "str+str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Plus, ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: ""},
 		{name: "str-str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid String Operator -"},
@@ -338,7 +338,7 @@ func TestSQBool(t *testing.T) {
 	t.Run("Write/Read false", testWriteRead(notEqualA))
 	t.Run("Val=true", testBoolVal(a, true))
 	t.Run("Val=false", testBoolVal(b, false))
-	t.Run("Negate", testNegate(a, a, true))
+	t.Run("Negate", testNegate(a, a, "sqtypes.SQBool is not Negatable"))
 	data := []OperationData{
 		{name: "bool+bool", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: "Syntax Error: Invalid Bool Operator +"},
 		{name: "bool-bool", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid Bool Operator -"},
@@ -385,7 +385,7 @@ func TestSQNull(t *testing.T) {
 	t.Run("IsNull", testisNull(a, true))
 	t.Run("Write/Read", testWriteRead(a))
 	t.Run("Operation", testOperation(OperationData{name: "Operation", a: a, b: notEqualA, op: tokens.Plus, ExpVal: v, ExpErr: ""}))
-	t.Run("Negate", testNegate(a, a, false))
+	t.Run("Negate", testNegate(a, a, ""))
 
 }
 
@@ -410,8 +410,8 @@ func TestSQFloat(t *testing.T) {
 	t.Run("GreaterThan Test:equal", testGreaterThan(a, equalA, false))
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
-	t.Run("Negate", testNegate(a, negA, false))
-	t.Run("-Negate", testNegate(negA, a, false))
+	t.Run("Negate", testNegate(a, negA, ""))
+	t.Run("-Negate", testNegate(negA, a, ""))
 	data := []OperationData{
 		{name: "float+float", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQFloat(1240.8876), ExpErr: ""},
 		{name: "float-float", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQFloat(1229.0875999999998), ExpErr: ""},
@@ -452,7 +452,7 @@ type ConvertData struct {
 
 func testConvertFunc(d ConvertData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		actVal, err := d.V.Convert(d.NewType)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
@@ -676,7 +676,7 @@ type tokenValTest struct {
 }
 
 func TestCreateValueFromToken(t *testing.T) {
-	defer sqtest.PanicTestRecovery(t, false)
+	defer sqtest.PanicTestRecovery(t, "")
 
 	//Tokentype,
 	data := []tokenValTest{
@@ -698,7 +698,7 @@ func TestCreateValueFromToken(t *testing.T) {
 
 func testCreateValueFromToken(d tokenValTest) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		v, err := sqtypes.CreateValueFromToken(d.Tkn)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
@@ -711,7 +711,7 @@ func testCreateValueFromToken(d tokenValTest) func(*testing.T) {
 }
 
 func TestReadValueFail(t *testing.T) {
-	defer sqtest.PanicTestRecovery(t, true)
+	defer sqtest.PanicTestRecovery(t, "Unknown Value TypeID 255")
 
 	cdc := sqbin.NewCodec([]byte{68, 255, 0})
 
@@ -725,15 +725,15 @@ func TestReadValueFail(t *testing.T) {
 }
 func TestRawValue(t *testing.T) {
 	data := []RawValueData{
-		{Name: "NULL", ExpPanic: false, Arg: nil, expVal: sqtypes.NewSQNull()},
-		{Name: "Int", ExpPanic: false, Arg: 1234, expVal: sqtypes.NewSQInt(1234)},
-		{Name: "String", ExpPanic: false, Arg: "Test 1234", expVal: sqtypes.NewSQString("Test 1234")},
-		{Name: "Bool true", ExpPanic: false, Arg: true, expVal: sqtypes.NewSQBool(true)},
-		{Name: "Bool False", ExpPanic: false, Arg: false, expVal: sqtypes.NewSQBool(false)},
-		{Name: "Float", ExpPanic: false, Arg: 123.4, expVal: sqtypes.NewSQFloat(123.4)},
-		{Name: "Float32", ExpPanic: false, Arg: float32(123.0), expVal: sqtypes.NewSQFloat(123.0)},
-		{Name: "Float64", ExpPanic: false, Arg: float64(123.4), expVal: sqtypes.NewSQFloat(123.4)},
-		{Name: "Invalid", ExpPanic: true, Arg: RawValueData{}, expVal: sqtypes.NewSQFloat(123.4)},
+		{Name: "NULL", ExpPanic: "", Arg: nil, expVal: sqtypes.NewSQNull()},
+		{Name: "Int", ExpPanic: "", Arg: 1234, expVal: sqtypes.NewSQInt(1234)},
+		{Name: "String", ExpPanic: "", Arg: "Test 1234", expVal: sqtypes.NewSQString("Test 1234")},
+		{Name: "Bool true", ExpPanic: "", Arg: true, expVal: sqtypes.NewSQBool(true)},
+		{Name: "Bool False", ExpPanic: "", Arg: false, expVal: sqtypes.NewSQBool(false)},
+		{Name: "Float", ExpPanic: "", Arg: 123.4, expVal: sqtypes.NewSQFloat(123.4)},
+		{Name: "Float32", ExpPanic: "", Arg: float32(123.0), expVal: sqtypes.NewSQFloat(123.0)},
+		{Name: "Float64", ExpPanic: "", Arg: float64(123.4), expVal: sqtypes.NewSQFloat(123.4)},
+		{Name: "Invalid", ExpPanic: "sqtypes_test.RawValueData is not a valid Raw SQ type", Arg: RawValueData{}, expVal: sqtypes.NewSQFloat(123.4)},
 	}
 
 	for _, row := range data {
@@ -743,7 +743,7 @@ func TestRawValue(t *testing.T) {
 
 type RawValueData struct {
 	Name     string
-	ExpPanic bool
+	ExpPanic string
 	Arg      sqtypes.Raw
 	expVal   sqtypes.Value
 }
@@ -765,7 +765,7 @@ func testRawValue(d RawValueData) func(*testing.T) {
 }
 
 func TestCreateValuesFromRaw(t *testing.T) {
-	defer sqtest.PanicTestRecovery(t, false)
+	defer sqtest.PanicTestRecovery(t, "")
 
 	vals := sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 		{1, "test1", false, 1.01},
@@ -793,7 +793,7 @@ type Compare2DData struct {
 }
 
 func TestCompare2DValues(t *testing.T) {
-	defer sqtest.PanicTestRecovery(t, false)
+	defer sqtest.PanicTestRecovery(t, "")
 
 	data := []Compare2DData{
 		{
@@ -909,7 +909,7 @@ func TestCompare2DValues(t *testing.T) {
 
 func testCompare2DFunc(d Compare2DData) func(t *testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		a := sqtypes.CreateValuesFromRaw(d.A)
 		b := sqtypes.CreateValuesFromRaw(d.B)

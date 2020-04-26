@@ -146,16 +146,13 @@ func getFuncName(a string) string {
 }
 
 // PanicTestRecovery -
-func PanicTestRecovery(t TestingT, expPanic bool) {
+func PanicTestRecovery(t TestingT, expPanic string) {
 	var str string
 
 	t.Helper()
 	r := recover()
 
-	if expPanic && r == nil {
-		t.Errorf("%s did not panic", t.Name())
-	}
-	if !expPanic && r != nil {
+	if r != nil {
 		switch x := r.(type) {
 		case string:
 			str = x
@@ -168,7 +165,20 @@ func PanicTestRecovery(t TestingT, expPanic bool) {
 			str = fmt.Sprintf("Unknown panic: %T||%v", x, x)
 		}
 
-		t.Errorf("%s panicked unexpectedly: %s\n%s", t.Name(), str, PanicTrace())
-
+		if expPanic == "" {
+			t.Errorf("%s panicked unexpectedly: %s\n%s", t.Name(), str, PanicTrace())
+			return
+		}
+		if str != expPanic {
+			t.Errorf("Expecting panic %q but got: %q\n%s", expPanic, str, PanicTrace())
+			return
+		}
+		return
 	}
+
+	if expPanic != "" && r == nil {
+		t.Errorf("%s did not panic. expecting %s", t.Name(), expPanic)
+		return
+	}
+
 }

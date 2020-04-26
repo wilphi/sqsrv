@@ -21,7 +21,7 @@ type dataInt struct {
 	CodecReset bool
 	Val        uint64
 	Type       byte
-	ExpPanic   bool
+	ExpPanic   string
 	ReadOp     bool
 	Buffer     []byte
 }
@@ -31,21 +31,21 @@ func TestIntegers(t *testing.T) {
 	binit := []byte{sqbin.IntMarker, 2, 3, 4, 5, 6, 7, 8, 9}
 	shortInit := []byte{sqbin.IntMarker, 1, 2, 3, 4}
 	data := []dataInt{
-		{TestName: "Init Codec", Codec: sqbin.NewCodec(binit), Val: 650777868590383874, Type: sqbin.IntMarker, ExpPanic: false, ReadOp: true, Buffer: binit},
-		{TestName: "ReadEmpty Uint64", Codec: encdec, CodecReset: true, Type: sqbin.Uint64Marker, ExpPanic: true, ReadOp: true},
-		{TestName: "Write Uint64", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.Uint64Marker, ExpPanic: false, ReadOp: false},
-		{TestName: "Read Uint64", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.Uint64Marker, ExpPanic: false, ReadOp: true},
-		{TestName: "ReadEmpty SQPtr", Codec: encdec, CodecReset: true, Type: sqbin.SQPtrMarker, ExpPanic: true, ReadOp: true},
-		{TestName: "Write SQPtr", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.SQPtrMarker, ExpPanic: false, ReadOp: false},
-		{TestName: "Read SQPtr", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.SQPtrMarker, ExpPanic: false, ReadOp: true},
-		{TestName: "ReadEmpty int64", Codec: encdec, CodecReset: true, Type: sqbin.Int64Marker, ExpPanic: true, ReadOp: true},
-		{TestName: "Write int64", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.Int64Marker, ExpPanic: false, ReadOp: false},
-		{TestName: "Read int64", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.Int64Marker, ExpPanic: false, ReadOp: true},
-		{TestName: "ReadEmpty int", Codec: encdec, CodecReset: true, Type: sqbin.IntMarker, ExpPanic: true, ReadOp: true},
-		{TestName: "Write int", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.IntMarker, ExpPanic: false, ReadOp: false},
-		{TestName: "Read int", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.IntMarker, ExpPanic: false, ReadOp: true},
-		{TestName: "Mismatched Type Marker", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.Int64Marker, ExpPanic: true, ReadOp: true, Buffer: []byte{sqbin.Uint64Marker, 1, 2, 3, 4, 5, 6, 7, 8}},
-		{TestName: "Buffer Too Short", Codec: sqbin.NewCodec(shortInit), Val: 1234, Type: sqbin.IntMarker, ExpPanic: true, ReadOp: true, Buffer: shortInit},
+		{TestName: "Init Codec", Codec: sqbin.NewCodec(binit), Val: 650777868590383874, Type: sqbin.IntMarker, ExpPanic: "", ReadOp: true, Buffer: binit},
+		{TestName: "ReadEmpty Uint64", Codec: encdec, CodecReset: true, Type: sqbin.Uint64Marker, ExpPanic: "Unable to sqbin.Readbyte from codec buffer", ReadOp: true},
+		{TestName: "Write Uint64", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.Uint64Marker, ExpPanic: "", ReadOp: false},
+		{TestName: "Read Uint64", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.Uint64Marker, ExpPanic: "", ReadOp: true},
+		{TestName: "ReadEmpty SQPtr", Codec: encdec, CodecReset: true, Type: sqbin.SQPtrMarker, ExpPanic: "Unable to sqbin.Readbyte from codec buffer", ReadOp: true},
+		{TestName: "Write SQPtr", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.SQPtrMarker, ExpPanic: "", ReadOp: false},
+		{TestName: "Read SQPtr", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.SQPtrMarker, ExpPanic: "", ReadOp: true},
+		{TestName: "ReadEmpty int64", Codec: encdec, CodecReset: true, Type: sqbin.Int64Marker, ExpPanic: "Unable to sqbin.Readbyte from codec buffer", ReadOp: true},
+		{TestName: "Write int64", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.Int64Marker, ExpPanic: "", ReadOp: false},
+		{TestName: "Read int64", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.Int64Marker, ExpPanic: "", ReadOp: true},
+		{TestName: "ReadEmpty int", Codec: encdec, CodecReset: true, Type: sqbin.IntMarker, ExpPanic: "Unable to sqbin.Readbyte from codec buffer", ReadOp: true},
+		{TestName: "Write int", Codec: encdec, CodecReset: true, Val: 12345, Type: sqbin.IntMarker, ExpPanic: "", ReadOp: false},
+		{TestName: "Read int", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.IntMarker, ExpPanic: "", ReadOp: true},
+		{TestName: "Mismatched Type Marker", Codec: encdec, CodecReset: false, Val: 12345, Type: sqbin.Int64Marker, ExpPanic: "Type marker did not match expected: Actual = 64-Uint64Marker, Expected = 65-Int64Marker", ReadOp: true, Buffer: []byte{sqbin.Uint64Marker, 1, 2, 3, 4, 5, 6, 7, 8}},
+		{TestName: "Buffer Too Short", Codec: sqbin.NewCodec(shortInit), Val: 1234, Type: sqbin.IntMarker, ExpPanic: "Unable to getIntType from codec buffer", ReadOp: true, Buffer: shortInit},
 	}
 
 	for i, row := range data {
@@ -114,7 +114,7 @@ type dataFloat struct {
 	Codec      *sqbin.Codec
 	CodecReset bool
 	Val        float64
-	ExpPanic   bool
+	ExpPanic   string
 	ReadOp     bool
 	Buffer     []byte
 }
@@ -126,12 +126,12 @@ func TestFloats(t *testing.T) {
 	binit := append([]byte{sqbin.FloatMarker}, bits...)
 	shortInit := []byte{sqbin.FloatMarker, 1, 2, 3, 4}
 	data := []dataFloat{
-		{TestName: "Init Codec", Codec: sqbin.NewCodec(binit), Val: 1234.56789, ExpPanic: false, ReadOp: true, Buffer: binit},
-		{TestName: "ReadEmpty Float", Codec: encdec, CodecReset: true, ExpPanic: true, ReadOp: true},
-		{TestName: "Write Float", Codec: encdec, CodecReset: true, Val: 12345, ExpPanic: false, ReadOp: false},
-		{TestName: "Read Float", Codec: encdec, CodecReset: false, Val: 12345, ExpPanic: false, ReadOp: true},
-		{TestName: "Mismatched Type Marker", Codec: encdec, CodecReset: false, Val: 12345, ExpPanic: true, ReadOp: true, Buffer: []byte{sqbin.Uint64Marker, 1, 2, 3, 4, 5, 6, 7, 8}},
-		{TestName: "Buffer Too Short", Codec: sqbin.NewCodec(shortInit), Val: 1234, ExpPanic: true, ReadOp: true, Buffer: shortInit},
+		{TestName: "Init Codec", Codec: sqbin.NewCodec(binit), Val: 1234.56789, ExpPanic: "", ReadOp: true, Buffer: binit},
+		{TestName: "ReadEmpty Float", Codec: encdec, CodecReset: true, ExpPanic: "Unable to sqbin.Readbyte from codec buffer", ReadOp: true},
+		{TestName: "Write Float", Codec: encdec, CodecReset: true, Val: 12345, ExpPanic: "", ReadOp: false},
+		{TestName: "Read Float", Codec: encdec, CodecReset: false, Val: 12345, ExpPanic: "", ReadOp: true},
+		{TestName: "Mismatched Type Marker", Codec: encdec, CodecReset: false, Val: 12345, ExpPanic: "Type marker did not match expected: Actual = 64-Uint64Marker, Expected = 72-FloatMarker", ReadOp: true, Buffer: []byte{sqbin.Uint64Marker, 1, 2, 3, 4, 5, 6, 7, 8}},
+		{TestName: "Buffer Too Short", Codec: sqbin.NewCodec(shortInit), Val: 1234, ExpPanic: "Unable to getIntType from codec buffer", ReadOp: true, Buffer: shortInit},
 	}
 
 	for i, row := range data {
@@ -178,7 +178,7 @@ type dataString struct {
 	Codec      *sqbin.Codec
 	CodecReset bool
 	Val        string
-	ExpPanic   bool
+	ExpPanic   string
 	Function   string
 	Buffer     []byte
 }
@@ -192,14 +192,14 @@ func TestString(t *testing.T) {
 	bGood := []byte{sqbin.StringMarker, sqbin.IntMarker, 8, 0, 0, 0, 0, 0, 0, 0, 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'}
 
 	var data = []dataString{
-		{TestName: "Read Empty Buffer", Codec: encdec, CodecReset: true, Val: "Test", ExpPanic: true, Function: "READ", Buffer: nil},
-		{TestName: "Read Empty String", Codec: encdec, CodecReset: true, Val: "", ExpPanic: false, Function: "READ", Buffer: bEmpty},
-		{TestName: "Read Partial String", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: true, Function: "READ", Buffer: bPartial},
-		{TestName: "Read No IntMarker for Len", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: true, Function: "READ", Buffer: bNoInt},
-		{TestName: "Read No String Marker", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: true, Function: "READ", Buffer: bNoStr},
-		{TestName: "Read String", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: false, Function: "READ", Buffer: bGood},
-		{TestName: "Write String", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: false, Function: "WRITE", Buffer: bGood},
-		{TestName: "Write Empty String", Codec: encdec, CodecReset: true, Val: "", ExpPanic: false, Function: "WRITE", Buffer: bEmpty},
+		{TestName: "Read Empty Buffer", Codec: encdec, CodecReset: true, Val: "Test", ExpPanic: "Unable to sqbin.Readbyte from codec buffer", Function: "READ", Buffer: nil},
+		{TestName: "Read Empty String", Codec: encdec, CodecReset: true, Val: "", ExpPanic: "", Function: "READ", Buffer: bEmpty},
+		{TestName: "Read Partial String", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: "Unable to sqbin.ReadString from codec buffer", Function: "READ", Buffer: bPartial},
+		{TestName: "Read No IntMarker for Len", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: "Type marker did not match expected: Actual = 8-, Expected = 66-IntMarker", Function: "READ", Buffer: bNoInt},
+		{TestName: "Read No String Marker", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: "Type marker did not match expected: Actual = 66-IntMarker, Expected = 67-StringMarker", Function: "READ", Buffer: bNoStr},
+		{TestName: "Read String", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: "", Function: "READ", Buffer: bGood},
+		{TestName: "Write String", Codec: encdec, CodecReset: true, Val: "abcdefgh", ExpPanic: "", Function: "WRITE", Buffer: bGood},
+		{TestName: "Write Empty String", Codec: encdec, CodecReset: true, Val: "", ExpPanic: "", Function: "WRITE", Buffer: bEmpty},
 	}
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
@@ -252,7 +252,7 @@ type dataByte struct {
 	Codec      *sqbin.Codec
 	CodecReset bool
 	Val        byte
-	ExpPanic   bool
+	ExpPanic   string
 	Function   string
 	Buffer     []byte
 }
@@ -265,12 +265,12 @@ func TestByte(t *testing.T) {
 	bPeek := []byte{sqbin.ByteMarker, 123, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}
 
 	var data = []dataByte{
-		{TestName: "Read Empty Buffer", Codec: encdec, CodecReset: true, Val: 1, ExpPanic: true, Function: "READ", Buffer: nil},
-		{TestName: "Read Wrong Marker", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: true, Function: "READ", Buffer: bBadMarker},
-		{TestName: "Read Marker no Byte", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: true, Function: "READ", Buffer: bPartial},
-		{TestName: "Read Byte", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: false, Function: "READ", Buffer: bGood},
-		{TestName: "Write Byte", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: false, Function: "WRITE", Buffer: bGood},
-		{TestName: "Peek Byte", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: false, Function: "PEEK", Buffer: bPeek},
+		{TestName: "Read Empty Buffer", Codec: encdec, CodecReset: true, Val: 1, ExpPanic: "Unable to sqbin.Readbyte from codec buffer", Function: "READ", Buffer: nil},
+		{TestName: "Read Wrong Marker", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: "Type marker did not match expected: Actual = 67-StringMarker, Expected = 68-ByteMarker", Function: "READ", Buffer: bBadMarker},
+		{TestName: "Read Marker no Byte", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: "Unable to sqbin.Readbyte from codec buffer", Function: "READ", Buffer: bPartial},
+		{TestName: "Read Byte", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: "", Function: "READ", Buffer: bGood},
+		{TestName: "Write Byte", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: "", Function: "WRITE", Buffer: bGood},
+		{TestName: "Peek Byte", Codec: encdec, CodecReset: true, Val: 123, ExpPanic: "", Function: "PEEK", Buffer: bPeek},
 	}
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
@@ -329,7 +329,7 @@ type dataBool struct {
 	Codec      *sqbin.Codec
 	CodecReset bool
 	Val        bool
-	ExpPanic   bool
+	ExpPanic   string
 	Function   string
 	Buffer     []byte
 }
@@ -342,12 +342,12 @@ func TestBool(t *testing.T) {
 	bfalse := []byte{sqbin.BoolMarker, 0}
 
 	var data = []dataBool{
-		{TestName: "Read Empty Buffer", Codec: encdec, CodecReset: true, Val: true, ExpPanic: true, Function: "READ", Buffer: nil},
-		{TestName: "Read Wrong Marker", Codec: encdec, CodecReset: true, Val: true, ExpPanic: true, Function: "READ", Buffer: bBadMarker},
-		{TestName: "Read Marker no Bool", Codec: encdec, CodecReset: true, Val: true, ExpPanic: true, Function: "READ", Buffer: bPartial},
-		{TestName: "Read Bool", Codec: encdec, CodecReset: true, Val: true, ExpPanic: false, Function: "READ", Buffer: bGood},
-		{TestName: "Write Bool true", Codec: encdec, CodecReset: true, Val: true, ExpPanic: false, Function: "WRITE", Buffer: bGood},
-		{TestName: "Write Bool false", Codec: encdec, CodecReset: true, Val: false, ExpPanic: false, Function: "WRITE", Buffer: bfalse},
+		{TestName: "Read Empty Buffer", Codec: encdec, CodecReset: true, Val: true, ExpPanic: "Unable to sqbin.Readbyte from codec buffer", Function: "READ", Buffer: nil},
+		{TestName: "Read Wrong Marker", Codec: encdec, CodecReset: true, Val: true, ExpPanic: "Type marker did not match expected: Actual = 67-StringMarker, Expected = 69-BoolMarker", Function: "READ", Buffer: bBadMarker},
+		{TestName: "Read Marker no Bool", Codec: encdec, CodecReset: true, Val: true, ExpPanic: "Unable to sqbin.ReadBool from codec buffer", Function: "READ", Buffer: bPartial},
+		{TestName: "Read Bool", Codec: encdec, CodecReset: true, Val: true, ExpPanic: "", Function: "READ", Buffer: bGood},
+		{TestName: "Write Bool true", Codec: encdec, CodecReset: true, Val: true, ExpPanic: "", Function: "WRITE", Buffer: bGood},
+		{TestName: "Write Bool false", Codec: encdec, CodecReset: true, Val: false, ExpPanic: "", Function: "WRITE", Buffer: bfalse},
 	}
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
@@ -439,34 +439,34 @@ func TestInsert(t *testing.T) {
 			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 			ExpPrefix: []byte{sqbin.Int64Marker, 255, 255, 255, 255, 255, 255, 255, 255},
 			Values:    []interface{}{int64(-1)},
-			ExpPanic:  false,
+			ExpPanic:  "",
 		},
 		{
 			TestName:  "Insert One Uint64",
 			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 			ExpPrefix: []byte{sqbin.Uint64Marker, 1, 0, 0, 0, 0, 0, 0, 0},
 			Values:    []interface{}{uint64(1)},
-			ExpPanic:  false,
+			ExpPanic:  "",
 		},
 		{
 			TestName:  "Insert One string",
 			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 			ExpPrefix: []byte{sqbin.StringMarker, 116, 101, 115, 116},
 			Values:    []interface{}{"test"},
-			ExpPanic:  true,
+			ExpPanic:  "unknown type string in sqbin.Insert",
 		},
 		{
 			TestName:  "Insert Uint64,Int64 ",
 			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 			ExpPrefix: []byte{sqbin.Uint64Marker, 1, 0, 0, 0, 0, 0, 0, 0, sqbin.Int64Marker, 255, 255, 255, 255, 255, 255, 255, 255},
 			Values:    []interface{}{uint64(1), int64(-1)},
-			ExpPanic:  false,
+			ExpPanic:  "",
 		}, {
 			TestName:  "Insert Int64, Uint64",
 			TestArray: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 			ExpPrefix: []byte{sqbin.Int64Marker, 255, 255, 255, 255, 255, 255, 255, 255, sqbin.Uint64Marker, 1, 0, 0, 0, 0, 0, 0, 0},
 			Values:    []interface{}{int64(-1), uint64(1)},
-			ExpPanic:  false,
+			ExpPanic:  "",
 		},
 	}
 	for i, row := range data {
@@ -482,7 +482,7 @@ type dataInsert struct {
 	ExpPrefix []byte
 	ExpLen    int
 	Values    []interface{}
-	ExpPanic  bool
+	ExpPanic  string
 }
 
 func testInsertFunc(d dataInsert) func(*testing.T) {

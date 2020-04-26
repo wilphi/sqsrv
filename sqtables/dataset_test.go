@@ -22,7 +22,7 @@ func testNewDataSetFunc(
 	eList *sqtables.ExprList, groupBy *sqtables.ColList, ExpErr string,
 ) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 
@@ -107,7 +107,7 @@ func TestDataSet(t *testing.T) {
 	))
 
 	t.Run("Len==0 from DataSet", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
 		if err != nil {
@@ -121,7 +121,7 @@ func TestDataSet(t *testing.T) {
 	})
 
 	t.Run("GetTable from Dataset", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
 		if err != nil {
@@ -134,7 +134,7 @@ func TestDataSet(t *testing.T) {
 		}
 	})
 	t.Run("GetColList from Dataset", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
 		if err != nil {
@@ -277,7 +277,7 @@ type SortData struct {
 
 func testSortFunc(d SortData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 		data, err := sqtables.NewDataSet(profile, d.Tables, d.DataCols, nil)
@@ -333,7 +333,7 @@ type GroupByData struct {
 
 func testGroupByFunc(d GroupByData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
 		data, err := sqtables.NewDataSet(profile, d.Tables, d.DataCols, d.GroupBy)

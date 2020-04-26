@@ -30,7 +30,7 @@ type EvalListData struct {
 
 func testEvalListFunc(d EvalListData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		eList := sqtables.NewExprList(d.List...)
 		if !d.UnValidated {
@@ -138,7 +138,7 @@ func TestEvalListExpr(t *testing.T) {
 
 func testAddFunc(eList *sqtables.ExprList, e sqtables.Expr, hascount bool) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		preLen := eList.Len()
 		preStr := eList.String()
@@ -172,7 +172,7 @@ func commaStr(a, b string) string {
 }
 func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		preLen := eList.Len()
 		preStr := eList.String()
@@ -199,7 +199,7 @@ func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.
 
 func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqprofile.SQProfile, tables *sqtables.TableList) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		err := eList.ValidateCols(profile, tables)
 		if sqtest.CheckErr(t, err, ExpErr) {
@@ -211,7 +211,7 @@ func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqpr
 
 func testListEncDecFunc(eList *sqtables.ExprList) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		bin := eList.Encode()
 		actList := sqtables.DecodeExprList(bin)
@@ -248,7 +248,7 @@ func TestEvalListMisc(t *testing.T) {
 	//	t.Run("Encode/Decode List Err", testListEncDecFunc(eList))
 
 	t.Run("ExprList from Values", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		vals := sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{1, "test", true})
 		eList := sqtables.NewExprListFromValues(vals)
@@ -272,7 +272,7 @@ func TestEvalListMisc(t *testing.T) {
 		),
 	)
 	t.Run("ExprList GetValues with Err", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		ExpErr := "Syntax Error: Invalid Int Operator ASC"
 		_, err := errList.GetValues()
@@ -290,7 +290,7 @@ func TestEvalListMisc(t *testing.T) {
 		sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)),
 	)
 	t.Run("ExprList GetValues with Column", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		ExpErr := "Syntax Error: Expression did not reduce to a Value"
 		_, err := errList.GetValues()

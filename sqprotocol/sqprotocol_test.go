@@ -89,7 +89,7 @@ func TestConnection(t *testing.T) {
 	testConn := &connTester{}
 	myConn = testConn
 	t.Run("Set Client Conn", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		client = sqprotocol.SetClientConn(myConn)
 		if client == nil {
@@ -99,7 +99,7 @@ func TestConnection(t *testing.T) {
 
 	})
 	t.Run("Set Server Conn", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		svr = sqprotocol.SetSvrConn(myConn, 1)
 		if svr == nil {
@@ -114,7 +114,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Send Client Request", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		cReq := sqprotocol.RequestToServer{Cmd: "test command"}
 		client.SendRequest(cReq)
@@ -126,7 +126,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Send Client Request broken pipe", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("blah blah write: broken pipe blah blah")
 		cReq := sqprotocol.RequestToServer{Cmd: "test command2"}
@@ -142,7 +142,7 @@ func TestConnection(t *testing.T) {
 
 	})
 	t.Run("Send Client Request Other Error", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Other Error")
 		cReq := sqprotocol.RequestToServer{Cmd: "test command2"}
@@ -159,7 +159,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Receive", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 		req, err := svr.ReceiveRequest()
@@ -174,7 +174,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Receive EOF", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = io.EOF
 		_, err := svr.ReceiveRequest()
@@ -190,7 +190,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Receive Other Error", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Other Error")
 		_, err := svr.ReceiveRequest()
@@ -208,7 +208,7 @@ func TestConnection(t *testing.T) {
 	resp := sqprotocol.ResponseToClient{Msg: "Test", IsErr: true, HasData: true, NRows: 5, NCols: 10, CMDResponse: true}
 
 	t.Run("Server Send Response", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 		err := svr.SendResponse(&resp)
@@ -220,7 +220,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Send Response with error", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Error send response")
 		err := svr.SendResponse(&resp)
@@ -236,7 +236,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Client Receive Response", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 
@@ -252,7 +252,7 @@ func TestConnection(t *testing.T) {
 		}
 	})
 	t.Run("Client Receive Response Error", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Error from Server")
 
@@ -272,7 +272,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Send Columns", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 		err := svr.SendColumns([]sqtables.ColDef{
@@ -288,7 +288,7 @@ func TestConnection(t *testing.T) {
 
 	})
 	t.Run("Server Send Columns Error", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Error from Server")
 		err := svr.SendColumns([]sqtables.ColDef{sqtables.NewColDef("Col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, true)})
@@ -304,7 +304,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Client Receive Cols", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 
@@ -326,7 +326,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Client Receive Cols Error", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Error from Server")
 		colsResp, err := client.ReceiveColumns(4)
@@ -346,7 +346,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Send Rows", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 		for i := 1; i < 4; i++ {
@@ -359,7 +359,7 @@ func TestConnection(t *testing.T) {
 
 	})
 	t.Run("Server Send Row Error", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Error from Server")
 		err := svr.SendRow(10, sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{10, "test", true, 20.1}))
@@ -375,7 +375,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Client Receive Rows", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 		for i := 1; i < 4; i++ {
@@ -392,7 +392,7 @@ func TestConnection(t *testing.T) {
 		}
 	})
 	t.Run("Client Receive Row Error", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Error from Server")
 		DataResp, err := client.ReceiveRow()
@@ -411,7 +411,7 @@ func TestConnection(t *testing.T) {
 		}
 	})
 	t.Run("Client Receive Row EOF", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = io.EOF
 		DataResp, err := client.ReceiveRow()
@@ -426,7 +426,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Client Close Conn", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 
@@ -438,7 +438,7 @@ func TestConnection(t *testing.T) {
 
 	})
 	t.Run("Client double Close Conn", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 
@@ -450,7 +450,7 @@ func TestConnection(t *testing.T) {
 
 	})
 	t.Run("Server Close Conn", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 		testConn.isClosed = false
@@ -464,7 +464,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Close Invalid conn", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "Unable to find connection in connList")
 
 		testConn.Err = nil
 
@@ -477,7 +477,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Shutdown", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
 		if sqprotocol.IsShutdown() {
@@ -518,7 +518,7 @@ func TestConnection(t *testing.T) {
 	})
 
 	t.Run("Server Shutdown with timeout", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		sqprotocol.CancelShutdown()
 		sqprotocol.ShutdownCount = 5

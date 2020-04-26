@@ -21,7 +21,7 @@ type ValueTokenData struct {
 	FlagVal   bool
 	SecondVal string
 	String    string
-	ExpPanic  bool
+	ExpPanic  string
 }
 
 func testValueTokenFunc(d ValueTokenData) func(t *testing.T) {
@@ -81,7 +81,7 @@ func TestValueToken(t *testing.T) {
 			FlagVal:   false,
 			SecondVal: "2ndTest",
 			String:    "[IDENT=2ndTest]",
-			ExpPanic:  false,
+			ExpPanic:  "",
 		},
 		{
 			TestName:  "Non Ident token",
@@ -92,7 +92,7 @@ func TestValueToken(t *testing.T) {
 			FlagVal:   false,
 			SecondVal: "2ndTest",
 			String:    "[IDENT=2ndTest]",
-			ExpPanic:  true,
+			ExpPanic:  "ID: CREATE is not a valid ValueToken id",
 		},
 		{
 			TestName:  "Invalid token ID",
@@ -103,7 +103,7 @@ func TestValueToken(t *testing.T) {
 			FlagVal:   false,
 			SecondVal: "2ndTest",
 			String:    "[IDENT=2ndTest]",
-			ExpPanic:  true,
+			ExpPanic:  "ID: ID-255 (not found) is not a valid ValueToken id",
 		},
 	}
 	for i, row := range data {

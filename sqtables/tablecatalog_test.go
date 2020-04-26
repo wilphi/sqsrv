@@ -109,7 +109,7 @@ func TestCreateTable(t *testing.T) {
 
 func testCreateTableFunc(d CreateTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		originalList, err := sqtables.CatalogTables(d.Profile)
 		if err != nil {
@@ -186,7 +186,7 @@ func TestDropTable(t *testing.T) {
 
 func testDropTableFunc(d DropTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		originalList, err := sqtables.CatalogTables(d.Profile)
 		if err != nil {
@@ -265,7 +265,7 @@ func TestMiscTableList(t *testing.T) {
 	// \Data Setup
 
 	t.Run("Tables List", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tList, err := sqtables.CatalogTables(profile)
 		if err != nil {
@@ -279,7 +279,7 @@ func TestMiscTableList(t *testing.T) {
 	})
 
 	t.Run("Tables All List", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tList, err := sqtables.CatalogAllTables(profile)
 		if err != nil {
@@ -294,17 +294,17 @@ func TestMiscTableList(t *testing.T) {
 	})
 
 	t.Run("Lock All Tables", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		sqtables.LockCatalog(profile)
 	})
 	t.Run("UnLock All Tables", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		sqtables.UnlockCatalog(profile)
 	})
 	t.Run("underscore test", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tab := sqtables.CreateTableDef("", sqtables.NewColDef("col1", tokens.String, false))
 		err := sqtables.CreateTable(profile, tab)

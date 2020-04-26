@@ -28,7 +28,7 @@ type UpdateRowData struct {
 
 func testUpdateRowFunc(profile *sqprofile.SQProfile, r *UpdateRowData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		ExpVals := sqtypes.CreateValueArrayFromRaw(r.ExpVals)
 		vals := sqtypes.CreateValueArrayFromRaw(r.Vals)
@@ -185,7 +185,7 @@ type CreateRowData struct {
 
 func testCreateRowFunc(profile *sqprofile.SQProfile, r *CreateRowData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		ExpVals := sqtypes.CreateValueArrayFromRaw(r.ExpVals)
 		row, err := sqtables.CreateRow(profile, r.RowPtr, r.Tab, r.Cols, sqtypes.CreateValueArrayFromRaw(r.Vals))
@@ -331,7 +331,7 @@ type ColData struct {
 
 func testGetColDataFunc(profile *sqprofile.SQProfile, r *ColData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		ExpVal := sqtypes.RawValue(r.ExpVal)
 		val, err := r.row.GetColData(profile, &r.col)
@@ -400,7 +400,7 @@ func TestGetColData(t *testing.T) {
 	}
 }
 func TestSetStorage(t *testing.T) {
-	defer sqtest.PanicTestRecovery(t, false)
+	defer sqtest.PanicTestRecovery(t, "")
 
 	profile := sqprofile.CreateSQProfile()
 	// Setup Data
@@ -462,7 +462,7 @@ func TestMiscRowFunctions(t *testing.T) {
 	rowD.Delete(profile)
 
 	t.Run("Row is valid RowInterface", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		var i sqtables.RowInterface
 		i = row1
@@ -474,7 +474,7 @@ func TestMiscRowFunctions(t *testing.T) {
 	})
 
 	t.Run("GetPtr", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if row1.GetPtr(profile) != ptr12 {
 			t.Error("GetPtr did not match expected value")
@@ -482,7 +482,7 @@ func TestMiscRowFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal idx=-1", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Error: Invalid index (-1) for row. Data len = 4"
 		_, err := row1.GetIdxVal(profile, -1)
@@ -493,7 +493,7 @@ func TestMiscRowFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal idx=4", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Error: Invalid index (4) for row. Data len = 4"
 		_, err := row1.GetIdxVal(profile, 4)
@@ -504,7 +504,7 @@ func TestMiscRowFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal idx=1", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := ""
 		expVal := sqtypes.NewSQString("Test Data 0")
@@ -519,7 +519,7 @@ func TestMiscRowFunctions(t *testing.T) {
 		}
 	})
 	t.Run("GetIdxVal deleted row", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Internal Error: Deleted row can't return a value from GetIdxVal. Table: miscrowtest, ptr:0"
 		expVal := sqtypes.NewSQString("Test Data 0")

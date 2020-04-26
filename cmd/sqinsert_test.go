@@ -20,7 +20,7 @@ func init() {
 
 func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		var tab *sqtables.TableDef
 		var err error

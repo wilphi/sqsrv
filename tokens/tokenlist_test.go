@@ -163,7 +163,7 @@ type TListData struct {
 
 func testTListFunc(d TListData) func(t *testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		tkns := tokens.Tokenize(d.TestStr)
 		if d.AddTkns != nil {

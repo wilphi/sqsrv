@@ -41,7 +41,7 @@ func TestInterfaces(t *testing.T) {
 
 func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		_, ok := d.i.(sqtables.Expr)
 		if !ok {
@@ -53,7 +53,7 @@ func testInterfacesFunc(d InterfaceData) func(*testing.T) {
 
 func testLeftFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if !reflect.DeepEqual(e.Left(), ExpExpr) {
 			t.Errorf("Actual Expr does not match Expected Expr")
@@ -63,7 +63,7 @@ func testLeftFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 }
 func testRightFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if !reflect.DeepEqual(e.Right(), ExpExpr) {
 			t.Errorf("Actual Expr does not match Expected Expr")
@@ -71,9 +71,9 @@ func testRightFunc(e, ExpExpr sqtables.Expr) func(*testing.T) {
 		}
 	}
 }
-func testSetLeftFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
+func testSetLeftFunc(a, b sqtables.Expr, ExpPanic string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, expPanic)
+		defer sqtest.PanicTestRecovery(t, ExpPanic)
 
 		a.SetLeft(b)
 		if !reflect.DeepEqual(a.Left(), b) {
@@ -82,9 +82,9 @@ func testSetLeftFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 		}
 	}
 }
-func testSetRightFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
+func testSetRightFunc(a, b sqtables.Expr, ExpPanic string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, expPanic)
+		defer sqtest.PanicTestRecovery(t, ExpPanic)
 
 		a.SetRight(b)
 		if !reflect.DeepEqual(a.Right(), b) {
@@ -95,7 +95,7 @@ func testSetRightFunc(a, b sqtables.Expr, expPanic bool) func(*testing.T) {
 }
 func testStringFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		e.SetAlias(alias)
 
@@ -107,7 +107,7 @@ func testStringFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.
 }
 func testGetNameFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if e.Name() != ExpVal {
 			t.Errorf("Actual value %q does not match Expected value %q", e.Name(), ExpVal)
@@ -122,7 +122,7 @@ func testGetNameFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing
 		}
 	}
 }
-func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef, ExpPanic bool) func(*testing.T) {
+func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef, ExpPanic string) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, ExpPanic)
 
@@ -134,7 +134,7 @@ func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef, ExpPanic bool) func
 }
 func testColDefsFunc(d ColDefsData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		retCols := d.TestExpr.ColDefs(d.Tables...)
 		if !reflect.DeepEqual(retCols, d.ExpCols) {
@@ -171,13 +171,13 @@ func TestSetLeftExpr(t *testing.T) {
 		TestName string
 		TestExpr sqtables.Expr
 		ExpExpr  sqtables.Expr
-		ExpPanic bool
+		ExpPanic string
 	}{
-		{TestName: "ValueExpr", TestExpr: vExpr, ExpExpr: nil, ExpPanic: true},
-		{TestName: "ColExpr", TestExpr: cExpr, ExpExpr: nil, ExpPanic: true},
-		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, tokens.Plus, vExpr), ExpExpr: cExpr, ExpPanic: false},
-		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: vExpr, ExpPanic: false},
-		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.Float, vExpr), ExpExpr: vExpr, ExpPanic: false},
+		{TestName: "ValueExpr", TestExpr: vExpr, ExpExpr: nil, ExpPanic: "Invalid to SetLeft on a ValueExpr"},
+		{TestName: "ColExpr", TestExpr: cExpr, ExpExpr: nil, ExpPanic: "Invalid to SetLeft on a ValueExpr"},
+		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, tokens.Plus, vExpr), ExpExpr: cExpr, ExpPanic: ""},
+		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: vExpr, ExpPanic: ""},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.Float, vExpr), ExpExpr: vExpr, ExpPanic: ""},
 	}
 
 	for i, row := range data {
@@ -214,13 +214,13 @@ func TestSetRightExpr(t *testing.T) {
 		TestName string
 		TestExpr sqtables.Expr
 		ExpExpr  sqtables.Expr
-		ExpPanic bool
+		ExpPanic string
 	}{
-		{TestName: "ValueExpr", TestExpr: vExpr, ExpExpr: nil, ExpPanic: true},
-		{TestName: "ColExpr", TestExpr: cExpr, ExpExpr: nil, ExpPanic: true},
-		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, tokens.Plus, vExpr), ExpExpr: cExpr, ExpPanic: false},
-		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: nil, ExpPanic: true},
-		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.Float, vExpr), ExpExpr: nil, ExpPanic: true},
+		{TestName: "ValueExpr", TestExpr: vExpr, ExpExpr: nil, ExpPanic: "Invalid to SetRight on a ValueExpr"},
+		{TestName: "ColExpr", TestExpr: cExpr, ExpExpr: nil, ExpPanic: "Invalid to SetRight on a ValueExpr"},
+		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, tokens.Plus, vExpr), ExpExpr: cExpr, ExpPanic: ""},
+		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpExpr: nil, ExpPanic: "Invalid to SetRight on a NegateExpr"},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.Float, vExpr), ExpExpr: nil, ExpPanic: "Invalid to SetRight on a FuncExpr"},
 	}
 
 	for i, row := range data {
@@ -316,7 +316,7 @@ func TestGetColDefExpr(t *testing.T) {
 		TestName string
 		TestExpr sqtables.Expr
 		ExpCol   sqtables.ColDef
-		ExpPanic bool
+		ExpPanic string
 	}{
 		{TestName: "ValueExpr", TestExpr: vExpr, ExpCol: sqtables.ColDef{ColName: "1", ColType: tokens.Int}},
 		{TestName: "ColExpr", TestExpr: cExpr, ExpCol: sqtables.ColDef{ColName: "col1", ColType: tokens.Int}},
@@ -337,7 +337,7 @@ type ColDefsData struct {
 	TestExpr sqtables.Expr
 	ExpCols  []sqtables.ColDef
 	Tables   []*sqtables.TableDef
-	ExpPanic bool
+	ExpPanic string
 }
 
 func TestColDefsExpr(t *testing.T) {
@@ -375,7 +375,7 @@ func TestColDefsExpr(t *testing.T) {
 
 func testEvaluateFunc(d EvalData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		if !d.NoValidate {
 			d.e.ValidateCols(d.profile, d.Tables)
@@ -849,7 +849,7 @@ func TestEvaluateExpr(t *testing.T) {
 
 func testReduceFunc(d ReduceData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		retVal, err := d.e.Reduce()
 		if sqtest.CheckErr(t, err, d.ExpErr) {
@@ -1029,7 +1029,7 @@ func TestReduceExpr(t *testing.T) {
 
 func testValidateFunc(d ValidateData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, false)
+		defer sqtest.PanicTestRecovery(t, "")
 
 		err := d.e.ValidateCols(d.profile, d.Tables)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
@@ -1279,7 +1279,7 @@ func testEncDecFunc(d EncDecData) func(*testing.T) {
 type EncDecData struct {
 	TestName string
 	e        sqtables.Expr
-	ExpPanic bool
+	ExpPanic string
 }
 
 func TestEncDecExpr(t *testing.T) {
@@ -1308,12 +1308,12 @@ func TestEncDecExpr(t *testing.T) {
 		{
 			TestName: "CountExpr",
 			e:        sqtables.NewFuncExpr(tokens.Count, nil),
-			ExpPanic: true,
+			ExpPanic: "FuncExpr Encode not implemented",
 		},
 		{
 			TestName: "FuncExpr",
 			e:        sqtables.NewFuncExpr(tokens.Float, sqtables.NewValueExpr(sqtypes.NewSQInt(1234))),
-			ExpPanic: true,
+			ExpPanic: "FuncExpr Encode not implemented",
 		},
 	}
 	for i, row := range data {
@@ -1339,7 +1339,7 @@ type DecodeData struct {
 	TestName    string
 	ex, ExpExpr sqtables.Expr
 	bin         *sqbin.Codec
-	ExpPanic    bool
+	ExpPanic    string
 }
 
 func TestDecodeExpr(t *testing.T) {
@@ -1353,42 +1353,42 @@ func TestDecodeExpr(t *testing.T) {
 			ex:       &sqtables.ValueExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
-			ExpPanic: false,
+			ExpPanic: "",
 		},
 		{
 			TestName: "ValueExpr Error",
 			ex:       &sqtables.ValueExpr{},
 			ExpExpr:  valueEx,
 			bin:      bin,
-			ExpPanic: true,
+			ExpPanic: "Found wrong statement type. Expecting IDValueExpr",
 		},
 		{
 			TestName: "ColExpr Error",
 			ex:       &sqtables.ColExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
-			ExpPanic: true,
+			ExpPanic: "Found wrong statement type. Expecting ColExpr",
 		},
 		{
 			TestName: "OpExpr Error",
 			ex:       &sqtables.OpExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
-			ExpPanic: true,
+			ExpPanic: "Found wrong statement type. Expecting IDOpExpr",
 		},
 		{
 			TestName: "NegateExpr Error",
 			ex:       &sqtables.NegateExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
-			ExpPanic: true,
+			ExpPanic: "Found wrong statement type. Expecting IDNegateExpr",
 		},
 		{
 			TestName: "FuncExpr Error",
 			ex:       &sqtables.FuncExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
-			ExpPanic: true,
+			ExpPanic: "FuncExpr Decode not implemented",
 		},
 	}
 	for i, row := range data {
@@ -1404,14 +1404,14 @@ func TestFunctionDecodeExpr(t *testing.T) {
 	countBin.Writebyte(sqtables.IDAgregateFunExpr)
 
 	t.Run("CountExpr", func(*testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "Unexpected Count expression in Decode")
 
 		_ = sqtables.DecodeExpr(countBin)
 
 	})
 
 	t.Run("Unknown Expression", func(*testing.T) {
-		defer sqtest.PanicTestRecovery(t, true)
+		defer sqtest.PanicTestRecovery(t, "Unexpected expression type in Decode")
 
 		_ = sqtables.DecodeExpr(bin)
 
