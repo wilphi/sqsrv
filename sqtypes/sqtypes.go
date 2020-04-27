@@ -23,12 +23,12 @@ const (
 
 // Value TypeIDs
 const (
-	SQNullType      = 0
-	SQIntType       = 1
-	SQStringType    = 2
-	SQBoolTrueType  = 3
-	SQBoolFalseType = 4
-	SQFloatType     = 5
+	SQNullType = iota + 32
+	SQIntType
+	SQStringType
+	SQBoolTrueType
+	SQBoolFalseType
+	SQFloatType
 )
 
 // Value interface - All Values must be Immutable
@@ -43,6 +43,16 @@ type Value interface {
 	Write(c *sqbin.Codec)
 	Operation(op tokens.TokenID, v Value) (Value, error)
 	Convert(newtype tokens.TokenID) (Value, error)
+}
+
+func init() {
+	sqbin.RegisterType("SQNull", SQNullType)
+	sqbin.RegisterType("SQInt", SQIntType)
+	sqbin.RegisterType("SQString", SQStringType)
+	sqbin.RegisterType("SQBoolTrue", SQBoolTrueType)
+	sqbin.RegisterType("SQBoolFalse", SQBoolFalseType)
+	sqbin.RegisterType("SQFloat", SQFloatType)
+
 }
 
 // Negatable is an interface for Values that can be negated

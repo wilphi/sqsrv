@@ -16,12 +16,20 @@ import (
 
 // Constants that identify the logstatement type
 const (
-	IDCreateDDL  = 1
-	IDInsertRows = 2
-	IDUpdateRows = 3
-	IDDeleteRows = 4
-	IDDropDDL    = 5
+	TMCreateDDL = iota + 80
+	TMInsertRows
+	TMUpdateRows
+	TMDeleteRows
+	TMDropDDL
 )
+
+func init() {
+	sqbin.RegisterType("TMCreateDDL", TMCreateDDL)
+	sqbin.RegisterType("TMInsertRows", TMInsertRows)
+	sqbin.RegisterType("TMUpdateRows", TMUpdateRows)
+	sqbin.RegisterType("TMDeleteRows", TMDeleteRows)
+	sqbin.RegisterType("TMDropDDL", TMDropDDL)
+}
 
 // LogStatement - Interface to represent each type of redo statement
 type LogStatement interface {
@@ -41,14 +49,13 @@ func CreateLogMsg(resp chan error, stmt LogStatement) LogMsg {
 type CreateDDL struct {
 	TableName string
 	Cols      []sqtables.ColDef
-	//	ID        uint64
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
 func (c *CreateDDL) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
-	enc.Writebyte(IDCreateDDL)
+	enc.WriteTypeMarker(TMCreateDDL)
 	// Id of transaction statement
 	//	enc.WriteUint64(c.ID)
 
@@ -59,12 +66,7 @@ func (c *CreateDDL) Encode() *sqbin.Codec {
 
 // Decode uses sqbin.Codec to return a binary encoded version of the statement
 func (c *CreateDDL) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDCreateDDL {
-		log.Panic("Found wrong statement type. Expecting IDCreateDDL")
-	}
-	// Id of transaction statement
-	//	c.ID = dec.ReadUint64()
+	dec.ReadTypeMarker(TMCreateDDL)
 
 	c.TableName = dec.ReadString()
 	c.Cols = decColDef(dec)
@@ -102,7 +104,7 @@ type InsertRows struct {
 func (i *InsertRows) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
-	enc.Writebyte(IDInsertRows)
+	enc.WriteTypeMarker(TMInsertRows)
 
 	enc.WriteString(i.TableName)
 
@@ -116,13 +118,7 @@ func (i *InsertRows) Encode() *sqbin.Codec {
 
 // Decode uses sqbin.Codec to return a binary encoded version of the statement
 func (i *InsertRows) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDInsertRows {
-		log.Panic("Found wrong statement type. Expecting IDInsertRows")
-	}
-
-	// Id of transaction statement
-	//	i.ID = dec.ReadUint64()
+	dec.ReadTypeMarker(TMInsertRows)
 
 	i.TableName = dec.ReadString()
 
@@ -187,7 +183,7 @@ type UpdateRows struct {
 func (u *UpdateRows) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
-	enc.Writebyte(IDUpdateRows)
+	enc.WriteTypeMarker(TMUpdateRows)
 	// Id of transaction statement
 	//	enc.WriteUint64(u.ID)
 
@@ -205,13 +201,7 @@ func (u *UpdateRows) Encode() *sqbin.Codec {
 
 // Decode uses sqbin.Codec to return a binary encoded version of the statement
 func (u *UpdateRows) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDUpdateRows {
-		log.Panic("Found wrong statement type. Expecting IDUpdateRows")
-	}
-
-	// Id of transaction statement
-	//	u.ID = dec.ReadUint64()
+	dec.ReadTypeMarker(TMUpdateRows)
 
 	u.TableName = dec.ReadString()
 
@@ -253,14 +243,13 @@ func NewUpdateRows(TableName string, cols []string, eList *sqtables.ExprList, pt
 type DeleteRows struct {
 	TableName string
 	RowPtrs   sqptr.SQPtrs
-	//	ID        uint64
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
 func (d *DeleteRows) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
-	enc.Writebyte(IDDeleteRows)
+	enc.WriteTypeMarker(TMDeleteRows)
 	// Id of transaction statement
 	//	enc.WriteUint64(d.ID)
 
@@ -274,13 +263,7 @@ func (d *DeleteRows) Encode() *sqbin.Codec {
 
 // Decode uses sqbin.Codec to return a binary encoded version of the statement
 func (d *DeleteRows) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDDeleteRows {
-		log.Panic("Found wrong statement type. Expecting IDDeleteRows")
-	}
-
-	// Id of transaction statement
-	//	d.ID = dec.ReadUint64()
+	dec.ReadTypeMarker(TMDeleteRows)
 
 	d.TableName = dec.ReadString()
 
@@ -319,7 +302,7 @@ func NewDeleteRows(TableName string, ptrs sqptr.SQPtrs) *DeleteRows {
 // DecodeStatementType is used to define a function prototype for functions
 //    that will hook into DecodeStatement to extend what types of LogStatments
 //    can be decoded. This should only be used for testing
-type DecodeStatementType = func(b byte) LogStatement
+type DecodeStatementType = func(tm sqbin.TypeMarker) LogStatement
 
 // DecodeStatementHook is the variable used to store a function of type DecodeStatementType
 //    it is used to extend what type of LogStatements can be decoded. This should only be
@@ -331,23 +314,23 @@ var DecodeStatementHook DecodeStatementType
 func DecodeStatement(dec *sqbin.Codec) LogStatement {
 	// the first byte should be the statement type
 	var stmt LogStatement
-	stype := dec.PeekByte()
-	switch stype {
-	case IDCreateDDL:
+	tm := dec.PeekTypeMarker()
+	switch tm {
+	case TMCreateDDL:
 		stmt = &CreateDDL{}
-	case IDInsertRows:
+	case TMInsertRows:
 		stmt = &InsertRows{}
-	case IDUpdateRows:
+	case TMUpdateRows:
 		stmt = &UpdateRows{}
-	case IDDeleteRows:
+	case TMDeleteRows:
 		stmt = &DeleteRows{}
-	case IDDropDDL:
+	case TMDropDDL:
 		stmt = &DropDDL{}
 	default:
 		if DecodeStatementHook != nil {
-			stmt = DecodeStatementHook(stype)
+			stmt = DecodeStatementHook(tm)
 		} else {
-			log.Panicf("Attempting to decode unknown LogStatement type %d", stype)
+			log.Panicf("Attempting to decode unknown LogStatement type %d-%s", tm, sqbin.TMToString(tm))
 		}
 	}
 	stmt.Decode(dec)
@@ -405,16 +388,13 @@ func decodeData(dec *sqbin.Codec) [][]sqtypes.Value {
 // DropDDL - Transaction Recording for Drop Table Statement
 type DropDDL struct {
 	TableName string
-	ID        uint64
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
 func (d *DropDDL) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
-	enc.Writebyte(IDDropDDL)
-	// Id of transaction statement
-	enc.WriteUint64(d.ID)
+	enc.WriteTypeMarker(TMDropDDL)
 
 	enc.WriteString(d.TableName)
 	return enc
@@ -422,12 +402,7 @@ func (d *DropDDL) Encode() *sqbin.Codec {
 
 // Decode uses sqbin.Codec to return a binary encoded version of the statement
 func (d *DropDDL) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDDropDDL {
-		log.Panic("Found wrong statement type. Expecting IDDropDDL")
-	}
-	// Id of transaction statement
-	d.ID = dec.ReadUint64()
+	dec.ReadTypeMarker(TMDropDDL)
 
 	d.TableName = dec.ReadString()
 }

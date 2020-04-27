@@ -1360,28 +1360,28 @@ func TestDecodeExpr(t *testing.T) {
 			ex:       &sqtables.ValueExpr{},
 			ExpExpr:  valueEx,
 			bin:      bin,
-			ExpPanic: "Found wrong statement type. Expecting IDValueExpr",
+			ExpPanic: "Type marker did not match expected: Actual = 68-TMByte, Expected = 48-TMValueExpr",
 		},
 		{
 			TestName: "ColExpr Error",
 			ex:       &sqtables.ColExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
-			ExpPanic: "Found wrong statement type. Expecting ColExpr",
+			ExpPanic: "Type marker did not match expected: Actual = 48-TMValueExpr, Expected = 49-TMColExpr",
 		},
 		{
 			TestName: "OpExpr Error",
 			ex:       &sqtables.OpExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
-			ExpPanic: "Found wrong statement type. Expecting IDOpExpr",
+			ExpPanic: "Type marker did not match expected: Actual = 48-TMValueExpr, Expected = 50-TMOpExpr",
 		},
 		{
 			TestName: "NegateExpr Error",
 			ex:       &sqtables.NegateExpr{},
 			ExpExpr:  valueEx,
 			bin:      valueEx.Encode(),
-			ExpPanic: "Found wrong statement type. Expecting IDNegateExpr",
+			ExpPanic: "Type marker did not match expected: Actual = 48-TMValueExpr, Expected = 52-TMNegateExpr",
 		},
 		{
 			TestName: "FuncExpr Error",
@@ -1399,9 +1399,9 @@ func TestDecodeExpr(t *testing.T) {
 
 func TestFunctionDecodeExpr(t *testing.T) {
 	bin := sqbin.NewCodec(nil)
-	bin.Writebyte(1)
+	bin.WriteTypeMarker(sqbin.TypeMarker(1))
 	countBin := sqbin.NewCodec(nil)
-	countBin.Writebyte(sqtables.IDAgregateFunExpr)
+	countBin.WriteTypeMarker(sqtables.TMAggregateFunExpr)
 
 	t.Run("CountExpr", func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, "Unexpected Count expression in Decode")
@@ -1411,7 +1411,7 @@ func TestFunctionDecodeExpr(t *testing.T) {
 	})
 
 	t.Run("Unknown Expression", func(*testing.T) {
-		defer sqtest.PanicTestRecovery(t, "Unexpected expression type in Decode")
+		defer sqtest.PanicTestRecovery(t, "Unexpected expression type in Decode: 1-Unknown Marker")
 
 		_ = sqtables.DecodeExpr(bin)
 

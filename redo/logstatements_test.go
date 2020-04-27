@@ -695,7 +695,7 @@ func TestDecodeErr(t *testing.T) {
 	s2 := redo.NewDeleteRows("test", sqptr.SQPtrs{1, 2, 3})
 
 	t.Run("Create", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDCreateDDL")
+		defer sqtest.PanicTestRecovery(t, "Type marker did not match expected: Actual = 84-TMDropDDL, Expected = 80-TMCreateDDL")
 
 		// Test Encode/Decode
 		cdr := s.Encode()
@@ -708,7 +708,7 @@ func TestDecodeErr(t *testing.T) {
 
 	})
 	t.Run("Insert", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDInsertRows")
+		defer sqtest.PanicTestRecovery(t, "Type marker did not match expected: Actual = 84-TMDropDDL, Expected = 81-TMInsertRows")
 
 		// Test Encode/Decode
 		cdr := s.Encode()
@@ -721,7 +721,7 @@ func TestDecodeErr(t *testing.T) {
 
 	})
 	t.Run("Update", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDUpdateRows")
+		defer sqtest.PanicTestRecovery(t, "Type marker did not match expected: Actual = 84-TMDropDDL, Expected = 82-TMUpdateRows")
 
 		// Test Encode/Decode
 		cdr := s.Encode()
@@ -733,7 +733,7 @@ func TestDecodeErr(t *testing.T) {
 		}
 	})
 	t.Run("Delete", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDDeleteRows")
+		defer sqtest.PanicTestRecovery(t, "Type marker did not match expected: Actual = 84-TMDropDDL, Expected = 83-TMDeleteRows")
 
 		// Test Encode/Decode
 		cdr := s.Encode()
@@ -745,7 +745,7 @@ func TestDecodeErr(t *testing.T) {
 		}
 	})
 	t.Run("Drop", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, "Found wrong statement type. Expecting IDDropDDL")
+		defer sqtest.PanicTestRecovery(t, "Type marker did not match expected: Actual = 83-TMDeleteRows, Expected = 84-TMDropDDL")
 
 		// Test Encode/Decode
 		cdr := s2.Encode()

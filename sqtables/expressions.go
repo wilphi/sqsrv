@@ -13,12 +13,20 @@ import (
 
 // Expr constants for binary versions
 const (
-	IDValueExpr       = 200
-	IDColExpr         = 201
-	IDOpExpr          = 202
-	IDAgregateFunExpr = 203
-	IDNegateExpr      = 204
+	TMValueExpr = iota + 48
+	TMColExpr
+	TMOpExpr
+	TMAggregateFunExpr
+	TMNegateExpr
 )
+
+func init() {
+	sqbin.RegisterType("TMValueExpr", TMValueExpr)
+	sqbin.RegisterType("TMColExpr", TMColExpr)
+	sqbin.RegisterType("TMOpExpr", TMOpExpr)
+	sqbin.RegisterType("TMAggregateFunExpr", TMAggregateFunExpr)
+	sqbin.RegisterType("TMNegateExpr", TMNegateExpr)
+}
 
 // Evaluate constants. Full means all parts must be valid to get a value, Partial means only parts that match current table matter
 const (
@@ -134,7 +142,7 @@ func NewValueExpr(v sqtypes.Value) Expr {
 func (e *ValueExpr) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of Expression
-	enc.Writebyte(IDValueExpr)
+	enc.WriteTypeMarker(TMValueExpr)
 
 	enc.WriteString(e.alias)
 	// Write out the value
@@ -145,10 +153,7 @@ func (e *ValueExpr) Encode() *sqbin.Codec {
 
 // Decode gets a binary encoded version of the expression
 func (e *ValueExpr) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDValueExpr {
-		log.Panic("Found wrong statement type. Expecting IDValueExpr")
-	}
+	dec.ReadTypeMarker(TMValueExpr)
 	e.alias = dec.ReadString()
 	e.v = sqtypes.ReadValue(dec)
 
@@ -300,7 +305,7 @@ func NewHiddenColExpr(c ColDef) Expr {
 // Encode returns a binary encoded version of the expression
 func (e *ColExpr) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
-	enc.Writebyte(IDColExpr)
+	enc.WriteTypeMarker(TMColExpr)
 	enc.WriteString(e.alias)
 
 	// Write out the value
@@ -311,10 +316,8 @@ func (e *ColExpr) Encode() *sqbin.Codec {
 
 // Decode gets a binary encoded version of the expression
 func (e *ColExpr) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDColExpr {
-		log.Panic("Found wrong statement type. Expecting ColExpr")
-	}
+	dec.ReadTypeMarker(TMColExpr)
+
 	e.alias = dec.ReadString()
 	e.col.Decode(dec)
 
@@ -492,7 +495,7 @@ func (e *OpExpr) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 
 	// Identify the type of Expression
-	enc.Writebyte(IDOpExpr)
+	enc.WriteTypeMarker(TMOpExpr)
 	enc.WriteString(e.alias)
 
 	enc.WriteUint64(uint64(e.Operator))
@@ -508,10 +511,8 @@ func (e *OpExpr) Encode() *sqbin.Codec {
 
 // Decode gets a binary encoded version of the expression
 func (e *OpExpr) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDOpExpr {
-		log.Panic("Found wrong statement type. Expecting IDOpExpr")
-	}
+	dec.ReadTypeMarker(TMOpExpr)
+
 	e.alias = dec.ReadString()
 	e.Operator = tokens.TokenID(dec.ReadUint64())
 	e.exL = DecodeExpr(dec)
@@ -652,7 +653,7 @@ func NewNegateExpr(exL Expr) Expr {
 func (e *NegateExpr) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of Expression
-	enc.Writebyte(IDNegateExpr)
+	enc.WriteTypeMarker(TMNegateExpr)
 	enc.WriteString(e.alias)
 
 	tmp := e.exL.Encode()
@@ -663,10 +664,8 @@ func (e *NegateExpr) Encode() *sqbin.Codec {
 
 // Decode gets a binary encoded version of the expression
 func (e *NegateExpr) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDNegateExpr {
-		log.Panic("Found wrong statement type. Expecting IDNegateExpr")
-	}
+	dec.ReadTypeMarker(TMNegateExpr)
+
 	e.alias = dec.ReadString()
 	e.exL = DecodeExpr(dec)
 
@@ -861,20 +860,20 @@ func (e *FuncExpr) SetAlias(alias string) {
 func DecodeExpr(dec *sqbin.Codec) Expr {
 	var ex Expr
 
-	etype := dec.PeekByte()
-	switch etype {
-	case IDValueExpr:
+	tm := dec.PeekTypeMarker()
+	switch tm {
+	case TMValueExpr:
 		ex = &ValueExpr{}
-	case IDColExpr:
+	case TMColExpr:
 		ex = &ColExpr{}
-	case IDOpExpr:
+	case TMOpExpr:
 		ex = &OpExpr{}
-	case IDNegateExpr:
+	case TMNegateExpr:
 		ex = &NegateExpr{}
-	case IDAgregateFunExpr:
+	case TMAggregateFunExpr:
 		log.Panic("Unexpected Count expression in Decode")
 	default:
-		log.Panic("Unexpected expression type in Decode")
+		log.Panicf("Unexpected expression type in Decode: %d-%s", tm, sqbin.TMToString(tm))
 
 	}
 	ex.Decode(dec)

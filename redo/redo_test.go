@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	IDTestStmt    = 250
-	IDTestWithErr = 251
+	TMTestStmt    = 250
+	TMTestWithErr = 251
 )
 
 var Items []string
@@ -41,25 +41,28 @@ type TestStmt struct {
 }
 
 func init() {
-	DecodeStatementHook = func(b byte) LogStatement {
+	DecodeStatementHook = func(tm sqbin.TypeMarker) LogStatement {
 		var stmt LogStatement
-		switch b {
-		case IDTestStmt:
+		switch tm {
+		case TMTestStmt:
 			stmt = &TestStmt{}
-		case IDTestWithErr:
+		case TMTestWithErr:
 			stmt = &TestWithErr{}
 		default:
-			panic(fmt.Sprintf("Unknown LogStatement Type %d", b))
+			panic(fmt.Sprintf("Unknown LogStatement Type %d-%s", tm, sqbin.TMToString(tm)))
 		}
 		return stmt
 	}
+
+	sqbin.RegisterType("TMTestStmt", TMTestStmt)
+	sqbin.RegisterType("TMTestWithErr", TMTestWithErr)
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
 func (t *TestStmt) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
-	enc.Writebyte(IDTestStmt)
+	enc.WriteTypeMarker(TMTestStmt)
 	// Id of transaction statement
 	enc.WriteString(t.Str)
 	return enc
@@ -68,10 +71,7 @@ func (t *TestStmt) Encode() *sqbin.Codec {
 // Decode uses sqbin.Codec to return a binary encoded version of the statement
 func (t *TestStmt) Decode(dec *sqbin.Codec) {
 
-	mkr := dec.Readbyte()
-	if mkr != IDTestStmt {
-		log.Panicf("Found wrong statement type (%s). Expecting IDTestStmt", sqbin.TypeMarkerStrings[mkr])
-	}
+	dec.ReadTypeMarker(TMTestStmt)
 
 	t.Str = dec.ReadString()
 
@@ -97,7 +97,7 @@ type TestWithErr struct {
 func (t *TestWithErr) Encode() *sqbin.Codec {
 	enc := sqbin.NewCodec(nil)
 	// Identify the type of logstatment
-	enc.Writebyte(IDTestWithErr)
+	enc.WriteTypeMarker(TMTestWithErr)
 
 	enc.WriteString(t.Str)
 	return enc
@@ -105,10 +105,7 @@ func (t *TestWithErr) Encode() *sqbin.Codec {
 
 // Decode uses sqbin.Codec to return a binary encoded version of the statement
 func (t *TestWithErr) Decode(dec *sqbin.Codec) {
-	mkr := dec.Readbyte()
-	if mkr != IDTestWithErr {
-		log.Panicf("Found wrong statement type (%s). Expecting IDTestWithErr", sqbin.TypeMarkerStrings[mkr])
-	}
+	dec.ReadTypeMarker(TMTestWithErr)
 
 	t.Str = dec.ReadString()
 
@@ -228,7 +225,7 @@ func TestReadTlog(t *testing.T) {
 			TestName: "Error Reading Log",
 			Stmts:    []LogStatement{&TestStmt{"Test0"}, &TestStmt{"Test1"}, &TestStmt{"Test2"}},
 			ErrAfter: 2,
-			ExpPanic: "Type marker did not match expected: Actual = 67-StringMarker, Expected = 64-Uint64Marker",
+			ExpPanic: "Type marker did not match expected: Actual = 67-TMString, Expected = 64-TMUint64",
 			ExpErr:   "",
 			ExpItems: []string{"Recreated Test0", "Recreated Test1"},
 		},

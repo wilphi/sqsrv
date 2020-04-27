@@ -19,33 +19,67 @@ const markerSize = 1
 // Type Marker for encoding/decoding to give some extra safety
 // Order must be preserved if you need to add a new type so always append
 const (
-	Uint64Marker = iota + 64
-	Int64Marker
-	IntMarker
-	StringMarker
-	ByteMarker
+	TMUint64 = iota + 64
+	TMInt64
+	TMInt
+	TMString
+	TMByte
 	BoolMarker
-	ArrayStringMarker
-	ArrayInt64Marker
-	FloatMarker
-	SQPtrMarker
-	SQPtrsMarker
+	TMArrayOfString
+	TMArrayOfInt64
+	TMFloat
+	TMSQPtr
+	TMSQPtrs
 )
 
-// TypeMarkerStrings translates the marker to a string
-var TypeMarkerStrings = map[byte]string{
-	Uint64Marker:      "Uint64Marker",
-	Int64Marker:       "Int64Marker",
-	IntMarker:         "IntMarker",
-	StringMarker:      "StringMarker",
-	ByteMarker:        "ByteMarker",
-	BoolMarker:        "BoolMarker",
-	ArrayStringMarker: "ArrayStringMarker",
-	ArrayInt64Marker:  "ArrayInt64Marker",
-	FloatMarker:       "FloatMarker",
-	SQPtrMarker:       "SQPtrMarker",
-	SQPtrsMarker:      "SQPtrsMarker",
+// typeMarkerStrings translates the marker to a string
+var typeMarkerStrings = map[TypeMarker]string{
+	TMUint64:        "TMUint64",
+	TMInt64:         "TMInt64",
+	TMInt:           "TMInt",
+	TMString:        "TMString",
+	TMByte:          "TMByte",
+	BoolMarker:      "BoolMarker",
+	TMArrayOfString: "TMArrayOfString",
+	TMArrayOfInt64:  "TMArrayOfInt64",
+	TMFloat:         "TMFloat",
+	TMSQPtr:         "TMSQPtr",
+	TMSQPtrs:        "TMSQPtrs",
 }
+
+// TypeMarker is used to identify a type in a binary representation
+type TypeMarker uint8
+
+//TMToString coverts a type marker into it's string
+func TMToString(a TypeMarker) string {
+	s, ok := typeMarkerStrings[a]
+	if !ok {
+		s = "Unknown Marker"
+	}
+	return s
+}
+
+type regType struct {
+	name   string
+	marker TypeMarker
+}
+
+//RegisterType allows a complex type to register a Type marker
+func RegisterType(name string, marker TypeMarker) {
+	a := regType{name: name, marker: marker}
+	if marker < 32 {
+		log.Panicf("markers (%d) < 32 are reserved for sqbin use", marker)
+	}
+	m, ok := typeMarkerStrings[marker]
+	if ok {
+		log.Panicf("marker: %d is already in use as %d-%s", marker, marker, m)
+	}
+	typeMarkerStrings[marker] = name
+	regTypes = append(regTypes, a)
+}
+
+// regTypes contains the registered types that apply across all Codecs
+var regTypes []regType
 
 // Codec - binary encoding and decoding. All encodings are LittleEndian
 type Codec struct {
@@ -63,76 +97,76 @@ func NewCodec(p []byte) *Codec {
 
 // WriteUint64 writes a uint64 to the codec buffer
 func (c *Codec) WriteUint64(i uint64) {
-	c.setTypeMarker(Uint64Marker)
+	c.WriteTypeMarker(TMUint64)
 	c.storeIntType(i)
 }
 
 //ReadUint64 decodes an uint64 from the codec buffer
 func (c *Codec) ReadUint64() uint64 {
-	c.getTypeMarker(Uint64Marker)
+	c.ReadTypeMarker(TMUint64)
 	return c.getIntType()
 }
 
 // WriteSQPtr writes an SQPtr to the codec buffer
 func (c *Codec) WriteSQPtr(p sqptr.SQPtr) {
-	c.setTypeMarker(SQPtrMarker)
+	c.WriteTypeMarker(TMSQPtr)
 	c.storeIntType(uint64(p))
 }
 
 //ReadSQPtr decodes an SQPtr from the codec buffer
 func (c *Codec) ReadSQPtr() sqptr.SQPtr {
-	c.getTypeMarker(SQPtrMarker)
+	c.ReadTypeMarker(TMSQPtr)
 	return sqptr.SQPtr(c.getIntType())
 }
 
 //WriteInt64 writes an int64 to the codec buffer
 func (c *Codec) WriteInt64(i int64) {
-	c.setTypeMarker(Int64Marker)
+	c.WriteTypeMarker(TMInt64)
 	c.storeIntType(uint64(i))
 }
 
 //ReadInt64  decodes an int64 from the codec buffer
 func (c *Codec) ReadInt64() int64 {
-	c.getTypeMarker(Int64Marker)
+	c.ReadTypeMarker(TMInt64)
 	return int64(c.getIntType())
 }
 
 //WriteInt writes an int to the codec buffer
 func (c *Codec) WriteInt(i int) {
-	c.setTypeMarker(IntMarker)
+	c.WriteTypeMarker(TMInt)
 	c.storeIntType(uint64(i))
 }
 
 //ReadInt  decodes an int from the codec buffer
 func (c *Codec) ReadInt() int {
-	c.getTypeMarker(IntMarker)
+	c.ReadTypeMarker(TMInt)
 	return int(c.getIntType())
 }
 
 //WriteFloat write a float64  to the codec buffer
 func (c *Codec) WriteFloat(fp float64) {
-	c.setTypeMarker(FloatMarker)
+	c.WriteTypeMarker(TMFloat)
 	c.storeIntType(math.Float64bits(fp))
 }
 
 //ReadFloat reads a float64 from the codec buffer
 func (c *Codec) ReadFloat() float64 {
 	var fp float64
-	c.getTypeMarker(FloatMarker)
+	c.ReadTypeMarker(TMFloat)
 	fp = math.Float64frombits(c.getIntType())
 	return fp
 }
 
 //WriteString writes a string to the codec buffer
 func (c *Codec) WriteString(s string) {
-	c.setTypeMarker(StringMarker)
+	c.WriteTypeMarker(TMString)
 	c.WriteInt(len(s))
 	c.buff.WriteString(s)
 }
 
 //ReadString reads a string from the codec buffer
 func (c *Codec) ReadString() string {
-	c.getTypeMarker(StringMarker)
+	c.ReadTypeMarker(TMString)
 	strLen := c.ReadInt()
 
 	str := string(c.buff.Next(strLen))
@@ -144,13 +178,13 @@ func (c *Codec) ReadString() string {
 
 // Writebyte writes a byte to the codec buffer
 func (c *Codec) Writebyte(b byte) {
-	c.setTypeMarker(ByteMarker)
+	c.WriteTypeMarker(TMByte)
 	c.buff.WriteByte(b)
 }
 
 //Readbyte reads a byte from the codec buffer
 func (c *Codec) Readbyte() byte {
-	c.getTypeMarker(ByteMarker)
+	c.ReadTypeMarker(TMByte)
 	b, err := c.buff.ReadByte()
 	if err != nil {
 		panic("Unable to sqbin.Readbyte from codec buffer")
@@ -169,7 +203,7 @@ func (c *Codec) PeekByte() byte {
 
 // WriteBool writes a bool to the codec buffer
 func (c *Codec) WriteBool(b bool) {
-	c.setTypeMarker(BoolMarker)
+	c.WriteTypeMarker(BoolMarker)
 
 	if b {
 		c.buff.WriteByte(1)
@@ -180,7 +214,7 @@ func (c *Codec) WriteBool(b bool) {
 
 // ReadBool reads a bool from the codec buffer
 func (c *Codec) ReadBool() bool {
-	c.getTypeMarker(BoolMarker)
+	c.ReadTypeMarker(BoolMarker)
 	b, err := c.buff.ReadByte()
 	if err != nil {
 		panic("Unable to sqbin.ReadBool from codec buffer")
@@ -210,7 +244,7 @@ func (c *Codec) Write(p []byte) {
 
 //WriteArrayString writes a []string to the codec buffer
 func (c *Codec) WriteArrayString(s []string) {
-	c.setTypeMarker(ArrayStringMarker)
+	c.WriteTypeMarker(TMArrayOfString)
 	// write the length first
 	c.WriteInt(len(s))
 
@@ -221,7 +255,7 @@ func (c *Codec) WriteArrayString(s []string) {
 
 // ReadArrayString read a []string from the codec buffer
 func (c *Codec) ReadArrayString() []string {
-	c.getTypeMarker(ArrayStringMarker)
+	c.ReadTypeMarker(TMArrayOfString)
 	l := c.ReadInt()
 
 	strs := make([]string, l)
@@ -233,7 +267,7 @@ func (c *Codec) ReadArrayString() []string {
 
 // WriteArrayInt64 writes an []int64 to the codec buffer
 func (c *Codec) WriteArrayInt64(nArray []int64) {
-	c.setTypeMarker(ArrayInt64Marker)
+	c.WriteTypeMarker(TMArrayOfInt64)
 	// write the length first
 	c.WriteInt(len(nArray))
 
@@ -244,7 +278,7 @@ func (c *Codec) WriteArrayInt64(nArray []int64) {
 
 // ReadArrayInt64 read an []int64 from the codec buffer
 func (c *Codec) ReadArrayInt64() []int64 {
-	c.getTypeMarker(ArrayInt64Marker)
+	c.ReadTypeMarker(TMArrayOfInt64)
 	l := c.ReadInt()
 
 	nArray := make([]int64, l)
@@ -257,7 +291,7 @@ func (c *Codec) ReadArrayInt64() []int64 {
 
 // WriteSQPtrs writes an []SQPtr to the codec buffer
 func (c *Codec) WriteSQPtrs(nArray sqptr.SQPtrs) {
-	c.setTypeMarker(SQPtrsMarker)
+	c.WriteTypeMarker(TMSQPtrs)
 	// write the length first
 	c.WriteInt(len(nArray))
 
@@ -268,7 +302,7 @@ func (c *Codec) WriteSQPtrs(nArray sqptr.SQPtrs) {
 
 // ReadSQPtrs read an []SQPtr from the codec buffer
 func (c *Codec) ReadSQPtrs() sqptr.SQPtrs {
-	c.getTypeMarker(SQPtrsMarker)
+	c.ReadTypeMarker(TMSQPtrs)
 	l := c.ReadInt()
 
 	nArray := make(sqptr.SQPtrs, l)
@@ -313,27 +347,31 @@ func (c *Codec) Insert(vars ...interface{}) {
 
 }
 
-/*
-//InsertInt64 inserts any number of Int64s at the beginning of the buffer
-func (c *Codec) InsertInt64(nums ...int64) {
-	s := c.buff.String()
-	c.buff.Reset()
-	for _, num := range nums {
-		c.WriteInt64(num)
-	}
-	c.buff.WriteString(s)
+// WriteTypeMarker writes the given TypeMarker to the Codec
+func (c *Codec) WriteTypeMarker(tm TypeMarker) {
+	c.buff.WriteByte(byte(tm))
 }
 
-//InsertUint64 inserts any number of Uint64s at the beginning of the buffer
-func (c *Codec) InsertUint64(nums ...uint64) {
-	s := c.buff.String()
-	c.buff.Reset()
-	for _, num := range nums {
-		c.WriteUint64(num)
+// ReadTypeMarker reads the Codec to ensure that the next byte is the given TypeMarker
+func (c *Codec) ReadTypeMarker(tm TypeMarker) {
+	b, err := c.buff.ReadByte()
+	if err != nil {
+		panic("Unable to sqbin.Readbyte from codec buffer")
 	}
-	c.buff.WriteString(s)
+	if byte(tm) != b {
+		panic(fmt.Sprintf("Type marker did not match expected: Actual = %d-%s, Expected = %d-%s", b, TMToString(TypeMarker(b)), tm, TMToString(tm)))
+	}
 }
-*/
+
+// PeekTypeMarker returns the first byte in the buffer expecting that it is a TypeMarker
+func (c *Codec) PeekTypeMarker() TypeMarker {
+	b, err := c.buff.ReadByte()
+	if err != nil {
+		panic("Unable to sqbin.Readbyte from codec buffer: " + err.Error())
+	}
+	c.buff.UnreadByte()
+	return TypeMarker(b)
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
@@ -347,24 +385,10 @@ func (c *Codec) storeIntType(i uint64) {
 	c.buff.Write(store)
 }
 
-func (c *Codec) setTypeMarker(tm byte) {
-	c.buff.WriteByte(tm)
-}
-
 func (c *Codec) getIntType() uint64 {
 	num := c.buff.Next(intSize)
 	if len(num) != intSize {
 		panic("Unable to getIntType from codec buffer")
 	}
 	return binary.LittleEndian.Uint64(num)
-}
-
-func (c *Codec) getTypeMarker(tm byte) {
-	b, err := c.buff.ReadByte()
-	if err != nil {
-		panic("Unable to sqbin.Readbyte from codec buffer")
-	}
-	if tm != b {
-		panic(fmt.Sprintf("Type marker did not match expected: Actual = %d-%s, Expected = %d-%s", b, TypeMarkerStrings[b], tm, TypeMarkerStrings[tm]))
-	}
 }
