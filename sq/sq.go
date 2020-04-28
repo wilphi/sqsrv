@@ -12,7 +12,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqprotocol"
-	protocol "github.com/wilphi/sqsrv/sqprotocol"
 	"github.com/wilphi/sqsrv/tokens"
 
 	"github.com/wilphi/sqsrv/redo"
@@ -183,7 +182,7 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 		wg.Wait()
 		tkList := tokens.Tokenize(req.Cmd)
 
-		resp := protocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: false}
+		resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: false}
 		var data *sqtables.DataSet
 		var isShutdown ShutdownType
 		isShutdown = NoAction

@@ -12,20 +12,19 @@ import (
 	"github.com/wilphi/sqsrv/sqprotocol"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/tokens"
-	tk "github.com/wilphi/sqsrv/tokens"
 )
 
 var dispatcher = []struct {
-	Exec   func(profile *sqprofile.SQProfile, tkns *tk.TokenList) (string, *sqtables.DataSet, error)
+	Exec   func(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error)
 	First  tokens.TokenID
 	Second tokens.TokenID
 }{
-	{Exec: cmd.Select, First: tk.Select, Second: tk.NilToken},
-	{Exec: cmd.InsertInto, First: tk.Insert, Second: tk.Into},
-	{Exec: cmd.Delete, First: tk.Delete, Second: tk.NilToken},
-	{Exec: cmd.CreateTable, First: tk.Create, Second: tk.Table},
-	{Exec: cmd.DropTable, First: tk.Drop, Second: tk.Table},
-	{Exec: cmd.Update, First: tk.Update, Second: tk.NilToken},
+	{Exec: cmd.Select, First: tokens.Select, Second: tokens.NilToken},
+	{Exec: cmd.InsertInto, First: tokens.Insert, Second: tokens.Into},
+	{Exec: cmd.Delete, First: tokens.Delete, Second: tokens.NilToken},
+	{Exec: cmd.CreateTable, First: tokens.Create, Second: tokens.Table},
+	{Exec: cmd.DropTable, First: tokens.Drop, Second: tokens.Table},
+	{Exec: cmd.Update, First: tokens.Update, Second: tokens.NilToken},
 }
 
 // ShutdownType -
@@ -40,7 +39,7 @@ const (
 
 // SrvCmds -
 type SrvCmds struct {
-	Exec    func(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error)
+	Exec    func(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error)
 	First   string
 	Second  string
 	HelpTxt string
@@ -85,7 +84,7 @@ func init() {
 }
 
 // GetCmdFunc -
-func GetCmdFunc(tkns tk.TokenList) func(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func GetCmdFunc(tkns tokens.TokenList) func(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	var firstVal, secondVal string
 
 	if tkns.Len() <= 0 {
@@ -127,7 +126,7 @@ func GetCmdFunc(tkns tk.TokenList) func(profile *sqprofile.SQProfile, tkns *tk.T
 }
 
 // GetDispatchFunc -
-func GetDispatchFunc(tkns tk.TokenList) func(profile *sqprofile.SQProfile, tkns *tk.TokenList) (string, *sqtables.DataSet, error) {
+func GetDispatchFunc(tkns tokens.TokenList) func(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	if tkns.Len() <= 0 {
 		return nil
 	}
@@ -195,25 +194,25 @@ func format(q uint64) string {
 	return str
 }
 
-func cmdShutdown(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdShutdown(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: "Server is shutting down...", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	return resp, Shutdown, nil
 }
-func cmdShutdownForce(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdShutdownForce(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: "Server is shutting down...", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	return resp, ShutdownForce, nil
 }
-func cmdStatsMem(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdStatsMem(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: MemStats(), IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	return resp, NoAction, nil
 }
 
-func cmdStatsLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdStatsLock(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: sqmutex.GetMtxStats(), IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	return resp, NoAction, nil
 }
 
-func cmdGC(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdGC(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	start := time.Now()
 	runtime.GC()
@@ -224,10 +223,10 @@ func cmdGC(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Respons
 
 	return resp, NoAction, nil
 }
-func cmdLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdLock(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	tkns.Remove()
-	if tkns.IsA(tk.Ident) {
+	if tkns.IsA(tokens.Ident) {
 		tkn := tkns.Peek()
 		tableName := tkn.(*tokens.ValueToken).Value()
 		td, err := sqtables.GetTable(profile, tableName)
@@ -253,10 +252,10 @@ func cmdLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Respo
 	return resp, NoAction, nil
 }
 
-func cmdUnLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdUnLock(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	tkns.Remove()
-	if tkns.IsA(tk.Ident) {
+	if tkns.IsA(tokens.Ident) {
 		tkn := tkns.Peek()
 		tableName := tkn.(*tokens.ValueToken).Value()
 		td, err := sqtables.GetTable(profile, tableName)
@@ -279,7 +278,7 @@ func cmdUnLock(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Res
 	return resp, NoAction, nil
 }
 
-func cmdShowTables(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdShowTables(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	tables, err := sqtables.CatalogTables(profile)
 	if err != nil {
 		resp := sqprotocol.ResponseToClient{Msg: err.Error(), IsErr: true, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
@@ -293,11 +292,11 @@ func cmdShowTables(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol
 	return resp, NoAction, nil
 }
 
-func cmdShowTable(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdShowTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{Msg: "", IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	tkns.Remove()
 	tkns.Remove()
-	if tkns.IsA(tk.Ident) {
+	if tkns.IsA(tokens.Ident) {
 		tkn := tkns.Peek()
 		tableName := tkn.(*tokens.ValueToken).Value()
 		td, err := sqtables.GetTable(profile, tableName)
@@ -330,7 +329,7 @@ func sqlHelper() string {
 	}
 	return lines
 }
-func cmdHelper(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdHelper(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	vtkn, ok := tkns.Peek().(*tokens.ValueToken)
 	cmdtxt := sqtables.Ternary(ok, vtkn.Value(), "")
 	resp := sqprotocol.ResponseToClient{
@@ -345,7 +344,7 @@ func cmdHelper(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Res
 }
 
 // cmdHelp generates the help text for a command
-func cmdHelp(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdHelp(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	vtkn, ok := tkns.Peek().(*tokens.ValueToken)
 	cmdtxt := sqtables.Ternary(ok, strings.ToLower(vtkn.Value()), "")
 	var firstline, bodytxt string
@@ -374,7 +373,7 @@ func cmdHelp(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Respo
 }
 
 // help generates the help text for all server commands
-func help(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func help(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	lines := []string{"To Be Replaced"}
 	//var firstline, bodytxt string
 
@@ -404,7 +403,7 @@ func help(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.Response
 	return resp, NoAction, nil
 }
 
-func cmdShowConns(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdShowConns(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 
 	resp := sqprotocol.ResponseToClient{
 		Msg:         sqprotocol.ShowConn(),
@@ -417,7 +416,7 @@ func cmdShowConns(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.
 	return resp, NoAction, nil
 }
 
-func cmdCheckpoint(profile *sqprofile.SQProfile, tkns *tk.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
+func cmdCheckpoint(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
 	resp := sqprotocol.ResponseToClient{
 		Msg:         "",
 		IsErr:       false,
