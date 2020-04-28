@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
@@ -47,11 +46,15 @@ func testNewDataSetFunc(
 func TestDataSet(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 
-	str := "CREATE TABLE dataset (col1 int, col2 string, col3 bool)"
-	tkns := tokens.Tokenize(str)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkns)
+	tableName := "dataset"
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Error("Unable to create table for testing")
+		t.Error("Error creating table: ", err)
 		return
 	}
 
@@ -85,17 +88,12 @@ func TestDataSet(t *testing.T) {
 	exprCols := sqtables.ColsToExpr(sqtables.NewColListDefs(colds))
 	emptyExprCols := &sqtables.ExprList{}
 	exprColsErr := sqtables.ColsToExpr(sqtables.NewColListNames(colStrErr))
-	tab1, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
-		return
-	}
 
-	if tab1 == nil {
+	if tab == nil {
 		t.Error("Unable to get table for testing")
 		return
 	}
-	tables := sqtables.NewTableListFromTableDef(profile, tab1)
+	tables := sqtables.NewTableListFromTableDef(profile, tab)
 
 	t.Run("New DataSet", testNewDataSetFunc(tables, exprCols, nil, ""))
 
@@ -374,33 +372,37 @@ func testGroupByFunc(d GroupByData) func(*testing.T) {
 	}
 }
 
-func CreateTable(profile *sqprofile.SQProfile, str string) (*sqtables.TableDef, error) {
-	tkns := tokens.Tokenize(str)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkns)
-	if err != nil {
-		return nil, err
-	}
-
-	return sqtables.GetTable(profile, tableName)
-}
-
 func TestGroupBy(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 
-	tab1, err := CreateTable(profile, "CREATE TABLE testgroupby (firstname string, lastname string, age int, salary float, cityid int)")
+	firstnameCD := sqtables.NewColDef("firstname", tokens.String, false)
+	lastnameCD := sqtables.NewColDef("lastname", tokens.String, false)
+	ageCD := sqtables.NewColDef("age", tokens.Int, false)
+
+	tab1 := sqtables.CreateTableDef("testgroupby",
+		firstnameCD,
+		lastnameCD,
+		ageCD,
+		sqtables.NewColDef("salary", tokens.Float, false),
+		sqtables.NewColDef("cityid", tokens.Int, false),
+	)
+	err := sqtables.CreateTable(profile, tab1)
 	if err != nil {
 		t.Error("Error creating table: ", err)
 		return
 	}
-	tab2, err := CreateTable(profile, "CREATE TABLE testgroupbycity (cityid int, name string, country string)")
+	tab2 := sqtables.CreateTableDef("testgroupbycity",
+		sqtables.NewColDef("cityid", tokens.Int, false),
+		sqtables.NewColDef("name", tokens.String, false),
+		sqtables.NewColDef("country", tokens.String, false),
+	)
+	err = sqtables.CreateTable(profile, tab2)
 	if err != nil {
 		t.Error("Error creating table: ", err)
 		return
 	}
 
 	tables := sqtables.NewTableListFromTableDef(profile, tab1)
-	firstnameCD := sqtables.ColDef{ColName: "firstname", ColType: tokens.String}
-	lastnameCD := sqtables.ColDef{ColName: "lastname", ColType: tokens.String}
 	firstNameExp := sqtables.NewColExpr(firstnameCD)
 	lastNameExp := sqtables.NewColExpr(lastnameCD)
 	multitable := sqtables.NewTableListFromTableDef(profile, tab1, tab2)

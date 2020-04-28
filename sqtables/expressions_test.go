@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -414,23 +413,18 @@ type EvalData struct {
 func TestEvaluateExpr(t *testing.T) {
 
 	profile := sqprofile.CreateSQProfile()
-	str := "Create table valueexprtest (col1 int, col2 string, col3 bool)"
-	tableName, _, err := cmd.CreateTable(profile, tokens.Tokenize(str))
+	tableName := "valueexprtest"
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Error("Unable to setup table")
+		t.Error("Error creating table: ", err)
 		return
 	}
 
-	tab, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	if tab == nil {
-		t.Error("Unable to get setup table")
-		return
-	}
 	row, err := sqtables.CreateRow(profile, 1, tab, []string{"col1", "col2", "col3"}, sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{1, "test1", true}))
 	if err != nil {
 		t.Error("Unable to setup table")
@@ -1049,29 +1043,30 @@ type ValidateData struct {
 
 func TestValidateCols(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-	str := "Create table validatecolstest (col1 int, col2 string)"
-	tableName, _, err := cmd.CreateTable(profile, tokens.Tokenize(str))
-	if err != nil {
-		t.Error("Unable to setup table")
-		return
-	}
-	str = "Insert into " + tableName + " (col1, col2) values (1,\"test1\"),(2,\"test2\")"
-	_, _, err = cmd.InsertInto(profile, tokens.Tokenize(str))
-	if err != nil {
-		t.Error("Unable to setup table")
-		return
-	}
-	tab, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
-		return
-	}
 
-	if tab == nil {
-		t.Error("Unable to get setup table")
+	tableName := "validatecolstest"
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
+	if err != nil {
+		t.Error("Error creating table: ", err)
 		return
 	}
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(tab.GetCols(profile)), nil)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1, "test1"}, {2, "test2"}})
+	_, err = tab.AddRows(profile, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
+	}
+
 	data := []ValidateData{
 		{
 			TestName: "Value Expr Int",

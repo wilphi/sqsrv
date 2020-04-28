@@ -1,10 +1,8 @@
 package sqtables_test
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -59,30 +57,35 @@ func testUpdateRowFunc(profile *sqprofile.SQProfile, r *UpdateRowData) func(*tes
 func TestUpdateRow(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 
-	// Setup Data
-	stmt := "CREATE TABLE updaterowtest (col1 int not null, col2 string null, col3 int, col4 string not null)"
-	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
+	tableName := "updaterowtest"
+	testT := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, true),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.String, true),
+	)
+	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
-
-	testT, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
 		return
 	}
 
-	//cols := testT.GetCols(false)
-	stmt = "INSERT INTO " + tableName + "(col1, col2, col3, col4) VALUES "
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 1, "test one2", 21, "test one4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 2, "test two2", 22, "test two4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 3, "test three2", 23, "test three4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q) ", 4, "test four2", 24, "test four4")
-	tkList = tokens.Tokenize(stmt)
-	_, _, err = cmd.InsertInto(profile, tkList)
+	tables := sqtables.NewTableListFromTableDef(profile, testT)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)), nil)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{1, "test one2", 21, "test one4"},
+		{2, "test two2", 22, "test two4"},
+		{3, "test three2", 23, "test three4"},
+		{4, "test four2", 24, "test four4"},
+	})
+	_, err = testT.AddRows(profile, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
 	}
 
 	row1, err := sqtables.CreateRow(profile, 0, testT, testT.GetColNames(profile), sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{5, "Test Data 0", nil, "Original"}))
@@ -214,31 +217,35 @@ func testCreateRowFunc(profile *sqprofile.SQProfile, r *CreateRowData) func(*tes
 
 func TestCreateRow(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-
-	// Setup Data
-	stmt := "CREATE TABLE createrowtest (col1 int not null, col2 string null, col3 int, col4 string not null)"
-	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
+	tableName := "createrowtest"
+	testT := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, true),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.String, true),
+	)
+	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
-
-	testT, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
 		return
 	}
 
-	//cols := testT.GetCols(false)
-	stmt = "INSERT INTO " + tableName + "(col1, col2, col3, col4) VALUES "
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 1, "test one2", 21, "test one4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 2, "test two2", 22, "test two4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 3, "test three2", 23, "test three4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q) ", 4, "test four2", 24, "test four4")
-	tkList = tokens.Tokenize(stmt)
-	_, _, err = cmd.InsertInto(profile, tkList)
+	tables := sqtables.NewTableListFromTableDef(profile, testT)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)), nil)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{1, "test one2", 21, "test one4"},
+		{2, "test two2", 22, "test two4"},
+		{3, "test three2", 23, "test three4"},
+		{4, "test four2", 24, "test four4"},
+	})
+	_, err = testT.AddRows(profile, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
 	}
 
 	testData := []CreateRowData{
@@ -355,16 +362,16 @@ func testGetColDataFunc(profile *sqprofile.SQProfile, r *ColData) func(*testing.
 func TestGetColData(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	// Setup Data
-	stmt := "CREATE TABLE getcoldatatest (col1 int not null, col2 string null, col3 int, col4 bool not null)"
-	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
+	tableName := "getcoldatatest"
+	testT := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, true),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.Bool, true),
+	)
+	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
-
-	testT, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
 		return
 	}
 
@@ -403,17 +410,19 @@ func TestSetStorage(t *testing.T) {
 	defer sqtest.PanicTestRecovery(t, "")
 
 	profile := sqprofile.CreateSQProfile()
-	// Setup Data
-	stmt := "CREATE TABLE setstorage (col1 int not null, col2 string null, col3 int, col4 bool not null)"
-	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
-	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
 
-	testT, err := sqtables.GetTable(profile, tableName)
+	// Setup Data
+	tableName := "setstorage"
+	testT := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, true),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.Bool, true),
+	)
+	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error creating table: ", err)
+		return
 	}
 
 	row1, err := sqtables.CreateRow(profile, 0, testT, testT.GetColNames(profile), sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{5, "Test Data 0", nil, true}))
@@ -427,29 +436,37 @@ func TestSetStorage(t *testing.T) {
 func TestMiscRowFunctions(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	// Setup Data
-	stmt := "CREATE TABLE miscrowtest (col1 int not null, col2 string null, col3 int, col4 string not null)"
-	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
+	tableName := "miscrowtest"
+	testT := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, true),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.String, true),
+	)
+	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
-
-	testT, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
 		return
 	}
 
-	stmt = "INSERT INTO " + tableName + "(col1, col2, col3, col4) VALUES "
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 1, "test one2", 21, "test one4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 2, "test two2", 22, "test two4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q), ", 3, "test three2", 23, "test three4")
-	stmt += fmt.Sprintf("(%d, %q, %d, %q) ", 4, "test four2", 24, "test four4")
-	tkList = tokens.Tokenize(stmt)
-	_, _, err = cmd.InsertInto(profile, tkList)
+	tables := sqtables.NewTableListFromTableDef(profile, testT)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)), nil)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
 	}
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{1, "test one2", 21, "test one4"},
+		{2, "test two2", 22, "test two4"},
+		{3, "test three2", 23, "test three4"},
+		{4, "test four2", 24, "test four4"},
+	})
+	_, err = testT.AddRows(profile, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
+	}
+
 	ptr12 := sqptr.SQPtr(12)
 	row1, err := sqtables.CreateRow(profile, ptr12, testT, testT.GetColNames(profile), sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{5, "Test Data 0", nil, "Original"}))
 	if err != nil {

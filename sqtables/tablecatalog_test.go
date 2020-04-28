@@ -6,7 +6,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
@@ -144,12 +143,19 @@ type DropTableData struct {
 
 func TestDropTable(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-	tkns := tokens.Tokenize("CREATE TABLE droptest1 (col1 string, col2 int, col3 bool)")
-	_, err := cmd.CreateTableFromTokens(profile, tkns)
+	tableName := "droptest1"
+	testT := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("rownum", tokens.Int, false),
+		sqtables.NewColDef("col1", tokens.String, false),
+		sqtables.NewColDef("col2", tokens.Int, false),
+		sqtables.NewColDef("col3", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
-		t.Error("Error setting up data for TestDropTable ", err)
+		t.Error("Error creating table: ", err)
 		return
 	}
+
 	data := []DropTableData{
 		{
 			TestName:  "Drop TABLE Underscore",

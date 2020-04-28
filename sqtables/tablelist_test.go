@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 	"testing"
 
-	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sq"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -59,12 +57,12 @@ func TestAddTable(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	tdata := []struct {
 		Name string
-		cols []string
+		cols []sqtables.ColDef
 		Tab  *sqtables.TableDef
 	}{
-		{Name: "tlist1", cols: []string{"col1 INT", "col2 string"}},
-		{Name: "tlist2", cols: []string{"col1 INT", "col2 string"}},
-		{Name: "tlist3", cols: []string{"col1 INT", "col2 string"}},
+		{Name: "tlist1", cols: []sqtables.ColDef{sqtables.NewColDef("col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, false)}},
+		{Name: "tlist2", cols: []sqtables.ColDef{sqtables.NewColDef("col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, false)}},
+		{Name: "tlist3", cols: []sqtables.ColDef{sqtables.NewColDef("col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, false)}},
 	}
 	for i := range tdata {
 		tdata[i].Tab, err = createTestTable(profile, tdata[i].Name, tdata[i].cols...)
@@ -190,14 +188,15 @@ func TestAddTable(t *testing.T) {
 		}
 	})
 }
-func createTestTable(profile *sqprofile.SQProfile, tableName string, cols ...string) (*sqtables.TableDef, error) {
-	str := "CREATE TABLE " + tableName + " (" + strings.Join(cols, ", ") + ")"
-	_, err := cmd.CreateTableFromTokens(profile, tokens.Tokenize(str))
+func createTestTable(profile *sqprofile.SQProfile, tableName string, cols ...sqtables.ColDef) (*sqtables.TableDef, error) {
+
+	tab := sqtables.CreateTableDef(tableName, cols...)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
 		return nil, err
 	}
-	return sqtables.GetTable(profile, tableName)
 
+	return tab, nil
 }
 
 func TestFindColDef(t *testing.T) {
@@ -212,12 +211,12 @@ func TestFindColDef(t *testing.T) {
 	tdata := []struct {
 		Name  string
 		Alias string
-		cols  []string
+		cols  []sqtables.ColDef
 		Tab   *sqtables.TableDef
 	}{
-		{Name: "cdlist1", Alias: "", cols: []string{"col1 INT", "col2 string"}},
-		{Name: "cdlist2", Alias: "", cols: []string{"col123 INT", "col2 string"}},
-		{Name: "cdlist3", Alias: "alias2", cols: []string{"col1 INT", "col2 string"}},
+		{Name: "cdlist1", Alias: "", cols: []sqtables.ColDef{sqtables.NewColDef("col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, false)}},
+		{Name: "cdlist2", Alias: "", cols: []sqtables.ColDef{sqtables.NewColDef("col123", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, false)}},
+		{Name: "cdlist3", Alias: "alias2", cols: []sqtables.ColDef{sqtables.NewColDef("col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, false)}},
 	}
 	for i := range tdata {
 		tdata[i].Tab, err = createTestTable(profile, tdata[i].Name, tdata[i].cols...)

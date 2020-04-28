@@ -6,7 +6,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -28,7 +27,7 @@ type RowDataTest struct {
 	TestName string
 	Tab      *sqtables.TableDef
 	Cols     *sqtables.ExprList
-	WhereStr string
+	Where    sqtables.Expr
 	GroupBy  *sqtables.ExprList
 	ExpErr   string
 	ExpPtrs  []int
@@ -38,22 +37,16 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		tkns := tokens.Tokenize(d.WhereStr)
-		tWhere, err := cmd.GetExpr(tkns, nil, 0)
 		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
-		if err != nil {
-			t.Errorf("Unable to parse Where String %q", d.WhereStr)
-			return
-		}
-		if tWhere != nil {
-			err = tWhere.ValidateCols(profile, tables)
+		if d.Where != nil {
+			err := d.Where.ValidateCols(profile, tables)
 			if err != nil {
-				t.Errorf("Unable to validate cols in Where String %q", d.WhereStr)
+				t.Errorf("Unable to validate cols in Where %q", d.Where)
 				return
 			}
 		}
 
-		data, err := d.Tab.GetRowData(profile, d.Cols, tWhere, d.GroupBy)
+		data, err := d.Tab.GetRowData(profile, d.Cols, d.Where, d.GroupBy)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -75,42 +68,120 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 func TestGetRowData(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	// Data Setup
-	stmt := "CREATE TABLE rowdatatest (rownum int, col1 int, col2 string, col3 int, col4 bool)"
-	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
+	tableName := "rowdatatest"
+	testT := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("rownum", tokens.Int, false),
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error creating table: ", err)
+		return
 	}
-
-	testT, err := sqtables.GetTable(profile, tableName)
+	tables := sqtables.NewTableListFromTableDef(profile, testT)
+	cols := sqtables.ColsToExpr(testT.GetCols(profile))
+	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
 	if err != nil {
-		t.Error(err)
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{1, 5, "d test string", 10, true},
+		{2, 7, "f test string", 100, false},
+		{3, 17, "zz test string", 700, true},
+	})
+	_, err = testT.AddRows(profile, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
 		return
 	}
 
-	cols := sqtables.ColsToExpr(testT.GetCols(profile))
-	stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES " +
-		"(1,5,\"d test string\", 10, true), " +
-		"(2,7,\"f test string\", 100, false), " +
-		"(3,17,\"zz test string\", 700, true) "
-
-	tkList = tokens.Tokenize(stmt)
-	_, _, err = cmd.InsertInto(profile, tkList)
-	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
 	// Delete a row to make sure that soft deleted rows do not cause a problem
-	_, _, err = cmd.Delete(profile, tokens.Tokenize("Delete from "+tableName+" where rownum=3"))
+	where := sqtables.NewOpExpr(
+		sqtables.NewColExpr(
+			sqtables.NewColDef("rownum", tokens.Int, false)),
+		tokens.Equal,
+		sqtables.NewValueExpr(sqtypes.NewSQInt(3)),
+	)
+	err = where.ValidateCols(profile, tables)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	_, err = testT.DeleteRows(profile, where)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
 	}
 
 	testData := []RowDataTest{
-		{TestName: "col1(5) = 5 ->1", Tab: testT, Cols: cols, WhereStr: "col1=5", ExpErr: "", ExpPtrs: []int{1}},
-		{TestName: "col1(6) = 5 ->0", Tab: testT, Cols: cols, WhereStr: "col1 = 6", ExpErr: "", ExpPtrs: []int{}},
-		{TestName: "col1 < 5 ->0", Tab: testT, Cols: cols, WhereStr: "col1 < 5", ExpErr: "", ExpPtrs: []int{}},
-		{TestName: "col1 < 7 ->1", Tab: testT, Cols: cols, WhereStr: "col1<6", ExpErr: "", ExpPtrs: []int{1}},
-		{TestName: "Where Error", Tab: testT, Cols: cols, WhereStr: "col2=6", ExpErr: "Error: Type Mismatch: 6 is not a String", ExpPtrs: []int{1}},
+		{
+			TestName: "col1(5) = 5 ->1",
+			Tab:      testT,
+			Cols:     cols,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col1", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+			),
+			ExpErr:  "",
+			ExpPtrs: []int{1},
+		},
+		{
+			TestName: "col1(6) = 5 ->0",
+			Tab:      testT,
+			Cols:     cols,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col1", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
+			),
+			ExpErr:  "",
+			ExpPtrs: []int{},
+		},
+		{
+			TestName: "col1 < 5 ->0",
+			Tab:      testT, Cols: cols,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col1", tokens.Int, false)),
+				tokens.LessThan,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+			),
+			ExpErr:  "",
+			ExpPtrs: []int{},
+		},
+		{
+			TestName: "col1 < 7 ->1",
+			Tab:      testT,
+			Cols:     cols,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col1", tokens.Int, false)),
+				tokens.LessThan,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
+			),
+			ExpErr:  "",
+			ExpPtrs: []int{1},
+		},
+		{
+			TestName: "Where Error",
+			Tab:      testT,
+			Cols:     cols,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col2", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
+			),
+			ExpErr:  "Error: Type Mismatch: 6 is not a String",
+			ExpPtrs: []int{1},
+		},
 		/*		{
 				TestName: "Count Expression",
 				Tab:      testT,
@@ -126,9 +197,9 @@ func TestGetRowData(t *testing.T) {
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 				sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.String, false)),
 			),
-			WhereStr: "",
-			ExpErr:   "Error: Column \"colX\" not found in Table(s): rowdatatest",
-			ExpPtrs:  []int{2},
+			Where:   nil,
+			ExpErr:  "Error: Column \"colX\" not found in Table(s): rowdatatest",
+			ExpPtrs: []int{2},
 		},
 		{
 			TestName: "Invalid function in Expression on Evaluate",
@@ -140,9 +211,14 @@ func TestGetRowData(t *testing.T) {
 					sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.String, false)),
 				),
 			),
-			WhereStr: "col2=\"d test string\"",
-			ExpErr:   "strconv.ParseFloat: parsing \"d test string\": invalid syntax",
-			ExpPtrs:  []int{2},
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col2", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQString("d test string")),
+			),
+			ExpErr:  "strconv.ParseFloat: parsing \"d test string\": invalid syntax",
+			ExpPtrs: []int{2},
 		},
 	}
 
@@ -154,7 +230,7 @@ func TestGetRowData(t *testing.T) {
 type RowPtrsTest struct {
 	TestName string
 	Tab      *sqtables.TableDef
-	WhereStr string
+	Where    sqtables.Expr
 	ExpErr   string
 	ExpPtrs  sqptr.SQPtrs
 	Sort     bool
@@ -164,25 +240,18 @@ func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*test
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		var tWhere sqtables.Expr
 		var err error
 		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
-		if d.WhereStr != "" {
-			tkns := tokens.Tokenize(d.WhereStr)
-			tWhere, err = cmd.GetExpr(tkns, nil, 0)
 
+		if d.Where != nil {
+			err = d.Where.ValidateCols(profile, tables)
 			if err != nil {
-				t.Errorf("Unable to parse Where String %q", d.WhereStr)
-				return
-			}
-			err = tWhere.ValidateCols(profile, tables)
-			if err != nil {
-				t.Errorf("Unable to validate cols in Where String %q", d.WhereStr)
+				t.Errorf("Unable to validate cols in Where %q", d.Where)
 				return
 			}
 
 		}
-		ptrs, err := d.Tab.GetRowPtrs(profile, tWhere, d.Sort)
+		ptrs, err := d.Tab.GetRowPtrs(profile, d.Where, d.Sort)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -204,47 +273,164 @@ func testGetRowPtrsFunc(profile *sqprofile.SQProfile, d *RowPtrsTest) func(*test
 
 func TestGetRowPtrs(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-	// Data Setup
-	stmt := "CREATE TABLE rowptrstest (rowid int, firstname string, active bool)"
-	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
-	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
 
-	testT, err := sqtables.GetTable(profile, tableName)
+	// Data Setup
+	tableName := "rowptrstest"
+	testT := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("rowid", tokens.Int, false),
+		sqtables.NewColDef("firstname", tokens.String, false),
+		sqtables.NewColDef("active", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
+		return
+	}
+	tables := sqtables.NewTableListFromTableDef(profile, testT)
+	cols := sqtables.ColsToExpr(testT.GetCols(profile))
+	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{1, "Tim", true},
+		{2, "Ted", true},
+		{3, "Tex", true},
+		{4, "Tad", true},
+		{5, "Tom", true},
+		{6, "Top", false},
+		{7, "ZZZ", false},
+	})
+	_, err = testT.AddRows(profile, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
 		return
 	}
 
-	stmt = "INSERT INTO " + tableName + "(rowid, firstname, active) VALUES " +
-		"(1, \"Tim\", true), " +
-		"(2, \"Ted\", true), " +
-		"(3, \"Tex\", true), " +
-		"(4, \"Tad\", true), " +
-		"(5, \"Tom\", true), " +
-		"(6, \"Top\", false), " +
-		"(7, \"ZZZ\", false) "
-	tkList = tokens.Tokenize(stmt)
-	_, _, err = cmd.InsertInto(profile, tkList)
-	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
 	// Delete a row to make sure that soft deleted rows do not cause a problem
-	_, _, err = cmd.Delete(profile, tokens.Tokenize("Delete from "+tableName+" where rowid=7"))
+	where := sqtables.NewOpExpr(
+		sqtables.NewColExpr(
+			sqtables.NewColDef("rowid", tokens.Int, false)),
+		tokens.Equal,
+		sqtables.NewValueExpr(sqtypes.NewSQInt(7)),
+	)
+	err = where.ValidateCols(profile, tables)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	_, err = testT.DeleteRows(profile, where)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
 	}
 
 	data := []RowPtrsTest{
-		{TestName: "All Rows no Cond", Tab: testT, WhereStr: "", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1, 2, 3, 4, 5, 6}, Sort: true},
-		{TestName: "All Rows with Cond", Tab: testT, WhereStr: "rowid < 50", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1, 2, 3, 4, 5, 6}, Sort: true},
-		{TestName: "No Rows", Tab: testT, WhereStr: "rowid=26", ExpErr: "", ExpPtrs: sqptr.SQPtrs{}, Sort: true},
-		{TestName: "First Row", Tab: testT, WhereStr: "rowid=1", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1}, Sort: true},
-		{TestName: "Last Row", Tab: testT, WhereStr: "active=false", ExpErr: "", ExpPtrs: sqptr.SQPtrs{6}, Sort: true},
-		{TestName: "Half the Rows", Tab: testT, WhereStr: "rowid=1 or rowid=3 or active=false", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1, 3, 6}, Sort: true},
-		{TestName: "Condition type mismatch", Tab: testT, WhereStr: "rowid=\"TEST\"", ExpErr: "Error: Type Mismatch: TEST is not an Int", ExpPtrs: sqptr.SQPtrs{}, Sort: true},
+		{
+			TestName: "All Rows no Cond",
+			Tab:      testT,
+			Where:    nil,
+			ExpErr:   "",
+			ExpPtrs:  sqptr.SQPtrs{1, 2, 3, 4, 5, 6},
+			Sort:     true,
+		},
+		{
+			TestName: "All Rows with Cond",
+			Tab:      testT,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("rowid", tokens.Int, false)),
+				tokens.LessThan,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(50)),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{1, 2, 3, 4, 5, 6},
+			Sort:    true,
+		},
+		{
+			TestName: "No Rows",
+			Tab:      testT,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("rowid", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(26)),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{},
+			Sort:    true,
+		},
+		{
+			TestName: "First Row",
+			Tab:      testT,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("rowid", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{1},
+			Sort:    true,
+		},
+		{
+			TestName: "Last Row",
+			Tab:      testT,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("active", tokens.Bool, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQBool(false)),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{6},
+			Sort:    true,
+		},
+		{
+			TestName: "Half the Rows",
+			Tab:      testT,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewOpExpr(
+					sqtables.NewOpExpr(
+						sqtables.NewColExpr(
+							sqtables.NewColDef("rowid", tokens.Int, false)),
+						tokens.Equal,
+						sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
+					),
+					tokens.Or,
+					sqtables.NewOpExpr(
+						sqtables.NewColExpr(
+							sqtables.NewColDef("rowid", tokens.Int, false)),
+						tokens.Equal,
+						sqtables.NewValueExpr(sqtypes.NewSQInt(3)),
+					),
+				),
+				tokens.Or,
+				sqtables.NewOpExpr(
+					sqtables.NewColExpr(
+						sqtables.NewColDef("active", tokens.Bool, false)),
+					tokens.Equal,
+					sqtables.NewValueExpr(sqtypes.NewSQBool(false)),
+				),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{1, 3, 6},
+			Sort:    true,
+		},
+		{
+			TestName: "Condition type mismatch",
+			Tab:      testT,
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("rowid", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQString("TEST")),
+			),
+			ExpErr:  "Error: Type Mismatch: TEST is not an Int",
+			ExpPtrs: sqptr.SQPtrs{},
+			Sort:    true,
+		},
 	}
 
 	for i, row := range data {
@@ -258,16 +444,15 @@ func TestMisc(t *testing.T) {
 
 	profile := sqprofile.CreateSQProfile()
 	// Data Setup
-	stmt := "CREATE TABLE rowcounttest (rowid int not null, firstname string, active bool)"
-	tkList := tokens.Tokenize(stmt)
-	tableName, err := cmd.CreateTableFromTokens(profile, tkList)
+	tableName := "rowcounttest"
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("rowid", tokens.Int, true),
+		sqtables.NewColDef("firstname", tokens.String, false),
+		sqtables.NewColDef("active", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
-
-	tab, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
 		return
 	}
 
@@ -285,23 +470,44 @@ func TestMisc(t *testing.T) {
 		}
 	})
 
-	stmt = "INSERT INTO " + tableName + "(rowid, firstname, active) VALUES " +
-		"(1, \"Tim\", true), " +
-		"(2, \"Ted\", true), " +
-		"(3, \"Tex\", true), " +
-		"(4, \"Tad\", true), " +
-		"(5, \"Tom\", true), " +
-		"(6, \"Top\", false), " +
-		"(7, \"ZZZ\", false) "
-	tkList = tokens.Tokenize(stmt)
-	_, _, err = cmd.InsertInto(profile, tkList)
+	tables := sqtables.NewTableListFromTableDef(profile, tab)
+	cols := sqtables.ColsToExpr(tab.GetCols(profile))
+	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
 	}
-	// Delete a row to make sure that soft deleted rows do not cause a problem
-	_, _, err = cmd.Delete(profile, tokens.Tokenize("Delete from "+tableName+" where rowid=7"))
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{1, "Tim", true},
+		{2, "Ted", true},
+		{3, "Tex", true},
+		{4, "Tad", true},
+		{5, "Tom", true},
+		{6, "Top", false},
+		{7, "ZZZ", false},
+	})
+	_, err = tab.AddRows(profile, dsData)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
+	}
+
+	// Delete a row to make sure that soft deleted rows do not cause a problem
+	where := sqtables.NewOpExpr(
+		sqtables.NewColExpr(
+			sqtables.NewColDef("rowid", tokens.Int, false)),
+		tokens.Equal,
+		sqtables.NewValueExpr(sqtypes.NewSQInt(7)),
+	)
+	err = where.ValidateCols(profile, tables)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	_, err = tab.DeleteRows(profile, where)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
 	}
 
 	t.Run("RowCount:6 Rows", func(t *testing.T) {
@@ -342,7 +548,7 @@ func TestMisc(t *testing.T) {
 
 type DeleteRowsData struct {
 	TestName string
-	WhereStr string
+	Where    sqtables.Expr
 	ExpErr   string
 	ExpPtrs  sqptr.SQPtrs
 }
@@ -351,58 +557,70 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		var tWhere sqtables.Expr
-
 		//Reset Data
 		profile := sqprofile.CreateSQProfile()
 
-		stmt := "Drop Table " + tableName
-		tkList := tokens.Tokenize(stmt)
-		cmd.DropTable(profile, tkList)
+		sqtables.DropTable(profile, tableName)
 
 		// Data Setup
-		stmt = "CREATE TABLE " + tableName + " (rownum int, col1 int, col2 string, col3 int, col4 bool)"
-		tkList = tokens.Tokenize(stmt)
-		_, err := cmd.CreateTableFromTokens(profile, tkList)
+		tab := sqtables.CreateTableDef(tableName,
+			sqtables.NewColDef("rownum", tokens.Int, false),
+			sqtables.NewColDef("col1", tokens.Int, false),
+			sqtables.NewColDef("col2", tokens.String, false),
+			sqtables.NewColDef("col3", tokens.Int, false),
+			sqtables.NewColDef("col4", tokens.Bool, false),
+		)
+		err := sqtables.CreateTable(profile, tab)
 		if err != nil {
-			t.Fatalf("Unexpected Error setting up test: %s", err)
-		}
-
-		tab, err := sqtables.GetTable(profile, tableName)
-		if err != nil {
-			t.Error(err)
+			t.Error("Error creating table: ", err)
 			return
 		}
 
 		tables := sqtables.NewTableListFromTableDef(profile, tab)
-		stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES (1,5,\"d test string\", 10, true), (2,7,\"f test string\", 100, false), (3,17,\"A test string\", 500, false) "
-		tkList = tokens.Tokenize(stmt)
-		_, _, err = cmd.InsertInto(profile, tkList)
+		cols := sqtables.ColsToExpr(tab.GetCols(profile))
+		dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
 		if err != nil {
-			t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+			t.Error("Error setting up table: ", err)
+			return
 		}
+		dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			{1, 5, "d test string", 10, true},
+			{2, 7, "f test string", 100, false},
+			{3, 17, "A test string", 500, false},
+		})
+		_, err = tab.AddRows(profile, dsData)
+		if err != nil {
+			t.Error("Error setting up table: ", err)
+			return
+		}
+
 		// Delete a row to make sure that soft deleted rows do not cause a problem
-		_, _, err = cmd.Delete(profile, tokens.Tokenize("Delete from "+tableName+" where rownum=3"))
+		where := sqtables.NewOpExpr(
+			sqtables.NewColExpr(
+				sqtables.NewColDef("rownum", tokens.Int, false)),
+			tokens.Equal,
+			sqtables.NewValueExpr(sqtypes.NewSQInt(3)),
+		)
+		err = where.ValidateCols(profile, tables)
 		if err != nil {
-			t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+			t.Error("Error setting up table: ", err)
+			return
+		}
+		_, err = tab.DeleteRows(profile, where)
+		if err != nil {
+			t.Error("Error setting up table: ", err)
+			return
 		}
 
-		if d.WhereStr != "" {
-			tkns := tokens.Tokenize(d.WhereStr)
-			tWhere, err = cmd.GetExpr(tkns, nil, 0)
-
+		if d.Where != nil {
+			err = d.Where.ValidateCols(profile, tables)
 			if err != nil {
-				t.Errorf("Unable to parse Where String %q", d.WhereStr)
-				return
-			}
-			err = tWhere.ValidateCols(profile, tables)
-			if err != nil {
-				t.Errorf("Unable to validate cols in Where String %q", d.WhereStr)
+				t.Errorf("Unable to validate cols in Where  %q", d.Where)
 				return
 			}
 		}
 
-		actPtrs, err := tab.DeleteRows(profile, tWhere)
+		actPtrs, err := tab.DeleteRows(profile, d.Where)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -428,12 +646,66 @@ func TestDeleteRows(t *testing.T) {
 	tableName := "rowdeletetest"
 	//	col1Def := sqtables.NewColExpr(*testT.FindColDef(profile, "col1"))
 	testData := []DeleteRowsData{
-		{TestName: "col1(5) = 5 ->1", WhereStr: "col1=5", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1}},
-		{TestName: "col1(6) = 5 ->0", WhereStr: "col1 = 6", ExpErr: "", ExpPtrs: sqptr.SQPtrs{}},
-		{TestName: "col1 < 5 ->0", WhereStr: "col1 < 5", ExpErr: "", ExpPtrs: sqptr.SQPtrs{}},
-		{TestName: "col1 < 7 ->1", WhereStr: "col1<6", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1}},
-		{TestName: "Delete where=nil", WhereStr: "", ExpErr: "", ExpPtrs: sqptr.SQPtrs{1, 2}},
-		{TestName: "Delete where error", WhereStr: "col2 = 5", ExpErr: "Error: Type Mismatch: 5 is not a String", ExpPtrs: sqptr.SQPtrs{1, 2}},
+		{
+			TestName: "col1(5) = 5 ->1",
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col1", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{1},
+		},
+		{
+			TestName: "col1(6) = 5 ->0",
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col1", tokens.Int, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{},
+		},
+		{
+			TestName: "col1 < 5 ->0",
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col1", tokens.Int, false)),
+				tokens.LessThan,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{},
+		},
+		{
+			TestName: "col1 < 7 ->1",
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col1", tokens.Int, false)),
+				tokens.LessThan,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
+			),
+			ExpErr:  "",
+			ExpPtrs: sqptr.SQPtrs{1},
+		},
+		{
+			TestName: "Delete where=nil",
+			Where:    nil,
+			ExpErr:   "",
+			ExpPtrs:  sqptr.SQPtrs{1, 2},
+		},
+		{
+			TestName: "Delete where error",
+			Where: sqtables.NewOpExpr(
+				sqtables.NewColExpr(
+					sqtables.NewColDef("col2", tokens.String, false)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+			),
+			ExpErr: "Error: Type Mismatch: 5 is not a String", ExpPtrs: sqptr.SQPtrs{1, 2},
+		},
 	}
 
 	for i, row := range testData {
@@ -495,32 +767,40 @@ func TestGetRowDataFromPtrs(t *testing.T) {
 	tableName := "RowDataFromPtrstest"
 
 	// Data Setup
-	stmt := "CREATE TABLE " + tableName + " (rownum int, col1 int, col2 string, col3 int, col4 bool)"
-	tkList := tokens.Tokenize(stmt)
-	_, err := cmd.CreateTableFromTokens(profile, tkList)
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("rownum", tokens.Int, false),
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err)
-	}
-
-	tab, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
 		return
 	}
 
-	stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES " +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 1, 5, "d test string", 10, true) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 2, 7, "f test string", 100, false) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 3, 5, "a test string", 10, true) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 4, 7, "b test string", 100, false) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 5, 5, "c test string", 10, true) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t)  ", 6, 7, "e test string", 100, false)
-
-	tkList = tokens.Tokenize(stmt)
-	_, _, err = cmd.InsertInto(profile, tkList)
+	tables := sqtables.NewTableListFromTableDef(profile, tab)
+	cols := sqtables.ColsToExpr(tab.GetCols(profile))
+	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
 	}
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{1, 5, "d test string", 10, true},
+		{2, 7, "f test string", 100, false},
+		{3, 5, "a test string", 10, true},
+		{4, 7, "b test string", 100, false},
+		{5, 5, "c test string", 10, true},
+		{6, 7, "e test string", 100, false},
+	})
+	_, err = tab.AddRows(profile, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
+	}
+
 	//	col1Def := sqtables.NewColExpr(*testT.FindColDef(profile, "col1"))
 	testData := []GetRowDataFromPtrsData{
 		{TestName: "All Rows", Tab: tab, ExpErr: "", Ptrs: sqptr.SQPtrs{1, 2, 3, 4, 5, 6}},
@@ -581,31 +861,38 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 	tableName := "UpdateRowsFromPtrstest"
 
 	// Data Setup
-	stmt := "CREATE TABLE " + tableName + " (rownum int, col1 int, col2 string, col3 int, col4 bool)"
-	tkList := tokens.Tokenize(stmt)
-	_, err := cmd.CreateTableFromTokens(profile, tkList)
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("rownum", tokens.Int, false),
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err)
-	}
-
-	tab, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
 		return
 	}
 
-	stmt = "INSERT INTO " + tableName + "(rownum, col1, col2, col3, col4) VALUES " +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 1, 5, "d test string", 10, true) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 2, 7, "f test string", 100, false) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 3, 5, "a test string", 10, true) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 4, 7, "b test string", 100, false) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t), ", 5, 5, "c test string", 10, true) +
-		fmt.Sprintf("(%d, %d, %q, %d, %t)  ", 6, 7, "e test string", 100, false)
-
-	tkList = tokens.Tokenize(stmt)
-	_, _, err = cmd.InsertInto(profile, tkList)
+	tables := sqtables.NewTableListFromTableDef(profile, tab)
+	cols := sqtables.ColsToExpr(tab.GetCols(profile))
+	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+		{1, 5, "d test string", 10, true},
+		{2, 7, "f test string", 100, false},
+		{3, 5, "a test string", 10, true},
+		{4, 7, "b test string", 100, false},
+		{5, 5, "c test string", 10, true},
+		{6, 7, "e test string", 100, false},
+	})
+	_, err = tab.AddRows(profile, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		return
 	}
 	//	col1Def := sqtables.NewColExpr(*testT.FindColDef(profile, "col1"))
 	testData := []UpdateRowsFromPtrsData{
@@ -734,16 +1021,16 @@ func TestAddRows(t *testing.T) {
 	tableName := "AddRowstest"
 
 	// Data Setup
-	stmt := "CREATE TABLE " + tableName + " (rownum int, col1 int, col2 string, col3 int, col4 bool)"
-	tkList := tokens.Tokenize(stmt)
-	_, err := cmd.CreateTableFromTokens(profile, tkList)
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("rownum", tokens.Int, false),
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Int, false),
+		sqtables.NewColDef("col4", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err)
-	}
-
-	tab, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
+		t.Error("Error creating table: ", err)
 		return
 	}
 

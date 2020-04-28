@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
@@ -59,31 +58,32 @@ func testEvalListFunc(d EvalListData) func(*testing.T) {
 }
 func TestEvalListExpr(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-	str := "Create table elisttest (col1 int, col2 string)"
-	tableName, _, err := cmd.CreateTable(profile, tokens.Tokenize(str))
+
+	tableName := "elisttest"
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Error("Unable to setup table")
+		t.Error("Error creating table: ", err)
 		return
 	}
-	str = "Insert into " + tableName + " (col1, col2) values (1,\"test1\"),(2,\"test2\")"
-	_, _, err = cmd.InsertInto(profile, tokens.Tokenize(str))
+	tables := sqtables.NewTableListFromTableDef(profile, tab)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(tab.GetCols(profile)), nil)
 	if err != nil {
-		t.Error("Unable to setup table")
+		t.Error("Error setting up table: ", err)
 		return
 	}
-	tab, err := sqtables.GetTable(profile, tableName)
+	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1, "test1"}, {2, "test2"}})
+	_, err = tab.AddRows(profile, dsData)
 	if err != nil {
-		t.Error(err)
+		t.Error("Error setting up table: ", err)
 		return
 	}
 
-	if tab == nil {
-		t.Error("Unable to get setup table")
-		return
-	}
 	row := tab.GetRow(profile, 1)
 	rows := []sqtables.RowInterface{row}
-	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	data := []EvalListData{
 		{
 			TestName: "Value Expr Int",
@@ -303,23 +303,20 @@ func TestEvalListMisc(t *testing.T) {
 
 func TestValidateColsExprList(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-	str := "Create table elistValidatetest (col1 int, col2 string, col3 float, col4 bool)"
-	tableName, _, err := cmd.CreateTable(profile, tokens.Tokenize(str))
+
+	tableName := "elistValidatetest"
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Float, false),
+		sqtables.NewColDef("col4", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Error("Unable to setup table")
+		t.Error("Error creating table: ", err)
 		return
 	}
 
-	tab, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	if tab == nil {
-		t.Error("Unable to get setup table")
-		return
-	}
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	cols := sqtables.NewColListNames([]string{"col1", "col4", "col3", "col2"})
 	eList := sqtables.ColsToExpr(cols)

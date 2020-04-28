@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
@@ -183,21 +182,17 @@ type ColListValidateData struct {
 
 func TestColListValidate(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-	str := "Create table collistValidatetest (col1 int, col2 string, col3 float, col4 bool)"
-	tableName, _, err := cmd.CreateTable(profile, tokens.Tokenize(str))
-	if err != nil {
-		t.Error("Unable to setup table")
-		return
-	}
 
-	tab, err := sqtables.GetTable(profile, tableName)
+	tableName := "collistValidatetest"
+	tab := sqtables.CreateTableDef(tableName,
+		sqtables.NewColDef("col1", tokens.Int, false),
+		sqtables.NewColDef("col2", tokens.String, false),
+		sqtables.NewColDef("col3", tokens.Float, false),
+		sqtables.NewColDef("col4", tokens.Bool, false),
+	)
+	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	if tab == nil {
-		t.Error("Unable to get setup table")
+		t.Error("Error creating table: ", err)
 		return
 	}
 
