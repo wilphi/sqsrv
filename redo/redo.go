@@ -1,7 +1,6 @@
 package redo
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -231,7 +230,7 @@ func Recovery(profile *sqprofile.SQProfile) error {
 		}
 		log.Infof("Current Transaction ID = %d", transid.GetTransID())
 		length := time.Since(start)
-		log.Info(fmt.Sprintf("Time spend in recovery: %v", length))
+		log.Infof("Time spend in recovery: %v", length)
 		file.Close()
 	}
 	return nil

@@ -1,10 +1,10 @@
 package sqerr_test
 
 import (
-	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wilphi/sqsrv/sqerr"
 )
@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 func testErrsFunc(err error, expected string) func(*testing.T) {
 	return func(t *testing.T) {
 		if err.Error() != expected {
-			t.Error(fmt.Sprintf("Expecting Error %s but got: %s", expected, err.Error()))
+			t.Errorf("Expecting Error %s but got: %s", expected, err.Error())
 		}
 	}
 }

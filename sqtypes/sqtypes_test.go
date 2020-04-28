@@ -65,7 +65,7 @@ func testValueType(v sqtypes.Value, expType tokens.TokenID) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		if v.Type() != expType {
-			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", tokens.IDName(expType), tokens.IDName(v.Type())))
+			t.Errorf("The expected type of %s does not match actual value of %s", tokens.IDName(expType), tokens.IDName(v.Type()))
 		}
 	}
 }
@@ -74,7 +74,7 @@ func testValueString(v sqtypes.Value, expStr string) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		if v.String() != expStr {
-			t.Error(fmt.Sprintf("String for type %s produced unexpected results: Actual %q, Expected %q", tokens.IDName(v.Type()), v.String(), expStr))
+			t.Errorf("String for type %s produced unexpected results: Actual %q, Expected %q", tokens.IDName(v.Type()), v.String(), expStr)
 		}
 	}
 }
@@ -83,7 +83,7 @@ func testGetLen(v sqtypes.Value, expLen int) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		if v.Len() != expLen {
-			t.Error(fmt.Sprintf("The expected Lenght of %d does not match actual value of %d for type %s", expLen, v.Len(), tokens.IDName(v.Type())))
+			t.Errorf("The expected Lenght of %d does not match actual value of %d for type %s", expLen, v.Len(), tokens.IDName(v.Type()))
 		}
 	}
 }
@@ -94,10 +94,10 @@ func testEqual(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 		if expect {
 			if !a.Equal(b) {
-				t.Error(fmt.Sprintf("The values: %s, %s were expected to be equal but are not", a.String(), b.String()))
+				t.Errorf("The values: %s, %s were expected to be equal but are not", a.String(), b.String())
 			}
 		} else if a.Equal(b) {
-			t.Error(fmt.Sprintf("The values: %s, %s were expected to be NOT equal but are equal", a.String(), b.String()))
+			t.Errorf("The values: %s, %s were expected to be NOT equal but are equal", a.String(), b.String())
 		}
 	}
 }
@@ -108,10 +108,10 @@ func testLessThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 		if expect {
 			if !a.LessThan(b) {
-				t.Error(fmt.Sprintf("%s was expected to be less than %s", a.String(), b.String()))
+				t.Errorf("%s was expected to be less than %s", a.String(), b.String())
 			}
 		} else if a.LessThan(b) {
-			t.Error(fmt.Sprintf("%s was NOT expected to be less than %s", a.String(), b.String()))
+			t.Errorf("%s was NOT expected to be less than %s", a.String(), b.String())
 		}
 	}
 }
@@ -122,10 +122,10 @@ func testGreaterThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 
 		if expect {
 			if !a.GreaterThan(b) {
-				t.Error(fmt.Sprintf("%s was expected to be greater than %s", a.String(), b.String()))
+				t.Errorf("%s was expected to be greater than %s", a.String(), b.String())
 			}
 		} else if a.GreaterThan(b) {
-			t.Error(fmt.Sprintf("%s was NOT expected to be greater than %s", a.String(), b.String()))
+			t.Errorf("%s was NOT expected to be greater than %s", a.String(), b.String())
 		}
 	}
 }
@@ -705,7 +705,7 @@ func testCreateValueFromToken(d tokenValTest) func(*testing.T) {
 			return
 		}
 		if v.Type() != d.ExpType {
-			t.Error(fmt.Sprintf("The expected type of %s does not match actual value of %s", tokens.IDName(d.ExpType), tokens.IDName(v.Type())))
+			t.Errorf("The expected type of %s does not match actual value of %s", tokens.IDName(d.ExpType), tokens.IDName(v.Type()))
 		}
 	}
 }

@@ -28,7 +28,7 @@ func testCreateTableFunc(profile *sqprofile.SQProfile, d CreateTableData) func(*
 			return
 		}
 		if tname != d.ExpTableName {
-			t.Error(fmt.Sprintf("TableName: %q was the expected return, but actual value is: %q", d.ExpTableName, tname))
+			t.Errorf("TableName: %q was the expected return, but actual value is: %q", d.ExpTableName, tname)
 		}
 	}
 }

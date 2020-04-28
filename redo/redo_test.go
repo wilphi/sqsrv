@@ -331,7 +331,7 @@ func testReadTlogFunc(profile *sqprofile.SQProfile, d TestData) func(*testing.T)
 		// Verify Recreated Items
 		for i := range d.ExpItems {
 			if d.ExpItems[i] != Items[i] {
-				t.Error(fmt.Sprintf("Recreated log statements do not match: Expected %q but got %q at index: %d", d.ExpItems[i], Items[i], i))
+				t.Errorf("Recreated log statements do not match: Expected %q but got %q at index: %d", d.ExpItems[i], Items[i], i)
 				return
 			}
 		}

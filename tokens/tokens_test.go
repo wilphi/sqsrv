@@ -143,7 +143,7 @@ func TestMiscFunctions(t *testing.T) {
 
 		for i, tkn := range wordTokens {
 			if wordNames[i] != tkn.String() {
-				t.Error(fmt.Sprintf("%s != tkn.String() -> %s", wordNames[i], tkn.String()))
+				t.Errorf("%s != tkn.String() -> %s", wordNames[i], tkn.String())
 			}
 		}
 
@@ -151,12 +151,12 @@ func TestMiscFunctions(t *testing.T) {
 		tkn := NewValueToken(Ident, "test")
 		expected := "[IDENT=test]"
 		if tkn.String() != expected {
-			t.Error(fmt.Sprintf("%s != tkn.String() -> %s", expected, tkn.String()))
+			t.Errorf("%s != tkn.String() -> %s", expected, tkn.String())
 		}
 		tkn = NewValueToken(Unk, "test")
 		expected = "[UNK=test]"
 		if tkn.String() != expected {
-			t.Error(fmt.Sprintf("%s != tkn.String() -> %s", expected, tkn.String()))
+			t.Errorf("%s != tkn.String() -> %s", expected, tkn.String())
 		}
 	})
 	t.Run("(Token)Name() tests", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestMiscFunctions(t *testing.T) {
 		tkn := NewValueToken(Unk, "test")
 		expected := "[UNK=test]"
 		if tkn.Name() != expected {
-			t.Error(fmt.Sprintf("%s != tkn.Name() -> %s", expected, tkn.Name()))
+			t.Errorf("%s != tkn.Name() -> %s", expected, tkn.Name())
 		}
 	})
 	t.Run("(Token)SetValue tests", func(t *testing.T) {
@@ -176,7 +176,7 @@ func TestMiscFunctions(t *testing.T) {
 		expected := "UNK"
 		vtkn.SetValue(expected)
 		if vtkn.Value() != expected {
-			t.Error(fmt.Sprintf("tkn.SetValue Failed! Expected %s != tkn.Value() -> %s", expected, vtkn.Value()))
+			t.Errorf("tkn.SetValue Failed! Expected %s != tkn.Value() -> %s", expected, vtkn.Value())
 		}
 	})
 

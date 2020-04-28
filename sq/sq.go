@@ -263,7 +263,7 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 				}
 
 			}
-			log.Info(fmt.Sprintf("%d rows written to client", data.Len()))
+			log.Infof("%d rows written to client", data.Len())
 
 		}
 	}

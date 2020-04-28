@@ -2,7 +2,6 @@ package sqtables
 
 import (
 	"encoding/gob"
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -394,7 +393,7 @@ func ReadDB(profile *sqprofile.SQProfile) error {
 		}
 	}
 	length := time.Since(start)
-	log.Info(fmt.Sprintf("Time spend opening Database: %v", length))
+	log.Infof("Time spend opening Database: %v", length)
 
 	return err
 }
