@@ -740,6 +740,7 @@ type GetRowDataFromPtrsData struct {
 	Tab      *sqtables.TableDef
 	ExpErr   string
 	Ptrs     sqptr.SQPtrs
+	ExpVals  sqtypes.RawVals
 }
 
 func testGetRowDataFromPtrsFunc(d *GetRowDataFromPtrsData) func(*testing.T) {
@@ -758,6 +759,12 @@ func testGetRowDataFromPtrsFunc(d *GetRowDataFromPtrsData) func(*testing.T) {
 			return
 		}
 
+		expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
+		msg := sqtypes.Compare2DValue(expVals, data.Vals, "Expected Values", "Actual Values", false)
+		if msg != "" {
+			t.Error(msg)
+			return
+		}
 	}
 }
 
@@ -803,8 +810,37 @@ func TestGetRowDataFromPtrs(t *testing.T) {
 
 	//	col1Def := sqtables.NewColExpr(*testT.FindColDef(profile, "col1"))
 	testData := []GetRowDataFromPtrsData{
-		{TestName: "All Rows", Tab: tab, ExpErr: "", Ptrs: sqptr.SQPtrs{1, 2, 3, 4, 5, 6}},
-		{TestName: "Invalid Ptr", Tab: tab, ExpErr: "Error: Row 11 does not exist", Ptrs: sqptr.SQPtrs{11, 2, 3, 4, 5, 6}},
+		{
+			TestName: "All Rows",
+			Tab:      tab,
+			ExpErr:   "",
+			Ptrs:     sqptr.SQPtrs{1, 2, 3, 4, 5, 6},
+			ExpVals: sqtypes.RawVals{
+				{1, 5, "d test string", 10, true},
+				{2, 7, "f test string", 100, false},
+				{3, 5, "a test string", 10, true},
+				{4, 7, "b test string", 100, false},
+				{5, 5, "c test string", 10, true},
+				{6, 7, "e test string", 100, false},
+			},
+		},
+		{
+			TestName: "Invalid Ptr",
+			Tab:      tab,
+			ExpErr:   "Error: Row 11 does not exist",
+			Ptrs:     sqptr.SQPtrs{11, 2, 3, 4, 5, 6},
+		},
+		{
+			TestName: "Some Rows",
+			Tab:      tab,
+			ExpErr:   "",
+			Ptrs:     sqptr.SQPtrs{1, 3, 6},
+			ExpVals: sqtypes.RawVals{
+				{1, 5, "d test string", 10, true},
+				{3, 5, "a test string", 10, true},
+				{6, 7, "e test string", 100, false},
+			},
+		},
 	}
 
 	for i, row := range testData {
