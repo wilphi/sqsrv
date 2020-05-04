@@ -78,7 +78,7 @@ func TestMtxLocks(t *testing.T) {
 		{TestName: "VerifyNoLocks empty map", Profile: profile1, Function: "VERIFY", ExpPanic: "", LockNames: nil, ExpVals: nil},
 		{TestName: "WRITE lock", Profile: profile1, RW: rw1, Function: "LOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}},
 		{TestName: "READ lock after write", Profile: profile1, RW: rw1, Function: "RLOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 2}},
-		{TestName: "VerifyNoLocks NON empty map", Profile: profile1, Function: "VERIFY", ExpPanic: "Profile 1 - Mismatched locks are: (T-WRITE = 1::T-READ = 2) at: /sqsrv/sqmutex/sqmtx_test.go,:108 github.com/wilphi/sqsrv/sqmutex.testmtxLocksFunc.func1", LockNames: nil, ExpVals: nil},
+		{TestName: "VerifyNoLocks NON empty map", Profile: profile1, Function: "VERIFY", ExpPanic: "Profile 1 - Mismatched locks are: (T-READ = 2::T-WRITE = 1) at: /sqsrv/sqmutex/sqmtx_test.go,:108 github.com/wilphi/sqsrv/sqmutex.testmtxLocksFunc.func1", LockNames: nil, ExpVals: nil},
 		{TestName: "READ unlock", Profile: profile1, RW: rw1, Function: "RUNLOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{1, 1}},
 		{TestName: "WRITE unlock", Profile: profile1, RW: rw1, Function: "UNLOCK", ExpPanic: "", LockNames: []string{"T-WRITE", "T-READ"}, ExpVals: []int{0, 0}},
 		{TestName: "VerifyNoLocks emptied map", Profile: profile1, Function: "VERIFY", ExpPanic: "", LockNames: nil, ExpVals: nil},

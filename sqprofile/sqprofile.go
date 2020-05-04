@@ -3,6 +3,7 @@ package sqprofile
 import (
 	"fmt"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -65,8 +66,15 @@ func (p *SQProfile) RemoveLock(locks ...string) {
 func (p *SQProfile) VerifyNoLocks() {
 	p.mux.Lock()
 	defer p.mux.Unlock()
+	// sort the key list
+	keylist := make([]string, len(p.locks))
+	for k := range p.locks {
+		keylist = append(keylist, k)
+	}
+	sort.Strings(keylist)
 	keys := ""
-	for k, v := range p.locks {
+	for _, k := range keylist {
+		v := p.locks[k]
 		if v > 0 {
 			keys += fmt.Sprintf("%s = %d::", k, v)
 		}
