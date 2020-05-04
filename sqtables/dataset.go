@@ -3,6 +3,8 @@ package sqtables
 import (
 	"sort"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
@@ -10,9 +12,12 @@ import (
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+// DataSetTableName is a marker used to indicate that the "table" used to evalate data is from a dataset
+// it is formatted in a way that can not be reproduced from a parsed identifier
+const DataSetTableName = " _Dataset"
+
 // DataSet - structure that contains a row/column set including column definitions
 type DataSet struct {
-	//cols       ColList
 	Vals       [][]sqtypes.Value
 	usePtrs    bool
 	Ptrs       sqptr.SQPtrs
@@ -21,6 +26,7 @@ type DataSet struct {
 	validOrder bool
 	eList      *ExprList
 	groupBy    *ExprList
+	havingExpr *Expr
 }
 
 // OrderItem stores information for ORDER BY clause
@@ -33,11 +39,16 @@ type OrderItem struct {
 // GetColNames - returns a string array of column names
 func (d *DataSet) GetColNames() []string {
 
-	return d.eList.GetNames()
+	return d.eList.Names(false)
 }
 
-// NewDataSet creates a dataset based on a list of expressions
-func NewDataSet(profile *sqprofile.SQProfile, tables *TableList, eList *ExprList, groupBy *ExprList) (*DataSet, error) {
+//NewDataSet creates a dataset based on a list of expressions
+func NewDataSet(profile *sqprofile.SQProfile, tables *TableList, eList *ExprList) (*DataSet, error) {
+	return NewQueryDataSet(profile, tables, eList, nil, nil)
+}
+
+// NewQueryDataSet creates a dataset based on a list of expressions and other optional clauses
+func NewQueryDataSet(profile *sqprofile.SQProfile, tables *TableList, eList *ExprList, groupBy *ExprList, havingExpr *Expr) (*DataSet, error) {
 	var err error
 
 	if eList == nil || eList.Len() == 0 {
@@ -51,9 +62,12 @@ func NewDataSet(profile *sqprofile.SQProfile, tables *TableList, eList *ExprList
 	if groupBy == nil && eList.HasAggregateFunc() {
 		// make sure they are all aggregate funcs
 		for _, exp := range eList.GetExprs() {
-			fexp, ok := exp.(*FuncExpr)
-			if ok && fexp.IsAggregate() {
+			if exp.IsAggregate() {
 				continue
+			}
+			fexp, ok := exp.(*FuncExpr)
+			if ok {
+				return nil, sqerr.NewSyntaxf("%s is not an aggregate function", fexp.Name())
 			}
 			return nil, sqerr.NewSyntax("Select Statements with Aggregate functions (count, sum, min, max, avg) must not have other expressions")
 		}
@@ -70,21 +84,39 @@ func NewDataSet(profile *sqprofile.SQProfile, tables *TableList, eList *ExprList
 			}
 		}
 		for _, exp := range eList.exprlist {
+			if exp.IsAggregate() {
+				continue
+			}
 			fexp, ok := exp.(*FuncExpr)
 			if ok {
-				if !fexp.IsAggregate() {
-					return nil, sqerr.NewSyntaxf("%s is not an aggregate function", fexp.Name())
-				}
-				continue
+				return nil, sqerr.NewSyntaxf("%s is not an aggregate function", fexp.Name())
 			}
 			if groupBy.FindName(exp.Name()) == -1 {
 				return nil, sqerr.NewSyntaxf("%s is not in the group by clause: %v", exp.Name(), groupBy.String())
 			}
 		}
-		eList.ValidateCols(profile, tables)
+	}
+	if havingExpr != nil {
+		h := *havingExpr
+		err = h.ValidateCols(profile, tables)
+		if err != nil {
+			return nil, err
+		}
+		newHaving, flist, cnt := ProcessHaving(h, nil, eList.Len())
+		havingExpr = &newHaving
+		for _, f := range flist {
+			eList.AddHidden(&f, true)
+		}
+		if cnt != eList.Len() {
+			log.Panicf("eList len: %d != cnt: %d", eList.Len(), cnt)
+		}
+	}
+	// Verify all cols exist in table list
+	if err = eList.ValidateCols(profile, tables); err != nil {
+		return nil, err
 	}
 
-	return &DataSet{eList: eList, tables: tables, groupBy: groupBy}, nil
+	return &DataSet{eList: eList, tables: tables, groupBy: groupBy, havingExpr: havingExpr}, nil
 }
 
 // NumCols -
@@ -205,7 +237,7 @@ func (d *DataSet) Sort() error {
 }
 
 // GroupBy sorts and removes duplicate rows in the data set
-func (d *DataSet) GroupBy() error {
+func (d *DataSet) GroupBy(profile *sqprofile.SQProfile) error {
 	var err error
 	var gbOrder []OrderItem
 
@@ -286,6 +318,41 @@ func (d *DataSet) GroupBy() error {
 	}
 	d.Vals = result
 
+	err = d.filterHaving(profile)
+	return err
+}
+
+func (d *DataSet) filterHaving(profile *sqprofile.SQProfile) error {
+	// If there is not an expr then do nothing
+	if d.havingExpr == nil {
+		return nil
+	}
+	btrue := sqtypes.NewSQBool(true)
+	//Figure out how many hidden cols
+	mark := -1
+	for x := d.eList.Len() - 1; x >= 0; x-- {
+		if !d.eList.isHidden[x] {
+			break
+		}
+		mark = x
+	}
+
+	var result [][]sqtypes.Value
+	h := *d.havingExpr
+	for i, r := range d.Vals {
+
+		row := DSRow{Ptr: sqptr.SQPtr(i), Vals: r, TableName: ""}
+		res, err := h.Evaluate(profile, false, &row)
+		if err != nil {
+			return err
+		}
+
+		if res.Equal(btrue) {
+			result = append(result, row.Vals[:mark])
+		}
+	}
+	d.eList.exprlist = d.eList.exprlist[:mark]
+	d.Vals = result
 	return nil
 }
 
@@ -374,4 +441,37 @@ func calcAggregates(vals, result []sqtypes.Value,
 	}
 
 	return result, colCnt, nil
+}
+
+// DSRow defines row definition for datasets
+type DSRow struct {
+	Ptr       sqptr.SQPtr
+	Vals      []sqtypes.Value
+	TableName string
+}
+
+// GetTableName gets the table name that the DSRow is based off on.
+func (r *DSRow) GetTableName(profile *sqprofile.SQProfile) string {
+	return DataSetTableName
+}
+
+// GetPtr returns the pointer to the given row
+func (r *DSRow) GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr {
+	return r.Ptr
+}
+
+// GetColData -
+func (r *DSRow) GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Value, error) {
+	if c.Idx < 0 || c.Idx >= len(r.Vals) {
+		return nil, sqerr.Newf("Invalid index (%d) for Column in row. Col len = %d", c.Idx, len(r.Vals))
+	}
+	return r.Vals[c.Idx], nil
+}
+
+// GetIdxVal gets the value of the col at the index idx
+func (r *DSRow) GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
+	if idx < 0 || idx >= len(r.Vals) {
+		return nil, sqerr.Newf("Invalid index (%d) for row. Data len = %d", idx, len(r.Vals))
+	}
+	return r.Vals[idx], nil
 }

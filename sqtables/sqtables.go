@@ -11,7 +11,7 @@ import (
 	"github.com/wilphi/sqsrv/sqmutex"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
-	sqtypes "github.com/wilphi/sqsrv/sqtypes"
+	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -165,7 +165,7 @@ func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 // GetRowDataFromPtrs returns data based on the rowIDs passed
 func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs) (*DataSet, error) {
 	tables := NewTableListFromTableDef(profile, t)
-	ds, err := NewDataSet(profile, tables, ColsToExpr(t.GetCols(profile)), nil)
+	ds, err := NewDataSet(profile, tables, ColsToExpr(t.GetCols(profile)))
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 }
 
 // GetRowData - Returns a dataset with the data from table
-func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList) (*DataSet, error) {
+func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList, havingExpr *Expr) (*DataSet, error) {
 	var err error
 
 	err = t.RLock(profile)
@@ -199,7 +199,7 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 	tables := NewTableListFromTableDef(profile, t)
 
 	// Setup the dataset for the results
-	ret, err := NewDataSet(profile, tables, eList, groupBy)
+	ret, err := NewQueryDataSet(profile, tables, eList, groupBy, havingExpr)
 	if err != nil {
 		return nil, err
 	}
@@ -211,11 +211,6 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 		return nil, err
 	}
 
-	//	if eList.HasAggregateFunc() {
-	//		ret.Vals = make([][]sqtypes.Value, 1)
-	//		ret.Vals[0] = make([]sqtypes.Value, eList.Len())
-	//		ret.Vals[0][0] = sqtypes.NewSQInt(len(ptrs))
-	//	} else {
 	ret.Vals = make([][]sqtypes.Value, len(ptrs))
 	ret.Ptrs = ptrs
 
@@ -230,7 +225,6 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 			return nil, err
 		}
 	}
-	//	}
 	return ret, nil
 
 }

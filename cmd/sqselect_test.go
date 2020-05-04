@@ -452,7 +452,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT Where count() ",
 			Command:  "SELECT col1 FROM seltest Where col1 <count()",
-			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpErr:   "Syntax Error: Aggregate functions (COUNT) are not allowed in Where clause",
 			ExpRows:  3,
 			ExpCols:  []string{"col1"},
 			ExpVals: sqtypes.RawVals{
@@ -462,9 +462,9 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			TestName: "SELECT Where count() ",
-			Command:  "SELECT col1 FROM seltest Where col1 <count()",
-			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			TestName: "SELECT Where sum() ",
+			Command:  "SELECT col1 FROM seltest Where col1 <sum(col2)",
+			ExpErr:   "Syntax Error: Aggregate functions (SUM) are not allowed in Where clause",
 			ExpRows:  3,
 			ExpCols:  []string{"col1"},
 			ExpVals: sqtypes.RawVals{
@@ -476,7 +476,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT Where -count() ",
 			Command:  "SELECT col1 FROM seltest Where col1 = -count()",
-			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpErr:   "Syntax Error: Aggregate functions (COUNT) are not allowed in Where clause",
 			ExpRows:  3,
 			ExpCols:  []string{"col1"},
 			ExpVals: sqtypes.RawVals{
@@ -488,7 +488,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT Where FLOAT(count()) ",
 			Command:  "SELECT col1 FROM seltest Where FLOAT(col1) < FLOAT(count())",
-			ExpErr:   "Error: Unable to evaluate \"count()\"",
+			ExpErr:   "Syntax Error: Aggregate functions (COUNT) are not allowed in Where clause",
 			ExpRows:  3,
 			ExpCols:  []string{"col1"},
 			ExpVals: sqtypes.RawVals{
@@ -819,7 +819,8 @@ func TestSelect(t *testing.T) {
 				{"USA", 48, 27.9088, 47.4761, 1863.5617, 38.82420208333333},
 			},
 		},
-		/*		{
+		/*
+			{ // Known bug, work deferred
 				TestName: "Multi Table Order By with table alias ",
 				Command:  "SELECT cn.short,city.cityid, city.name cname, lat,long  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",
 				ExpErr:   "",
@@ -833,7 +834,8 @@ func TestSelect(t *testing.T) {
 					{2, "Sheffield", 53.3667, -1.5, "GBR"},
 					{0, "Tofino", 49.1521, -125.9031, "CAN"},
 				},
-			},*/
+			},
+		*/
 		{
 			TestName: "Select COUNT with alias",
 			Command:  "SELECT count() test from person",
@@ -842,6 +844,88 @@ func TestSelect(t *testing.T) {
 			ExpCols:  []string{"test"},
 			ExpVals:  sqtypes.RawVals{{100}},
 		},
+
+		{
+			TestName: "Select group by expression with having ",
+			Command:  "SELECT age,  count() FROM names group by age HAVING count() = 1",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{10, 1},
+				{21, 1},
+				{78, 1},
+			},
+		},
+		{
+			TestName: "Select group by expression with having >1 ",
+			Command:  "SELECT age,  count() FROM names group by age having count()>1",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{20, 2},
+			},
+		},
+		{
+			TestName: "double having clause",
+			Command:  "SELECT age,  count() FROM names having sum(age) >10 group by age having count()>1",
+			ExpErr:   "Syntax Error: Duplicate Having clause, only one allowed",
+			ExpRows:  1,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{20, 2},
+			},
+		},
+		{
+			TestName: "having err",
+			Command:  "SELECT age,  count() FROM names group by age having sum()>1",
+			ExpErr:   "Syntax Error: Function SUM is missing an expression between ( and )",
+			ExpRows:  1,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{20, 2},
+			},
+		},
+		{
+			TestName: "having reduce err",
+			Command:  "SELECT age,  count() FROM names group by age having sum(first-1)>1",
+			ExpErr:   "Error: Type Mismatch: 1 is not a String",
+			ExpRows:  1,
+			ExpCols:  []string{"age", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{20, 2},
+			},
+		},
+		{
+			TestName: "Select Multitable Group By Having",
+			Command:  "select city.name, country.short, count() from city, country, person group by city.name, country.short where city.cityid = person.cityid and city.country = country.name having count() > 3 order by country.short, city.name",
+			ExpErr:   "",
+			ExpRows:  7, ExpCols: []string{"city.name", "country.short", "COUNT()"},
+			ExpVals: sqtypes.RawVals{
+				{"Joliette", "CAN", 5},
+				{"Leeds", "GBR", 4},
+				{"Chester", "USA", 4},
+				{"Hampton", "USA", 5},
+				{"Largo", "USA", 4},
+				{"Sidney", "USA", 5},
+				{"Ventnor City", "USA", 4},
+			},
+		},
+		/* - This is an issue but deferred
+		{
+			TestName: "Select Multitable complex aggregate expression",
+			Command:  "select short, min(int(lat)), int(max(lat)),int(sum(lat)),  sum(lat)/min(lat) from city, country, person group by short where city.cityid = person.cityid and city.country = country.name",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"short", "MIN(INT(lat))", "INT(MAX(lat))", "INT(SUM(lat))", "(SUM(lat)/MIN(lat))"},
+			ExpVals: sqtypes.RawVals{
+				{"CAN", 46, 49, 328, 7.130434783},
+				{"GBR", 50, 53, 471, 9.42},
+				{"USA", 27, 47, 3253, 120.481481481},
+			},
+		},
+		*/
 	}
 
 	for i, row := range data {

@@ -46,7 +46,7 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 			}
 		}
 
-		data, err := d.Tab.GetRowData(profile, d.Cols, d.Where, d.GroupBy)
+		data, err := d.Tab.GetRowData(profile, d.Cols, d.Where, d.GroupBy, nil)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -83,7 +83,7 @@ func TestGetRowData(t *testing.T) {
 	}
 	tables := sqtables.NewTableListFromTableDef(profile, testT)
 	cols := sqtables.ColsToExpr(testT.GetCols(profile))
-	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, cols)
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -288,7 +288,7 @@ func TestGetRowPtrs(t *testing.T) {
 	}
 	tables := sqtables.NewTableListFromTableDef(profile, testT)
 	cols := sqtables.ColsToExpr(testT.GetCols(profile))
-	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, cols)
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -472,7 +472,7 @@ func TestMisc(t *testing.T) {
 
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	cols := sqtables.ColsToExpr(tab.GetCols(profile))
-	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, cols)
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -578,7 +578,7 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 
 		tables := sqtables.NewTableListFromTableDef(profile, tab)
 		cols := sqtables.ColsToExpr(tab.GetCols(profile))
-		dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
+		dsData, err := sqtables.NewDataSet(profile, tables, cols)
 		if err != nil {
 			t.Error("Error setting up table: ", err)
 			return
@@ -789,7 +789,7 @@ func TestGetRowDataFromPtrs(t *testing.T) {
 
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	cols := sqtables.ColsToExpr(tab.GetCols(profile))
-	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, cols)
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -873,7 +873,7 @@ func testUpdateRowsFromPtrsFunc(d *UpdateRowsFromPtrsData) func(*testing.T) {
 
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-			ds, err := d.Tab.GetRowData(profile, cList, nil, nil)
+			ds, err := d.Tab.GetRowData(profile, cList, nil, nil, nil)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return
@@ -912,7 +912,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
 	cols := sqtables.ColsToExpr(tab.GetCols(profile))
-	dsData, err := sqtables.NewDataSet(profile, tables, cols, nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, cols)
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -1016,7 +1016,7 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected Error setting up ColList for test %s: %s", t.Name(), err)
 		}
-		data, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(d.Tab.GetCols(profile)), nil)
+		data, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(d.Tab.GetCols(profile)))
 		if err != nil {
 			t.Errorf("Unexpected Error setting up DataSet for test %s: %s", t.Name(), err)
 		}
@@ -1032,7 +1032,7 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-			ds, err := d.Tab.GetRowData(profile, cList, nil, nil)
+			ds, err := d.Tab.GetRowData(profile, cList, nil, nil, nil)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return

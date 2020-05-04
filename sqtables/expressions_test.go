@@ -1055,7 +1055,7 @@ func TestValidateCols(t *testing.T) {
 		return
 	}
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
-	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(tab.GetCols(profile)), nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(tab.GetCols(profile)))
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -1411,4 +1411,122 @@ func TestFunctionDecodeExpr(t *testing.T) {
 		_ = sqtables.DecodeExpr(bin)
 
 	})
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+//
+
+func testIsAggregateFunc(e sqtables.Expr, ExpVal bool) func(*testing.T) {
+	return func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		r := e.IsAggregate()
+
+		if r != ExpVal {
+			t.Errorf("Actual value %t does not match Expected value %t", r, ExpVal)
+			return
+		}
+	}
+}
+
+func TestAggregate(t *testing.T) {
+	data := []struct {
+		TestName string
+		Expr     sqtables.Expr
+		ExpVal   bool
+	}{
+		{TestName: "ValueExpr", Expr: sqtables.NewValueExpr(sqtypes.NewSQInt(1)), ExpVal: false},
+		{TestName: "ColExpr", Expr: sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)), ExpVal: false},
+		{TestName: "Negate ValueExpr", Expr: sqtables.NewNegateExpr(sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))), ExpVal: false},
+		{TestName: "Negate Aggregate", Expr: sqtables.NewNegateExpr(sqtables.NewFuncExpr(tokens.Count, nil)), ExpVal: true},
+		{TestName: "Func Aggregate", Expr: sqtables.NewFuncExpr(tokens.Count, nil), ExpVal: true},
+		{TestName: "Func nonAggregate", Expr: sqtables.NewFuncExpr(tokens.String, sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: false},
+		{TestName: "Func nonAggregate with Aggregate", Expr: sqtables.NewFuncExpr(tokens.String, sqtables.NewFuncExpr(tokens.Count, nil)), ExpVal: true},
+		{
+			TestName: "OpExpr no Aggregates",
+			Expr: sqtables.NewOpExpr(
+				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+			),
+			ExpVal: false,
+		},
+		{
+			TestName: "OpExpr left only Aggregate",
+			Expr: sqtables.NewOpExpr(
+				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+				tokens.Equal,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+			),
+			ExpVal: true,
+		},
+		{
+			TestName: "OpExpr right only Aggregate",
+			Expr: sqtables.NewOpExpr(
+				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+				tokens.Equal,
+				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+			),
+			ExpVal: true,
+		},
+		{
+			TestName: "OpExpr both Aggregate",
+			Expr: sqtables.NewOpExpr(
+				sqtables.NewFuncExpr(tokens.Max, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+				tokens.Equal,
+				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+			),
+			ExpVal: true,
+		},
+	}
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testIsAggregateFunc(row.Expr, row.ExpVal))
+	}
+}
+
+func testProcHavingFunc(d ProcHavingData) func(*testing.T) {
+	return func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		newExpr, flist, cnt := sqtables.ProcessHaving(d.HavingExpr, []sqtables.FuncExpr{}, 0)
+
+		fmt.Println("New Expr ", newExpr)
+		fmt.Println(flist)
+		fmt.Println("Count: ", cnt)
+		if newExpr.String() != d.ExpExpr.String() {
+			t.Errorf("Actual Expression (%s) does not match expected (%s)", newExpr, d.ExpExpr)
+		}
+	}
+}
+
+type ProcHavingData struct {
+	TestName   string
+	HavingExpr sqtables.Expr
+	ExpExpr    sqtables.Expr
+	ExpFlist   []sqtables.FuncExpr
+}
+
+func TestProcHaving(t *testing.T) {
+
+	data := []ProcHavingData{
+		{
+			TestName: "Count()>2",
+			HavingExpr: sqtables.NewOpExpr(
+				sqtables.NewFuncExpr(tokens.Count, nil),
+				tokens.GreaterThan,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(2)),
+			),
+			ExpExpr: sqtables.NewOpExpr(
+				sqtables.NewColExpr(sqtables.ColDef{ColName: " Hidden_COUNT()", Idx: 0}),
+				tokens.GreaterThan,
+				sqtables.NewValueExpr(sqtypes.NewSQInt(2)),
+			),
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testProcHavingFunc(row))
+	}
 }

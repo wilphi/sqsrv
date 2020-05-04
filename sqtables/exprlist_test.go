@@ -70,7 +70,7 @@ func TestEvalListExpr(t *testing.T) {
 		return
 	}
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
-	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(tab.GetCols(profile)), nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(tab.GetCols(profile)))
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -170,6 +170,8 @@ func commaStr(a, b string) string {
 	}
 	return a + "," + b
 }
+
+/*
 func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
@@ -196,6 +198,7 @@ func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.
 		}
 	}
 }
+*/
 
 func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqprofile.SQProfile, tables *sqtables.TableList) func(*testing.T) {
 	return func(t *testing.T) {
@@ -230,11 +233,11 @@ func TestEvalListMisc(t *testing.T) {
 
 	t.Run("Encode/Decode Empty List", testListEncDecFunc(eList))
 	ExpExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	t.Run("Pop Empty List", testPopFunc(eList, nil))
+	//	t.Run("Pop Empty List", testPopFunc(eList, nil))
 
 	t.Run("Add Expr", testAddFunc(eList, ExpExpr, false))
 
-	t.Run("Pop 1 Element List", testPopFunc(eList, ExpExpr))
+	//	t.Run("Pop 1 Element List", testPopFunc(eList, ExpExpr))
 
 	t.Run("Add 10", testAddFunc(eList, sqtables.NewValueExpr(sqtypes.NewSQInt(10)), false))
 	t.Run("Add 11", testAddFunc(eList, sqtables.NewValueExpr(sqtypes.NewSQInt(11)), false))
@@ -242,7 +245,7 @@ func TestEvalListMisc(t *testing.T) {
 	t.Run("Add Expr 2", testAddFunc(eList, ExpExpr, false))
 	t.Run("Encode/Decode List", testListEncDecFunc(eList))
 
-	t.Run("Pop 1 Element List 2", testPopFunc(eList, ExpExpr))
+	//	t.Run("Pop 1 Element List 2", testPopFunc(eList, ExpExpr))
 
 	t.Run("Add count", testAddFunc(eList, sqtables.NewFuncExpr(tokens.Count, nil), true))
 	//	t.Run("Encode/Decode List Err", testListEncDecFunc(eList))

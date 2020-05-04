@@ -413,14 +413,14 @@ func TestTLGetRowData(t *testing.T) {
 			TL:        tList,
 			ExprList:  nil,
 			WhereExpr: whereExpr,
-			ExpErr:    "Internal Error: Expression List is empty for new DataSet",
+			ExpErr:    "Internal Error: Expression List must have at least one item",
 		},
 		{
 			TestName:  "Empty Expression List",
 			TL:        tList,
 			ExprList:  sqtables.NewExprList(),
 			WhereExpr: whereExpr,
-			ExpErr:    "Internal Error: Expression List is empty for new DataSet",
+			ExpErr:    "Internal Error: Expression List must have at least one item",
 		},
 		{
 			TestName:  "Invalid colName in Expression List",
@@ -640,7 +640,7 @@ func testTLGetRowDataFunc(d TLGetRowData) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
-		data, err := d.TL.GetRowData(profile, d.ExprList, d.WhereExpr, d.GroupBy)
+		data, err := d.TL.GetRowData(profile, d.ExprList, d.WhereExpr, d.GroupBy, nil)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}

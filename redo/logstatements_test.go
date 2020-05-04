@@ -448,7 +448,7 @@ func TestDelete(t *testing.T) {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}
 	cl := sqtables.NewColListDefs(cols)
-	ds, err := sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(cl), nil)
+	ds, err := sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(cl))
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}

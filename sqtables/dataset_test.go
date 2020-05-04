@@ -25,12 +25,12 @@ func testNewDataSetFunc(
 
 		profile := sqprofile.CreateSQProfile()
 
-		data, err := sqtables.NewDataSet(profile, tables, eList, nil)
+		data, err := sqtables.NewDataSet(profile, tables, eList)
 		if sqtest.CheckErr(t, err, ExpErr) {
 			return
 		}
 
-		colStr := eList.GetNames()
+		colStr := eList.Names(false)
 		c := data.GetColNames()
 		if !reflect.DeepEqual(c, colStr) {
 			t.Errorf("Column lists do not match: %v, %v", c, colStr)
@@ -107,7 +107,7 @@ func TestDataSet(t *testing.T) {
 	t.Run("Len==0 from DataSet", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
+		data, err := sqtables.NewDataSet(profile, tables, exprCols)
 		if err != nil {
 			t.Errorf("Unexpected Error in test: %s", err.Error())
 			return
@@ -121,7 +121,7 @@ func TestDataSet(t *testing.T) {
 	t.Run("GetTable from Dataset", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
+		data, err := sqtables.NewDataSet(profile, tables, exprCols)
 		if err != nil {
 			t.Errorf("Unexpected Error in test: %s", err.Error())
 			return
@@ -134,7 +134,7 @@ func TestDataSet(t *testing.T) {
 	t.Run("GetColList from Dataset", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		data, err := sqtables.NewDataSet(profile, tables, exprCols, nil)
+		data, err := sqtables.NewDataSet(profile, tables, exprCols)
 		if err != nil {
 			t.Errorf("Unexpected Error in test: %s", err.Error())
 			return
@@ -142,7 +142,7 @@ func TestDataSet(t *testing.T) {
 		clist := data.GetColList().GetColNames()
 
 		nlist := data.GetColNames()
-		elist := exprCols.GetNames()
+		elist := exprCols.Names(false)
 		//	fmt.Printf("clist = %v\n", clist)
 		//	fmt.Printf("elist = %v\n", elist)
 		if !reflect.DeepEqual(nlist, elist) {
@@ -278,7 +278,7 @@ func testSortFunc(d SortData) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
-		data, err := sqtables.NewDataSet(profile, d.Tables, d.DataCols, nil)
+		data, err := sqtables.NewDataSet(profile, d.Tables, d.DataCols)
 		if err != nil {
 			t.Errorf("Unexpected Error in test: %s", err.Error())
 			return
@@ -323,6 +323,7 @@ type GroupByData struct {
 	Order         []sqtables.OrderItem
 	ExpVals       [][]sqtypes.Value
 	GroupBy       *sqtables.ExprList
+	Having        *sqtables.Expr
 	NewDataSetErr string
 	ExpErr        string
 	SortOrderErr  string
@@ -334,7 +335,8 @@ func testGroupByFunc(d GroupByData) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
-		data, err := sqtables.NewDataSet(profile, d.Tables, d.DataCols, d.GroupBy)
+
+		data, err := sqtables.NewQueryDataSet(profile, d.Tables, d.DataCols, d.GroupBy, d.Having)
 		if sqtest.CheckErr(t, err, d.NewDataSetErr) {
 			return
 		}
@@ -342,7 +344,7 @@ func testGroupByFunc(d GroupByData) func(*testing.T) {
 		data.Vals = d.InitVals
 
 		if d.GroupBy != nil || d.DataCols.HasAggregateFunc() {
-			err = data.GroupBy()
+			err = data.GroupBy(profile)
 		}
 
 		if sqtest.CheckErr(t, err, d.ExpErr) {
@@ -409,6 +411,12 @@ func TestGroupBy(t *testing.T) {
 	cityNameCD := sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: tab2.GetName(profile), DisplayTableName: true}
 	cityNameExp := sqtables.NewColExpr(cityNameCD)
 	ageExp := sqtables.NewColExpr(sqtables.ColDef{ColName: "age", ColType: tokens.Int})
+
+	having1 := sqtables.NewOpExpr(
+		sqtables.NewFuncExpr(tokens.Count, nil),
+		tokens.GreaterThan,
+		sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
+	)
 	data := []GroupByData{
 		{
 			TestName: "GroupBy Dataset No Group Cols",
@@ -539,6 +547,26 @@ func TestGroupBy(t *testing.T) {
 			}),
 			GroupBy:       sqtables.NewExprList(firstNameExp),
 			NewDataSetErr: "Syntax Error: lastname is not in the group by clause: firstname",
+		},
+		{
+			TestName: "Dataset implicity GroupBy int(firstname) non aggregate function",
+			Tables:   tables,
+			DataCols: sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Int, sqtables.NewColExpr(lastnameCD)), sqtables.NewFuncExpr(tokens.Count, nil)),
+			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+				{"fred", nil},
+				{nil, nil},
+				{"betty", nil},
+				{"fred", nil},
+				{"whilma", nil},
+				{"barney", nil},
+				{"barney", nil},
+				{nil, nil},
+				{"betty", nil},
+				{"fred", nil},
+			}),
+
+			GroupBy:       nil,
+			NewDataSetErr: "Syntax Error: INT(lastname) is not an aggregate function",
 		},
 		{
 			TestName: "Dataset implicit group by",
@@ -710,6 +738,32 @@ func TestGroupBy(t *testing.T) {
 			}),
 			GroupBy:       sqtables.ColsToExpr(sqtables.NewColListDefs([]sqtables.ColDef{firstnameCD})),
 			NewDataSetErr: "Syntax Error: STRING(age) is not an aggregate function",
+		},
+		{
+			TestName: "Dataset GroupBy first, last names having count>1",
+			Tables:   tables,
+			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewColExpr(lastnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+				{"fred", "flintstone", nil, nil},
+				{nil, nil, nil, nil},
+				{"betty", "rubble", nil, nil},
+				{"fred", "flintstone", nil, nil},
+				{"whilma", "flintstone", nil, nil},
+				{"barney", "rubble", nil, nil},
+				{"barney", "rubble", nil, nil},
+				{nil, nil, nil, nil},
+				{"betty", "rubble", nil, nil},
+				{"fred", "mercury", nil, nil},
+			}),
+			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+				{"barney", "rubble", 2},
+				{"betty", "rubble", 2},
+				{"fred", "flintstone", 2},
+				{nil, nil, 2},
+			}),
+			GroupBy: sqtables.NewExprList(firstNameExp, lastNameExp),
+			Having:  &having1,
+			ExpErr:  "",
 		},
 	}
 

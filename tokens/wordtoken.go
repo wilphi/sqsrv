@@ -60,6 +60,7 @@ const (
 	NotEqual
 	LessThanEqual
 	GreaterThanEqual
+	Having
 )
 
 var wordNames = []string{"Invalid", "CREATE", "TABLE",
@@ -72,7 +73,7 @@ var wordNames = []string{"Invalid", "CREATE", "TABLE",
 	"STRING", "BOOL", "FLOAT",
 	"*", ".", "=", "(", ")", ",", ":", "_", ";",
 	"<", ">", "-", "+", "/", "%",
-	"!=", "<=", ">=",
+	"!=", "<=", ">=", "HAVING",
 }
 
 //wordTokens -
@@ -128,6 +129,7 @@ var wordTokens = map[TokenID]Token{
 	NotEqual:         &WordToken{tokenID: NotEqual, flags: IsSymbol},
 	LessThanEqual:    &WordToken{tokenID: LessThanEqual, flags: IsSymbol},
 	GreaterThanEqual: &WordToken{tokenID: GreaterThanEqual, flags: IsSymbol},
+	Having:           &WordToken{tokenID: Having, flags: IsWord},
 }
 
 //WordMap will map a string to a token

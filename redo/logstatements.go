@@ -145,7 +145,7 @@ func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 	if err := colList.Validate(profile, tables); err != nil {
 		return err
 	}
-	dataSet, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(colList), nil)
+	dataSet, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(colList))
 	if err != nil {
 		return err
 	}

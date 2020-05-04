@@ -71,7 +71,7 @@ func TestUpdateRow(t *testing.T) {
 	}
 
 	tables := sqtables.NewTableListFromTableDef(profile, testT)
-	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)), nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)))
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -231,7 +231,7 @@ func TestCreateRow(t *testing.T) {
 	}
 
 	tables := sqtables.NewTableListFromTableDef(profile, testT)
-	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)), nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)))
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -450,7 +450,7 @@ func TestMiscRowFunctions(t *testing.T) {
 	}
 
 	tables := sqtables.NewTableListFromTableDef(profile, testT)
-	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)), nil)
+	dsData, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(testT.GetCols(profile)))
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return

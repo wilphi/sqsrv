@@ -170,16 +170,17 @@ func (tl *TableList) TableNames() []string {
 }
 
 // GetRowData - Returns a dataset with the data from the tables
-func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList) (*DataSet, error) {
+func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList, havingExpr *Expr) (*DataSet, error) {
 	var err error
 	var finalResult *DataSet
 	var whereList *ExprList
 	timeOut := new(int32)
 
-	// Setup the result dataset, this will perform checks to make sure the eList and groupBy are valid
-	finalResult, err = NewDataSet(profile, tl, eList, groupBy)
-	if err != nil {
-		return nil, err
+	if eList == nil || eList.Len() < 1 {
+		return nil, sqerr.NewInternal("Expression List must have at least one item")
+	}
+	if tl.Len() == 0 {
+		return nil, sqerr.NewInternal("TableList must not be empty in TableList.GetRowData")
 	}
 
 	err = tl.RLock(profile)
@@ -194,26 +195,26 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 		atomic.StoreInt32(timeOut, 1)
 	}()
 
-	if eList == nil || eList.Len() < 1 {
-		return nil, sqerr.NewInternal("Expression List must have at least one item")
-	}
-	if tl.Len() == 0 {
-		return nil, sqerr.NewInternal("TableList must not be empty in TableList.GetRowData")
-	}
 	if tl.Len() == 1 {
 		// Single table query
 		var tab *TableDef
 		for _, tabInfo := range tl.tables {
 			tab = tabInfo.Table
 		}
-		finalResult, err = tab.GetRowData(profile, eList, whereExpr, groupBy)
+		finalResult, err = tab.GetRowData(profile, eList, whereExpr, groupBy, havingExpr)
 		if err != nil {
 			return nil, err
 		}
 		if groupBy != nil || eList.HasAggregateFunc() {
-			err = finalResult.GroupBy()
+			err = finalResult.GroupBy(profile)
+
 		}
 		return finalResult, err
+	}
+	// Setup the result dataset, this will perform checks to make sure the eList and groupBy are valid
+	finalResult, err = NewQueryDataSet(profile, tl, eList, groupBy, havingExpr)
+	if err != nil {
+		return nil, err
 	}
 
 	if whereExpr == nil {
@@ -254,7 +255,7 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 		whereList = ColsToExpr(NewColListDefs(cols))
 
 		// Get the pointers to the rows based on the conditions
-		tmpData, err := tabInfo.Table.GetRowData(profile, whereList, whereExpr, nil)
+		tmpData, err := tabInfo.Table.GetRowData(profile, whereList, whereExpr, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -373,7 +374,7 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 		finalResult.Vals[i], err = eList.Evaluate(profile, EvalPartial, rows...)
 	}
 	if groupBy != nil || eList.HasAggregateFunc() {
-		err = finalResult.GroupBy()
+		err = finalResult.GroupBy(profile)
 	}
 	return finalResult, nil
 

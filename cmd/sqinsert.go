@@ -81,7 +81,7 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 		return sqerr.New("Table " + ins.tableName + " does not exist")
 	}
 
-	ins.data, err = sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(sqtables.NewColListNames(colNames)), nil)
+	ins.data, err = sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(sqtables.NewColListNames(colNames)))
 	if err != nil {
 		return err
 	}

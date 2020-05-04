@@ -54,6 +54,13 @@ func TestGetIdentList(t *testing.T) {
 
 	data := []GetIdentListData{
 		{
+			TestName:     "Empty",
+			Terminator:   tokens.CloseBracket,
+			Command:      "",
+			ExpErr:       "Syntax Error: Expecting name of column",
+			ExpectedCols: nil,
+		},
+		{
 			TestName:     "One Col",
 			Terminator:   tokens.CloseBracket,
 			Command:      "col1",
@@ -115,6 +122,13 @@ func TestGetIdentList(t *testing.T) {
 			Command:      ")",
 			ExpErr:       "Syntax Error: No columns defined for table",
 			ExpectedCols: []string{"col1", "col2", "col3"},
+		},
+		{
+			TestName:     "hanging comma at end of statement",
+			Terminator:   tokens.NilToken,
+			Command:      "col1,",
+			ExpErr:       "Syntax Error: Unexpected \",\" before \"the end of statement\"",
+			ExpectedCols: nil,
 		},
 	}
 

@@ -16,7 +16,7 @@ func GetIdentList(tkns *tokens.TokenList, terminatorID tokens.TokenID) ([]string
 	isHangingComma := false
 	// loop to get the columns of the INSERT
 	for {
-		if (terminatorID == tokens.NilToken && tkns.IsEmpty()) || tkns.Peek() == tokens.GetWordToken(terminatorID) {
+		if (terminatorID == tokens.NilToken && tkns.IsEmpty()) || (terminatorID != tokens.NilToken && tkns.Peek() == tokens.GetWordToken(terminatorID)) {
 			if isHangingComma {
 				msg := ""
 				if tkns.IsEmpty() {
@@ -441,24 +441,4 @@ func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminat
 	}
 
 	return tables, nil
-}
-
-// ParseWhereClause takes a token list and extracts the where clause
-func ParseWhereClause(tkns *tokens.TokenList, terminators ...tokens.TokenID) (whereExpr sqtables.Expr, err error) {
-
-	whereExpr, err = GetExpr(tkns, nil, 0, terminators...)
-	if err != nil {
-		return nil, err
-	}
-	// Make sure that count is not used in where clause
-	if strings.Contains(whereExpr.String(), "COUNT()") {
-		return nil, sqerr.New("Unable to evaluate \"count()\"")
-	}
-
-	whereExpr, err = whereExpr.Reduce()
-	if err != nil {
-		return nil, err
-	}
-
-	return
 }

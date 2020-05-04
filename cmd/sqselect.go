@@ -20,6 +20,7 @@ type SelectStmt struct {
 	whereExpr  sqtables.Expr
 	orderBy    []sqtables.OrderItem
 	groupBy    *sqtables.ExprList
+	havingExpr *sqtables.Expr
 }
 
 // Select command with function prototype as required for dispatching
@@ -84,7 +85,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 		return sqerr.NewSyntax("Expecting FROM")
 	}
 	stmt.tkns.Remove()
-	stmt.tables, err = GetTableList(profile, stmt.tkns, tokens.Where, tokens.Order, tokens.Group)
+	stmt.tables, err = GetTableList(profile, stmt.tkns, tokens.Where, tokens.Order, tokens.Group, tokens.Having)
 	if err != nil {
 		return err
 	}
@@ -116,15 +117,17 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 		}
 	}
 
-	// loop twice just in case the where clause is after the order by clause
-	for i := 0; i < 2; i++ {
+	// loop until no new clause is processed in a pass
+	for clauseProcessed := true; clauseProcessed; {
+		clauseProcessed = false
 		// Optional Where clause processing goes here
 		if stmt.tkns.IsA(tokens.Where) {
+			clauseProcessed = true
 			if stmt.whereExpr != nil {
 				return sqerr.NewSyntax("Duplicate where clause, only one allowed")
 			}
 			stmt.tkns.Remove()
-			stmt.whereExpr, err = ParseWhereClause(stmt.tkns, tokens.Order, tokens.Group)
+			stmt.whereExpr, err = ParseWhereClause(stmt.tkns, tokens.Order, tokens.Group, tokens.Having)
 			if err != nil {
 				return err
 			}
@@ -135,6 +138,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 		}
 		// Optional Group By Clause processing goes here
 		if stmt.tkns.IsA(tokens.Group) {
+			clauseProcessed = true
 			if stmt.groupBy != nil {
 				return sqerr.NewSyntax("Duplicate group by clause, only one allowed")
 			}
@@ -152,11 +156,24 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 
 		// Optional Order By clause processing goes here
 		if stmt.tkns.IsA(tokens.Order) {
+			clauseProcessed = true
 			if stmt.orderBy != nil {
 				return sqerr.NewSyntax("Duplicate order by clause, only one allowed")
 			}
 			stmt.tkns.Remove()
 			stmt.orderBy, err = OrderByClause(stmt.tkns)
+			if err != nil {
+				return err
+			}
+		}
+
+		//Optional Having clause processing
+		if stmt.tkns.IsA(tokens.Having) {
+			clauseProcessed = true
+			if stmt.havingExpr != nil {
+				return sqerr.NewSyntax("Duplicate Having clause, only one allowed")
+			}
+			stmt.havingExpr, err = HavingClause(stmt.tkns, tokens.Order, tokens.Group, tokens.Where)
 			if err != nil {
 				return err
 			}
@@ -174,7 +191,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 // SelectExecute executes the select command against the data to return the result
 func (stmt *SelectStmt) SelectExecute(profile *sqprofile.SQProfile) (*sqtables.DataSet, error) {
 
-	data, err := stmt.tables.GetRowData(profile, stmt.eList, stmt.whereExpr, stmt.groupBy)
+	data, err := stmt.tables.GetRowData(profile, stmt.eList, stmt.whereExpr, stmt.groupBy, stmt.havingExpr)
 	if err != nil {
 		return nil, err
 	}

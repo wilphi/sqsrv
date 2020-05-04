@@ -11,9 +11,9 @@ import (
 
 //ExprList a list of Expresions
 type ExprList struct {
-	exprlist        []Expr
-	isAggregateFunc bool
-	isValid         bool
+	exprlist []Expr
+	isValid  bool
+	isHidden []bool
 }
 
 //Len the number of expressions in list
@@ -55,17 +55,20 @@ func (el *ExprList) String() string {
 }
 
 //Add an expression to the end of the list
-func (el *ExprList) Add(e Expr) {
-	// Add invalidates expression list
-	el.isValid = false
-
-	fexpr, ok := e.(*FuncExpr)
-	if ok {
-		el.isAggregateFunc = fexpr.IsAggregate()
-	}
-	el.exprlist = append(el.exprlist, e)
+func (el *ExprList) Add(e Expr) int {
+	return el.AddHidden(e, false)
 }
 
+//AddHidden adds a expression to the end of the list that may or maynot be hidden
+func (el *ExprList) AddHidden(e Expr, isHidden bool) int {
+	// Add invalidates expression list
+	el.isValid = false
+	el.exprlist = append(el.exprlist, e)
+	el.isHidden = append(el.isHidden, isHidden)
+	return len(el.exprlist) - 1
+}
+
+/*
 //Pop removes an expression from the end of the list
 func (el *ExprList) Pop() Expr {
 	// Pop does not affect isValid
@@ -78,6 +81,7 @@ func (el *ExprList) Pop() Expr {
 	el.exprlist = el.exprlist[:n]
 	return ex
 }
+*/
 
 // ColsToExpr creates an expression list out of a col list
 func ColsToExpr(clist *ColList) *ExprList {
@@ -90,10 +94,13 @@ func ColsToExpr(clist *ColList) *ExprList {
 	return &elist
 }
 
-// GetNames produces a string array of the names of each item in the list
-func (el *ExprList) GetNames() []string {
+// Names produces a string array of the names of each item in the list
+func (el *ExprList) Names(incHidden bool) []string {
 	names := make([]string, el.Len())
 	for i, ex := range el.exprlist {
+		if el.isHidden[i] && !incHidden {
+			continue
+		}
 		names[i] = ex.Name()
 	}
 	return names
@@ -139,18 +146,23 @@ func NewExprList(exprs ...Expr) *ExprList {
 	return el
 }
 
-// HasAggregateFunc indicates if the list has a count function expression
+// HasAggregateFunc indicates if the list has a aggregate function expression
 func (el *ExprList) HasAggregateFunc() bool {
-	return el.isAggregateFunc
+	for _, e := range el.exprlist {
+		if e.IsAggregate() {
+			return true
+		}
+	}
+	return false
 }
 
 // FindAggregateFuncs returns a list of aggregate functions in the Expression list
 func (el *ExprList) FindAggregateFuncs() (flist []*FuncExpr, idx []int) {
 
 	for i, expr := range el.exprlist {
-		fexpr, ok := expr.(*FuncExpr)
-		if ok && fexpr.IsAggregate() {
-			flist = append(flist, fexpr)
+		list := FindAggregateFuncs(expr)
+		for _, e := range list {
+			flist = append(flist, &e)
 			idx = append(idx, i)
 		}
 	}

@@ -51,6 +51,7 @@ type Expr interface {
 	Encode() *sqbin.Codec
 	Decode(*sqbin.Codec)
 	SetAlias(alias string)
+	IsAggregate() bool
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -164,13 +165,17 @@ func (e *ValueExpr) SetAlias(alias string) {
 	e.alias = alias
 }
 
+// IsAggregate is true if the expression contains an aggregate function
+func (e *ValueExpr) IsAggregate() bool {
+	return false
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ColExpr stores information about a column to allow Evaluate() to determine the correct Value
 type ColExpr struct {
-	col    ColDef
-	alias  string
-	hidden bool
+	col   ColDef
+	alias string
 }
 
 // Left - ColExpr is a leaf node, it will always return nil
@@ -282,6 +287,10 @@ func (e *ColExpr) Reduce() (Expr, error) {
 
 // ValidateCols make sure that the cols in the expression match the tabledef
 func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+	if e.col.TableName == DataSetTableName {
+		return nil
+	}
+
 	cd, err := tables.FindColDef(profile, e.col.ColName, e.col.TableName)
 	if err != nil {
 		return err
@@ -293,12 +302,6 @@ func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) 
 // NewColExpr creates a new ColExpr object
 func NewColExpr(c ColDef) Expr {
 	return &ColExpr{col: c}
-
-}
-
-// NewHiddenColExpr creates a new ColExpr object that is hidden
-func NewHiddenColExpr(c ColDef) Expr {
-	return &ColExpr{col: c, hidden: true}
 
 }
 
@@ -326,6 +329,11 @@ func (e *ColExpr) Decode(dec *sqbin.Codec) {
 //SetAlias sets an alternative name for the expression
 func (e *ColExpr) SetAlias(alias string) {
 	e.alias = alias
+}
+
+// IsAggregate is true if the expression contains an aggregate function
+func (e *ColExpr) IsAggregate() bool {
+	return false
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -526,6 +534,11 @@ func (e *OpExpr) SetAlias(alias string) {
 	e.alias = alias
 }
 
+// IsAggregate is true if the expression contains an aggregate function
+func (e *OpExpr) IsAggregate() bool {
+	return e.exL.IsAggregate() || e.exR.IsAggregate()
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // NegateExpr allows for an operator to create a value based on two other values
@@ -676,6 +689,11 @@ func (e *NegateExpr) SetAlias(alias string) {
 	e.alias = alias
 }
 
+// IsAggregate is true if the expression contains an aggregate function
+func (e *NegateExpr) IsAggregate() bool {
+	return e.exL.IsAggregate()
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // FuncExpr stores information about a function to allow Evaluate() to determine the correct Value
@@ -797,11 +815,12 @@ func evalFunc(cmd tokens.TokenID, v sqtypes.Value) (retVal sqtypes.Value, err er
 
 // IsAggregate returns true if the function is an aggregate
 func (e *FuncExpr) IsAggregate() bool {
-	switch e.Cmd {
-	case tokens.Count, tokens.Sum, tokens.Avg, tokens.Min, tokens.Max:
-		return true
+	tkn := tokens.GetWordToken(e.Cmd)
+	ret := tkn.TestFlags(tokens.IsAggregate)
+	if !ret && e.exL != nil {
+		return e.exL.IsAggregate()
 	}
-	return false
+	return ret
 }
 
 // Reduce will colapse the expression to it's simplest form
@@ -878,4 +897,69 @@ func DecodeExpr(dec *sqbin.Codec) Expr {
 	}
 	ex.Decode(dec)
 	return ex
+}
+
+//FindAggregateFuncs finds the aggregate functions in the expression
+func FindAggregateFuncs(e Expr) []FuncExpr {
+	var flist []FuncExpr
+	var elist []Expr
+
+	elist = append(elist, e)
+
+	for len(elist) > 0 {
+		exp := elist[0]
+		elist = elist[1:]
+		if exp.IsAggregate() {
+			fexpr, ok := exp.(*FuncExpr)
+			if ok && tokens.GetWordToken(fexpr.Cmd).TestFlags(tokens.IsAggregate) {
+				flist = append(flist, *fexpr)
+			}
+			el := exp.Left()
+			er := exp.Right()
+			if el != nil {
+				elist = append(elist, el)
+			}
+			if er != nil {
+				elist = append(elist, er)
+			}
+		}
+
+	}
+	return flist
+
+}
+
+//ProcessHaving reworks the having clause
+func ProcessHaving(e Expr, flist []FuncExpr, cnt int) (Expr, []FuncExpr, int) {
+	var alias string
+	var exp, lexpr, rexpr Expr
+
+	if e.IsAggregate() {
+		fexpr, ok := e.(*FuncExpr)
+		if ok && tokens.GetWordToken(fexpr.Cmd).TestFlags(tokens.IsAggregate) {
+			alias = " Hidden_" + fexpr.Name()
+			fexpr.SetAlias(alias)
+			flist = append(flist, *fexpr)
+			exp = NewColExpr(ColDef{ColName: alias, Idx: cnt, TableName: DataSetTableName})
+			cnt++
+			return exp, flist, cnt
+		}
+		exp = e
+		el := e.Left()
+		er := e.Right()
+		if el != nil {
+			lexpr, flist, cnt = ProcessHaving(el, flist, cnt)
+			exp.SetLeft(lexpr)
+		}
+		if er != nil {
+			rexpr, flist, cnt = ProcessHaving(er, flist, cnt)
+			exp.SetRight(rexpr)
+
+		}
+	} else {
+		exp = e
+	}
+
+	return exp, flist, cnt
+
 }
