@@ -139,7 +139,8 @@ func TestNumberFile(t *testing.T) {
 			MaxFiles: 10,
 			Count:    5,
 		},
-		/*		{
+		/*	Known Bug work deferred
+			{
 				TestName: "Renumber past max",
 				FileName: "exists.txt",
 				ExpErr:   "Error: Unable to re-number file, It has been re-numbered to many times",

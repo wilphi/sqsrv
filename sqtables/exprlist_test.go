@@ -171,7 +171,7 @@ func commaStr(a, b string) string {
 	return a + "," + b
 }
 
-/*
+/* No currently used
 func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")

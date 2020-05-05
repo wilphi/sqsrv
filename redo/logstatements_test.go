@@ -347,12 +347,6 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			t.Error("Columns do not match expected")
 		}
 
-		/*		// verify Get/Set for ID
-				s.SetID(d.ID)
-				if s.GetID() != d.ID {
-					t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-				}
-		*/
 		// Test the identstr
 		if d.Identstr != s.Identify(d.ID) {
 			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(d.ID), d.Identstr)
@@ -499,13 +493,6 @@ func testDeleteFunc(d DeleteData) func(*testing.T) {
 
 		var err error
 		s := redo.NewDeleteRows(d.TableName, d.RowPtrs)
-		/*		// Test Set/Get ID
-				s.SetID(d.ID)
-				if s.GetID() != d.ID {
-					t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-					return
-				}
-		*/
 
 		// Test Identify string
 		if d.Identstr != s.Identify(d.ID) {
@@ -613,13 +600,6 @@ func testDropTableFunc(d DropTableData) func(*testing.T) {
 
 		s := redo.NewDropDDL(d.TableName)
 
-		/*	// Test Set/Get ID
-			s.SetID(d.ID)
-			if s.GetID() != d.ID {
-				t.Errorf("ID (%d) does not match Expected ID (%d)", s.GetID(), d.ID)
-				return
-			}
-		*/
 		// Test Identify
 		if d.Identstr != s.Identify(d.ID) {
 			t.Errorf("Identity string (%s) does not match expected (%s)", s.Identify(d.ID), d.Identstr)

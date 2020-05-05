@@ -24,13 +24,14 @@ func init() {
 }
 
 type RowDataTest struct {
-	TestName string
-	Tab      *sqtables.TableDef
-	Cols     *sqtables.ExprList
-	Where    sqtables.Expr
-	GroupBy  *sqtables.ExprList
-	ExpErr   string
-	ExpPtrs  []int
+	TestName       string
+	Tab            *sqtables.TableDef
+	Cols           *sqtables.ExprList
+	Where          sqtables.Expr
+	GroupBy        *sqtables.ExprList
+	ExpErr         string
+	ExpPtrs        []int
+	SkipRowNumTest bool
 }
 
 func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*testing.T) {
@@ -57,9 +58,11 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 		}
 
 		// make sure the row numbers match
-		for i := range data.Vals {
-			if !data.Vals[i][0].Equal(sqtypes.NewSQInt(d.ExpPtrs[i])) {
-				t.Errorf("Returned Row num (%d) does not match expected (%d)", data.Vals[i][0], d.ExpPtrs[i])
+		if !d.SkipRowNumTest {
+			for i := range data.Vals {
+				if !data.Vals[i][0].Equal(sqtypes.NewSQInt(d.ExpPtrs[i])) {
+					t.Errorf("Returned Row num (%d) does not match expected (%d)", data.Vals[i][0], d.ExpPtrs[i])
+				}
 			}
 		}
 	}
@@ -146,7 +149,8 @@ func TestGetRowData(t *testing.T) {
 		},
 		{
 			TestName: "col1 < 5 ->0",
-			Tab:      testT, Cols: cols,
+			Tab:      testT,
+			Cols:     cols,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
 					sqtables.NewColDef("col1", tokens.Int, false)),
@@ -182,14 +186,15 @@ func TestGetRowData(t *testing.T) {
 			ExpErr:  "Error: Type Mismatch: 6 is not a String",
 			ExpPtrs: []int{1},
 		},
-		/*		{
-				TestName: "Count Expression",
-				Tab:      testT,
-				Cols:     sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Count, nil)),
-				WhereStr: "",
-				ExpErr:   "",
-				ExpPtrs:  []int{}, //does not return a pointer only the count of rows
-			},*/
+		{
+			TestName:       "Count Expression",
+			Tab:            testT,
+			Cols:           sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Count, nil)),
+			Where:          nil,
+			ExpErr:         "",
+			ExpPtrs:        []int{1, 2},
+			SkipRowNumTest: true,
+		},
 		{
 			TestName: "Invalid Col in Expression",
 			Tab:      testT,

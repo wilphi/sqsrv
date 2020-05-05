@@ -819,22 +819,22 @@ func TestSelect(t *testing.T) {
 				{"USA", 48, 27.9088, 47.4761, 1863.5617, 38.82420208333333},
 			},
 		},
-		/*
-			{ // Known bug, work deferred
-				TestName: "Multi Table Order By with table alias ",
-				Command:  "SELECT cn.short,city.cityid, city.name cname, lat,long  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",
-				ExpErr:   "",
-				ExpRows:  6,
-				ExpCols:  []string{"city.cityid", "cname", "lat", "long", "cn.short"},
-				ExpVals: sqtypes.RawVals{
-					{5, "Hove", 50.8333, -0.1833, "GBR"},
-					{1, "Joliette", 46.0333, -73.4333, "CAN"},
-					{3, "Leeds", 53.83, -1.58, "GBR"},
-					{4, "Manchester", 53.5004, -2.248, "GBR"},
-					{2, "Sheffield", 53.3667, -1.5, "GBR"},
-					{0, "Tofino", 49.1521, -125.9031, "CAN"},
-				},
+		/*// Known bug, work deferred
+		{ // Known bug, work deferred
+			TestName: "Multi Table Order By with table alias ",
+			Command:  "SELECT cn.short,city.cityid, city.name cname, lat,long  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",
+			ExpErr:   "",
+			ExpRows:  6,
+			ExpCols:  []string{"city.cityid", "cname", "lat", "long", "cn.short"},
+			ExpVals: sqtypes.RawVals{
+				{5, "Hove", 50.8333, -0.1833, "GBR"},
+				{1, "Joliette", 46.0333, -73.4333, "CAN"},
+				{3, "Leeds", 53.83, -1.58, "GBR"},
+				{4, "Manchester", 53.5004, -2.248, "GBR"},
+				{2, "Sheffield", 53.3667, -1.5, "GBR"},
+				{0, "Tofino", 49.1521, -125.9031, "CAN"},
 			},
+		},
 		*/
 		{
 			TestName: "Select COUNT with alias",

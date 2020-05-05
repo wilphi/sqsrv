@@ -68,7 +68,7 @@ func (el *ExprList) AddHidden(e Expr, isHidden bool) int {
 	return len(el.exprlist) - 1
 }
 
-/*
+/* Not currently used
 //Pop removes an expression from the end of the list
 func (el *ExprList) Pop() Expr {
 	// Pop does not affect isValid
