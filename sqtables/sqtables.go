@@ -11,6 +11,7 @@ import (
 	"github.com/wilphi/sqsrv/sqmutex"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -23,8 +24,8 @@ const (
 
 // TableDef -  table definition
 type TableDef struct {
-	tableName  string   // immutable
-	tableCols  []ColDef // immutable
+	tableName  string       // immutable
+	tableCols  []column.Def // immutable
 	rowm       map[sqptr.SQPtr]*RowDef
 	nextOffset int64
 	nextRowID  *uint64
@@ -38,7 +39,7 @@ type TableDef struct {
 var RowOrder = false
 
 // CreateTableDef -
-func CreateTableDef(name string, cols ...ColDef) *TableDef {
+func CreateTableDef(name string, cols ...column.Def) *TableDef {
 	var tab TableDef
 
 	tab.tableName = strings.ToLower(name)
@@ -186,7 +187,7 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 }
 
 // GetRowData - Returns a dataset with the data from table
-func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList, havingExpr *Expr) (*DataSet, error) {
+func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList, havingExpr *Expr, alias string) (*DataSet, error) {
 	var err error
 
 	err = t.RLock(profile)
@@ -196,7 +197,7 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 
 	defer t.RUnlock(profile)
 
-	tables := NewTableListFromTableDef(profile, t)
+	tables := NewTableList(profile, []TableRef{{TableName: t.GetName(profile), Alias: alias, Table: t}})
 
 	// Setup the dataset for the results
 	ret, err := NewQueryDataSet(profile, tables, eList, groupBy, havingExpr)
@@ -232,7 +233,7 @@ func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whe
 // FindCol - Returns the col index and col Type index < 0 if not found
 func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, tokens.TokenID) {
 	var i int
-	var col ColDef
+	var col column.Def
 	for i, col = range t.tableCols {
 		if col.ColName == name {
 			return i, col.ColType
@@ -241,8 +242,8 @@ func (t *TableDef) FindCol(profile *sqprofile.SQProfile, name string) (int, toke
 	return -1, tokens.NilToken
 }
 
-// FindColDef - Returns coldef based on name
-func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *ColDef {
+// FindColDef - Returns column.Def based on name
+func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *column.Def {
 
 	for _, col := range t.tableCols {
 		if col.ColName == name {
@@ -253,8 +254,8 @@ func (t *TableDef) FindColDef(profile *sqprofile.SQProfile, name string) *ColDef
 }
 
 // GetCols - Returns the list of col TypeDef for the table
-func (t *TableDef) GetCols(profile *sqprofile.SQProfile) *ColList {
-	return NewColListDefs(t.tableCols)
+func (t *TableDef) GetCols(profile *sqprofile.SQProfile) *column.List {
+	return column.NewListDefs(t.tableCols)
 }
 
 // GetColNames - returns cols names for the table

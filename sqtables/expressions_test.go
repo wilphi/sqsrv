@@ -8,6 +8,7 @@ import (
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -121,12 +122,12 @@ func testGetNameFunc(e sqtables.Expr, ExpVal string, alias string) func(*testing
 		}
 	}
 }
-func testGetColDefFunc(e sqtables.Expr, col sqtables.ColDef, ExpPanic string) func(*testing.T) {
+func testGetColDefFunc(e sqtables.Expr, col column.Ref, ExpPanic string) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, ExpPanic)
 
-		if !reflect.DeepEqual(e.ColDef(), col) {
-			t.Errorf("Actual value %v does not match Expected value %v", e.ColDef(), col)
+		if !reflect.DeepEqual(e.ColRef(), col) {
+			t.Errorf("Actual value %v does not match Expected value %v", e.ColRef(), col)
 			return
 		}
 	}
@@ -135,7 +136,7 @@ func testColDefsFunc(d ColDefsData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		retCols := d.TestExpr.ColDefs(d.Tables...)
+		retCols := d.TestExpr.ColRefs(d.Tables...)
 		if !reflect.DeepEqual(retCols, d.ExpCols) {
 			t.Errorf("Actual value %v does not match Expected value %v", retCols, d.ExpCols)
 			return
@@ -144,7 +145,7 @@ func testColDefsFunc(d ColDefsData) func(*testing.T) {
 }
 func TestGetLeftExpr(t *testing.T) {
 	vExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	cExpr := sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int})
+	cExpr := sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int})
 	data := []struct {
 		TestName string
 		TestExpr sqtables.Expr
@@ -165,7 +166,7 @@ func TestGetLeftExpr(t *testing.T) {
 
 func TestSetLeftExpr(t *testing.T) {
 	vExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	cExpr := sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int})
+	cExpr := sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int})
 	data := []struct {
 		TestName string
 		TestExpr sqtables.Expr
@@ -187,7 +188,7 @@ func TestSetLeftExpr(t *testing.T) {
 
 func TestGetRightExpr(t *testing.T) {
 	vExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	cExpr := sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int})
+	cExpr := sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int})
 	data := []struct {
 		TestName string
 		TestExpr sqtables.Expr
@@ -208,7 +209,7 @@ func TestGetRightExpr(t *testing.T) {
 
 func TestSetRightExpr(t *testing.T) {
 	vExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	cExpr := sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int})
+	cExpr := sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int})
 	data := []struct {
 		TestName string
 		TestExpr sqtables.Expr
@@ -248,19 +249,19 @@ func TestStringExpr(t *testing.T) {
 		},
 		{
 			TestName: "ColExpr",
-			TestExpr: sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int}),
+			TestExpr: sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int}),
 			ExpVal:   "col1",
 		},
 		{
 			TestName: "ColExpr with alias",
-			TestExpr: sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int}),
+			TestExpr: sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int}),
 			ExpVal:   "col1 cAlias",
 			Alias:    "cAlias",
 		},
 		{
 			TestName: "OpExpr",
 			TestExpr: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int}),
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int}),
 				tokens.Plus,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
 			),
@@ -269,7 +270,7 @@ func TestStringExpr(t *testing.T) {
 		{
 			TestName: "OpExpr with Alias",
 			TestExpr: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int}),
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int}),
 				tokens.Plus,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
 			),
@@ -296,8 +297,8 @@ func TestGetNameExpr(t *testing.T) {
 		Alias    string
 	}{
 		{TestName: "ValueExpr", TestExpr: sqtables.NewValueExpr(sqtypes.NewSQInt(1)), ExpVal: "1", Alias: "vAlias"},
-		{TestName: "ColExpr", TestExpr: sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int}), ExpVal: "col1", Alias: "colAlias"},
-		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int}), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "(col1+1)", Alias: "opAlias"},
+		{TestName: "ColExpr", TestExpr: sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int}), ExpVal: "col1", Alias: "colAlias"},
+		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int}), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "(col1+1)", Alias: "opAlias"},
 		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "(-1)", Alias: "negAlias"},
 		{TestName: "FloatExpr", TestExpr: sqtables.NewFuncExpr(tokens.Float, sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: "FLOAT(1)", Alias: "funcAlias"},
 	}
@@ -310,19 +311,19 @@ func TestGetNameExpr(t *testing.T) {
 
 func TestGetColDefExpr(t *testing.T) {
 	vExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	cExpr := sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int})
+	cExpr := sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int})
 	data := []struct {
 		TestName string
 		TestExpr sqtables.Expr
-		ExpCol   sqtables.ColDef
+		ExpCol   column.Ref
 		ExpPanic string
 	}{
-		{TestName: "ValueExpr", TestExpr: vExpr, ExpCol: sqtables.ColDef{ColName: "1", ColType: tokens.Int}},
-		{TestName: "ColExpr", TestExpr: cExpr, ExpCol: sqtables.ColDef{ColName: "col1", ColType: tokens.Int}},
-		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, tokens.Plus, vExpr), ExpCol: sqtables.ColDef{ColName: "(col1+1)", ColType: tokens.Int}},
-		{TestName: "CountExpr", TestExpr: sqtables.NewFuncExpr(tokens.Count, nil), ExpCol: sqtables.ColDef{ColName: "COUNT()", ColType: tokens.Count}},
-		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpCol: sqtables.ColDef{ColName: "(-1)", ColType: tokens.Int}},
-		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.Float, vExpr), ExpCol: sqtables.ColDef{ColName: "FLOAT(1)", ColType: tokens.Float}},
+		{TestName: "ValueExpr", TestExpr: vExpr, ExpCol: column.Ref{ColName: "1", ColType: tokens.Int}},
+		{TestName: "ColExpr", TestExpr: cExpr, ExpCol: column.Ref{ColName: "col1", ColType: tokens.Int}},
+		{TestName: "OpExpr", TestExpr: sqtables.NewOpExpr(cExpr, tokens.Plus, vExpr), ExpCol: column.Ref{ColName: "(col1+1)", ColType: tokens.Int}},
+		{TestName: "CountExpr", TestExpr: sqtables.NewFuncExpr(tokens.Count, nil), ExpCol: column.Ref{ColName: "COUNT()", ColType: tokens.Count}},
+		{TestName: "NegateExpr", TestExpr: sqtables.NewNegateExpr(vExpr), ExpCol: column.Ref{ColName: "(-1)", ColType: tokens.Int}},
+		{TestName: "FuncExpr", TestExpr: sqtables.NewFuncExpr(tokens.Float, vExpr), ExpCol: column.Ref{ColName: "FLOAT(1)", ColType: tokens.Float}},
 	}
 
 	for i, row := range data {
@@ -334,36 +335,38 @@ func TestGetColDefExpr(t *testing.T) {
 type ColDefsData struct {
 	TestName string
 	TestExpr sqtables.Expr
-	ExpCols  []sqtables.ColDef
+	ExpCols  []column.Ref
 	Tables   []*sqtables.TableDef
 	ExpPanic string
 }
 
 func TestColDefsExpr(t *testing.T) {
-	col1 := sqtables.ColDef{ColName: "col1", ColType: tokens.Int, TableName: "tablea"}
-	col2 := sqtables.ColDef{ColName: "col2", ColType: tokens.String, TableName: "tablea"}
-	col2b := sqtables.ColDef{ColName: "col1", ColType: tokens.String, TableName: "tableb"}
-	col3b := sqtables.ColDef{ColName: "col3", ColType: tokens.String, TableName: "tableb"}
+	col1 := column.Def{ColName: "col1", ColType: tokens.Int, TableName: "tablea"}
+	col1R := col1.Ref()
+	col2 := column.Def{ColName: "col2", ColType: tokens.String, TableName: "tablea"}
+	col2b := column.Def{ColName: "col1", ColType: tokens.String, TableName: "tableb"}
+	col2bR := col2b.Ref()
+	col3b := column.Def{ColName: "col3", ColType: tokens.String, TableName: "tableb"}
 	taba := sqtables.CreateTableDef("tablea", col1, col2)
 	tabb := sqtables.CreateTableDef("tableb", col2b, col3b)
 	vExpr := sqtables.NewValueExpr(sqtypes.NewSQInt(1))
-	cExpr := sqtables.NewColExpr(col1)
-	c2bExpr := sqtables.NewColExpr(col2b)
+	cExpr := sqtables.NewColExpr(col1.Ref())
+	c2bExpr := sqtables.NewColExpr(col2b.Ref())
 	// data
 	data := []ColDefsData{
 		{TestName: "ValueExpr", TestExpr: vExpr, ExpCols: nil},
-		{TestName: "ColExpr", TestExpr: cExpr, ExpCols: []sqtables.ColDef{col1}, Tables: []*sqtables.TableDef{taba, tabb}},
+		{TestName: "ColExpr", TestExpr: cExpr, ExpCols: []column.Ref{col1R}, Tables: []*sqtables.TableDef{taba, tabb}},
 		{TestName: "ColExpr different table", TestExpr: cExpr, ExpCols: nil, Tables: []*sqtables.TableDef{tabb}},
-		{TestName: "ColExpr nil table", TestExpr: cExpr, ExpCols: []sqtables.ColDef{col1}, Tables: nil},
+		{TestName: "ColExpr nil table", TestExpr: cExpr, ExpCols: []column.Ref{col1R}, Tables: nil},
 		{TestName: "OpExpr No col", TestExpr: sqtables.NewOpExpr(vExpr, tokens.Plus, vExpr), ExpCols: nil},
-		{TestName: "OpExpr left col", TestExpr: sqtables.NewOpExpr(cExpr, tokens.Plus, vExpr), ExpCols: []sqtables.ColDef{col1}},
-		{TestName: "OpExpr right col", TestExpr: sqtables.NewOpExpr(vExpr, tokens.Plus, cExpr), ExpCols: []sqtables.ColDef{col1}},
-		{TestName: "OpExpr both col", TestExpr: sqtables.NewOpExpr(c2bExpr, tokens.Plus, cExpr), ExpCols: []sqtables.ColDef{col2b, col1}},
+		{TestName: "OpExpr left col", TestExpr: sqtables.NewOpExpr(cExpr, tokens.Plus, vExpr), ExpCols: []column.Ref{col1R}},
+		{TestName: "OpExpr right col", TestExpr: sqtables.NewOpExpr(vExpr, tokens.Plus, cExpr), ExpCols: []column.Ref{col1R}},
+		{TestName: "OpExpr both col", TestExpr: sqtables.NewOpExpr(c2bExpr, tokens.Plus, cExpr), ExpCols: []column.Ref{col2bR, col1R}},
 		{TestName: "CountExpr", TestExpr: sqtables.NewFuncExpr(tokens.Count, nil), ExpCols: nil},
 		{TestName: "NegateExpr no col", TestExpr: sqtables.NewNegateExpr(vExpr), ExpCols: nil},
-		{TestName: "NegateExpr with col", TestExpr: sqtables.NewNegateExpr(cExpr), ExpCols: []sqtables.ColDef{col1}, Tables: []*sqtables.TableDef{taba}},
+		{TestName: "NegateExpr with col", TestExpr: sqtables.NewNegateExpr(cExpr), ExpCols: []column.Ref{col1R}, Tables: []*sqtables.TableDef{taba}},
 		{TestName: "FuncExpr no col", TestExpr: sqtables.NewFuncExpr(tokens.Float, vExpr), ExpCols: nil},
-		{TestName: "FuncExpr with col", TestExpr: sqtables.NewFuncExpr(tokens.Float, cExpr), ExpCols: []sqtables.ColDef{col1}, Tables: []*sqtables.TableDef{taba}},
+		{TestName: "FuncExpr with col", TestExpr: sqtables.NewFuncExpr(tokens.Float, cExpr), ExpCols: []column.Ref{col1R}, Tables: []*sqtables.TableDef{taba}},
 	}
 
 	for i, row := range data {
@@ -415,9 +418,9 @@ func TestEvaluateExpr(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	tableName := "valueexprtest"
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
-		sqtables.NewColDef("col3", tokens.Bool, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
+		column.NewDef("col3", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -453,7 +456,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName:   "Col Expr",
-			e:          sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
+			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
 			profile:    profile,
 			Tables:     tables,
 			rows:       rows,
@@ -463,7 +466,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName:   "Col Expr Partial",
-			e:          sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "TableX"}),
+			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "TableX"}),
 			profile:    profile,
 			Tables:     tables,
 			rows:       rows,
@@ -474,7 +477,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName:   "Col Expr Error",
-			e:          sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.String, Idx: 0, TableName: "valueexprtest"}),
+			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.String, Idx: 0, TableName: "valueexprtest"}),
 			profile:    profile,
 			Tables:     tables,
 			rows:       rows,
@@ -484,7 +487,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName:   "Col Expr Invalid col",
-			e:          sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false)),
+			e:          sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false)),
 			profile:    profile,
 			Tables:     tables,
 			rows:       rows,
@@ -512,7 +515,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr col1 + 1",
-			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false)), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -520,7 +523,7 @@ func TestEvaluateExpr(t *testing.T) {
 			ExpErr:   "",
 		}, {
 			TestName: "OpExpr 2+col1",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -529,7 +532,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr colX + 1",
-			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false)), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false)), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -538,7 +541,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr 2+colX",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -547,7 +550,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr 2+col2 type mismatch",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.String, false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(column.NewRef("col2", tokens.String, false))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -594,9 +597,9 @@ func TestEvaluateExpr(t *testing.T) {
 		{
 			TestName: "OpExpr col1+col2 partial",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
 				tokens.Plus,
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -610,10 +613,10 @@ func TestEvaluateExpr(t *testing.T) {
 			TestName: "OpExpr col2+col1 partial",
 			e: sqtables.NewOpExpr(
 				sqtables.NewNegateExpr(
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
+					sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
 				),
 				tokens.Plus,
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -626,9 +629,9 @@ func TestEvaluateExpr(t *testing.T) {
 		{
 			TestName: "OpExpr col3 AND col2 partial",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col3", ColType: tokens.Bool, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col3", ColType: tokens.Bool, Idx: 0, TableName: "valueexprtest"}),
 				tokens.And,
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col2", ColType: tokens.Bool, Idx: 0, TableName: "tableX"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Bool, Idx: 0, TableName: "tableX"}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -641,9 +644,9 @@ func TestEvaluateExpr(t *testing.T) {
 		{
 			TestName: "OpExpr col2 AND col3 partial",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col2", ColType: tokens.Bool, Idx: 0, TableName: "tableX"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Bool, Idx: 0, TableName: "tableX"}),
 				tokens.And,
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col3", ColType: tokens.Bool, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col3", ColType: tokens.Bool, Idx: 0, TableName: "valueexprtest"}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -657,10 +660,10 @@ func TestEvaluateExpr(t *testing.T) {
 			TestName: "OpExpr col2 AND col1 partial",
 			e: sqtables.NewOpExpr(
 				sqtables.NewNegateExpr(
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
+					sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
 				),
 				tokens.Equal,
-				sqtables.NewColExpr(sqtables.ColDef{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -752,7 +755,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName: "Float from Invalid Col",
-			e:        sqtables.NewFuncExpr(tokens.Float, sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false))),
+			e:        sqtables.NewFuncExpr(tokens.Float, sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false))),
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -881,14 +884,14 @@ func TestReduceExpr(t *testing.T) {
 		},
 		{
 			TestName: "Col Expr",
-			e:        sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.String, false)),
+			e:        sqtables.NewColExpr(column.NewRef("col2", tokens.String, false)),
 			ExpExpr:  "col2",
 			ExpErr:   "",
 		},
 		{
 			TestName: "Op Expr",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.String, false)),
+				sqtables.NewColExpr(column.NewRef("col2", tokens.String, false)),
 				tokens.Plus,
 				sqtables.NewValueExpr(sqtypes.NewSQString(" Test")),
 			),
@@ -960,7 +963,7 @@ func TestReduceExpr(t *testing.T) {
 		{
 			TestName: "Negate Column Expr",
 			e: sqtables.NewNegateExpr(
-				sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)),
+				sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false)),
 			),
 			ExpExpr: "(-col1)",
 			ExpErr:  "",
@@ -986,7 +989,7 @@ func TestReduceExpr(t *testing.T) {
 			TestName: "Function with ColExpr",
 			e: sqtables.NewFuncExpr(
 				tokens.String,
-				sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+				sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))),
 			ExpExpr: "STRING(col1)",
 			ExpErr:  "",
 		},
@@ -1046,8 +1049,8 @@ func TestValidateCols(t *testing.T) {
 
 	tableName := "validatecolstest"
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -1084,14 +1087,14 @@ func TestValidateCols(t *testing.T) {
 		},
 		{
 			TestName: "Col Expr",
-			e:        sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.NilToken, false)),
+			e:        sqtables.NewColExpr(column.NewRef("col1", tokens.NilToken, false)),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",
 		},
 		{
 			TestName: "Col Expr Invalid col",
-			e:        sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false)),
+			e:        sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false)),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): validatecolstest",
@@ -1112,34 +1115,34 @@ func TestValidateCols(t *testing.T) {
 		},
 		{
 			TestName: "OpExpr col1 + 1",
-			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false)), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",
 		}, {
 			TestName: "OpExpr 2+col1",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",
 		},
 		{
 			TestName: "OpExpr colX + 1",
-			e:        sqtables.NewOpExpr(sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false)), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			e:        sqtables.NewOpExpr(sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false)), tokens.Plus, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): validatecolstest",
 		},
 		{
 			TestName: "OpExpr 2+colX",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "Error: Column \"colX\" not found in Table(s): validatecolstest",
 		},
 		{
 			TestName: "OpExpr 2+col2 type mismatch",
-			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.String, false))),
+			e:        sqtables.NewOpExpr(sqtables.NewValueExpr(sqtypes.NewSQInt(2)), tokens.Plus, sqtables.NewColExpr(column.NewRef("col2", tokens.String, false))),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",
@@ -1232,7 +1235,7 @@ func TestValidateCols(t *testing.T) {
 			TestName: "Function with Col Expr",
 			e: sqtables.NewFuncExpr(
 				tokens.Float,
-				sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.NilToken, false)),
+				sqtables.NewColExpr(column.NewRef("col1", tokens.NilToken, false)),
 			),
 			profile: profile,
 			Tables:  tables,
@@ -1242,7 +1245,7 @@ func TestValidateCols(t *testing.T) {
 			TestName: "Function with Col Expr Invalid col",
 			e: sqtables.NewFuncExpr(
 				tokens.Float,
-				sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false)),
+				sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false)),
 			),
 			profile: profile,
 			Tables:  tables,
@@ -1286,12 +1289,12 @@ func TestEncDecExpr(t *testing.T) {
 		},
 		{
 			TestName: "ColExpr",
-			e:        sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)),
+			e:        sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false)),
 		},
 		{
 			TestName: "OpExpr",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)),
+				sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false)),
 				tokens.Plus,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1234)),
 			),
@@ -1436,8 +1439,8 @@ func TestAggregate(t *testing.T) {
 		ExpVal   bool
 	}{
 		{TestName: "ValueExpr", Expr: sqtables.NewValueExpr(sqtypes.NewSQInt(1)), ExpVal: false},
-		{TestName: "ColExpr", Expr: sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)), ExpVal: false},
-		{TestName: "Negate ValueExpr", Expr: sqtables.NewNegateExpr(sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))), ExpVal: false},
+		{TestName: "ColExpr", Expr: sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false)), ExpVal: false},
+		{TestName: "Negate ValueExpr", Expr: sqtables.NewNegateExpr(sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))), ExpVal: false},
 		{TestName: "Negate Aggregate", Expr: sqtables.NewNegateExpr(sqtables.NewFuncExpr(tokens.Count, nil)), ExpVal: true},
 		{TestName: "Func Aggregate", Expr: sqtables.NewFuncExpr(tokens.Count, nil), ExpVal: true},
 		{TestName: "Func nonAggregate", Expr: sqtables.NewFuncExpr(tokens.String, sqtables.NewValueExpr(sqtypes.NewSQInt(1))), ExpVal: false},
@@ -1454,7 +1457,7 @@ func TestAggregate(t *testing.T) {
 		{
 			TestName: "OpExpr left only Aggregate",
 			Expr: sqtables.NewOpExpr(
-				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
 			),
@@ -1465,16 +1468,16 @@ func TestAggregate(t *testing.T) {
 			Expr: sqtables.NewOpExpr(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
 				tokens.Equal,
-				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))),
 			),
 			ExpVal: true,
 		},
 		{
 			TestName: "OpExpr both Aggregate",
 			Expr: sqtables.NewOpExpr(
-				sqtables.NewFuncExpr(tokens.Max, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+				sqtables.NewFuncExpr(tokens.Max, sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))),
 				tokens.Equal,
-				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))),
+				sqtables.NewFuncExpr(tokens.Sum, sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))),
 			),
 			ExpVal: true,
 		},
@@ -1518,7 +1521,7 @@ func TestProcHaving(t *testing.T) {
 				sqtables.NewValueExpr(sqtypes.NewSQInt(2)),
 			),
 			ExpExpr: sqtables.NewOpExpr(
-				sqtables.NewColExpr(sqtables.ColDef{ColName: " Hidden_COUNT()", Idx: 0}),
+				sqtables.NewColExpr(column.Ref{ColName: " Hidden_COUNT()", Idx: 0}),
 				tokens.GreaterThan,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(2)),
 			),

@@ -7,6 +7,7 @@ import (
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -43,8 +44,8 @@ type Expr interface {
 	String() string
 	Build(b *strings.Builder)
 	Name() string
-	ColDef() ColDef
-	ColDefs(tables ...*TableDef) []ColDef
+	ColRef() column.Ref
+	ColRefs(tables ...*TableDef) []column.Ref
 	Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error)
 	Reduce() (Expr, error)
 	ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error
@@ -109,13 +110,13 @@ func (e *ValueExpr) Name() string {
 	return e.String()
 }
 
-// ColDef returns a column definition for the expression
-func (e *ValueExpr) ColDef() ColDef {
-	return ColDef{ColName: e.Name(), ColType: e.v.Type()}
+// ColRef returns a column definition for the expression
+func (e *ValueExpr) ColRef() column.Ref {
+	return column.Ref{ColName: e.Name(), ColType: e.v.Type()}
 }
 
-// ColDefs returns a list of all actual columns in the expression
-func (e *ValueExpr) ColDefs(tables ...*TableDef) []ColDef {
+// ColRefs returns a list of all actual columns in the expression
+func (e *ValueExpr) ColRefs(tables ...*TableDef) []column.Ref {
 	return nil
 }
 
@@ -174,7 +175,7 @@ func (e *ValueExpr) IsAggregate() bool {
 
 // ColExpr stores information about a column to allow Evaluate() to determine the correct Value
 type ColExpr struct {
-	col   ColDef
+	col   column.Ref
 	alias string
 }
 
@@ -230,16 +231,16 @@ func (e *ColExpr) Name() string {
 	return e.String()
 }
 
-// ColDef returns a column definition for the expression
-func (e *ColExpr) ColDef() ColDef {
+// ColRef returns a column definition for the expression
+func (e *ColExpr) ColRef() column.Ref {
 	return e.col
 }
 
-// ColDefs returns a list of all actual columns in the expression, filtered by the given tables
-func (e *ColExpr) ColDefs(tables ...*TableDef) []ColDef {
-	var ret []ColDef
+// ColRefs returns a list of all actual columns in the expression, filtered by the given tables
+func (e *ColExpr) ColRefs(tables ...*TableDef) []column.Ref {
+	var ret []column.Ref
 	if tables == nil {
-		return []ColDef{e.col}
+		return []column.Ref{e.col}
 	}
 	for _, tab := range tables {
 		if e.col.TableName == tab.tableName {
@@ -291,16 +292,16 @@ func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) 
 		return nil
 	}
 
-	cd, err := tables.FindColDef(profile, e.col.ColName, e.col.TableName)
+	cd, err := tables.FindDef(profile, e.col.ColName, e.col.GetTableName())
 	if err != nil {
 		return err
 	}
-	e.col, err = MergeColDef(e.col, *cd)
+	e.col, err = column.MergeRefDef(e.col, *cd)
 	return err
 }
 
 // NewColExpr creates a new ColExpr object
-func NewColExpr(c ColDef) Expr {
+func NewColExpr(c column.Ref) Expr {
 	return &ColExpr{col: c}
 
 }
@@ -395,16 +396,16 @@ func (e *OpExpr) Name() string {
 	return e.String()
 }
 
-// ColDef returns a column definition for the expression
-func (e *OpExpr) ColDef() ColDef {
-	col := e.exL.ColDef()
-	return ColDef{ColName: e.Name(), ColType: col.ColType}
+// ColRef returns a column definition for the expression
+func (e *OpExpr) ColRef() column.Ref {
+	col := e.exL.ColRef()
+	return column.Ref{ColName: e.Name(), ColType: col.ColType}
 }
 
-// ColDefs returns a list of all actual columns in the expression
-func (e *OpExpr) ColDefs(tables ...*TableDef) []ColDef {
-	colsL := e.exL.ColDefs(tables...)
-	colsR := e.exR.ColDefs(tables...)
+// ColRefs returns a list of all actual columns in the expression
+func (e *OpExpr) ColRefs(tables ...*TableDef) []column.Ref {
+	colsL := e.exL.ColRefs(tables...)
+	colsR := e.exR.ColRefs(tables...)
 	if colsL == nil {
 		return colsR
 	}
@@ -596,15 +597,15 @@ func (e *NegateExpr) Name() string {
 	return e.String()
 }
 
-// ColDef returns a column definition for the expression
-func (e *NegateExpr) ColDef() ColDef {
-	col := e.exL.ColDef()
-	return ColDef{ColName: e.Name(), ColType: col.ColType}
+// ColRef returns a column definition for the expression
+func (e *NegateExpr) ColRef() column.Ref {
+	col := e.exL.ColRef()
+	return column.Ref{ColName: e.Name(), ColType: col.ColType}
 }
 
-// ColDefs returns a list of all actual columns in the expression
-func (e *NegateExpr) ColDefs(tables ...*TableDef) []ColDef {
-	colsL := e.exL.ColDefs(tables...)
+// ColRefs returns a list of all actual columns in the expression
+func (e *NegateExpr) ColRefs(tables ...*TableDef) []column.Ref {
+	colsL := e.exL.ColRefs(tables...)
 	return colsL
 }
 
@@ -755,19 +756,19 @@ func (e *FuncExpr) Name() string {
 	return e.String()
 }
 
-// ColDef returns a column definition for the expression
-func (e *FuncExpr) ColDef() ColDef {
+// ColRef returns a column definition for the expression
+func (e *FuncExpr) ColRef() column.Ref {
 	name := e.Name()
 	//???? INT for Count, FUNC otherwise????????
 	colType := e.Cmd
 
-	return ColDef{ColName: name, ColType: colType}
+	return column.Ref{ColName: name, ColType: colType}
 }
 
-// ColDefs returns a list of all actual columns in the expression
-func (e *FuncExpr) ColDefs(tables ...*TableDef) []ColDef {
+// ColRefs returns a list of all actual columns in the expression
+func (e *FuncExpr) ColRefs(tables ...*TableDef) []column.Ref {
 	if e.exL != nil {
-		colsL := e.exL.ColDefs(tables...)
+		colsL := e.exL.ColRefs(tables...)
 		return colsL
 	}
 	return nil
@@ -940,7 +941,7 @@ func ProcessHaving(e Expr, flist []FuncExpr, cnt int) (Expr, []FuncExpr, int) {
 			alias = " Hidden_" + fexpr.Name()
 			fexpr.SetAlias(alias)
 			flist = append(flist, *fexpr)
-			exp = NewColExpr(ColDef{ColName: alias, Idx: cnt, TableName: DataSetTableName})
+			exp = NewColExpr(column.Ref{ColName: alias, Idx: cnt, TableName: DataSetTableName})
 			cnt++
 			return exp, flist, cnt
 		}

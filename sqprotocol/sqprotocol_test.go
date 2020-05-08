@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/wilphi/sqsrv/sqprotocol"
-	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -275,11 +275,11 @@ func TestConnection(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = nil
-		err := svr.SendColumns([]sqtables.ColDef{
-			sqtables.NewColDef("col1", tokens.Int, false),
-			sqtables.NewColDef("col2", tokens.String, true),
-			sqtables.NewColDef("col3", tokens.Bool, false),
-			sqtables.NewColDef("col4", tokens.Float, true),
+		err := svr.SendColumns([]column.Ref{
+			column.NewRef("col1", tokens.Int, false),
+			column.NewRef("col2", tokens.String, true),
+			column.NewRef("col3", tokens.Bool, false),
+			column.NewRef("col4", tokens.Float, true),
 		})
 		if err != nil {
 			t.Errorf("Unexpected Error: %s", err.Error())
@@ -291,7 +291,7 @@ func TestConnection(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		testConn.Err = errors.New("Error from Server")
-		err := svr.SendColumns([]sqtables.ColDef{sqtables.NewColDef("Col1", tokens.Int, false), sqtables.NewColDef("col2", tokens.String, true)})
+		err := svr.SendColumns([]column.Ref{column.NewRef("Col1", tokens.Int, false), column.NewRef("col2", tokens.String, true)})
 		ExpErr := "Error from Server"
 		if err == nil {
 			t.Errorf("Unexpected Success, expecting error %s", ExpErr)

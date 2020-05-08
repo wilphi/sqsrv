@@ -4,6 +4,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -23,7 +24,7 @@ type RowDef struct {
 
 //RowInterface allows multiple types of rows to be Evaluted by expressions
 type RowInterface interface {
-	GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Value, error)
+	GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error)
 	GetTableName(profile *sqprofile.SQProfile) string
 	GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error)
 	GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr
@@ -129,7 +130,7 @@ func CreateRow(profile *sqprofile.SQProfile, rowPtr sqptr.SQPtr, table *TableDef
 }
 
 // GetColData -
-func (r *RowDef) GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Value, error) {
+func (r *RowDef) GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
 
 	if r.isDeleted {
 		return nil, sqerr.New("Referenced Row has been deleted")

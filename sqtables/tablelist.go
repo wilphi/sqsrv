@@ -9,12 +9,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
-// FromTable structure holds the alias name, actual tableName and pointer to actual table
-type FromTable struct {
+// TableRef structure holds the alias name, actual tableName and pointer to actual table
+type TableRef struct {
 	TableName string
 	Alias     string
 	Table     *TableDef
@@ -22,7 +23,7 @@ type FromTable struct {
 
 //TableList holds a unique list of tables listed in From Clause of query
 type TableList struct {
-	tables map[string]*FromTable
+	tables map[string]*TableRef
 }
 
 // FindTableDef - Find a table def given the table name/alias
@@ -39,9 +40,9 @@ func (tl *TableList) String(profile *sqprofile.SQProfile) string {
 	return strings.Join(tl.TableNames(), ", ")
 }
 
-//FindColDef - Finds a ColDef based on colName and tableAlias. If the tableAlias is empty, it will look in all
+//FindDef - Finds a column.Def based on colName and tableAlias. If the tableAlias is empty, it will look in all
 //   tables in the list for the column. An error will occur if the col is found in multiple tables
-func (tl *TableList) FindColDef(profile *sqprofile.SQProfile, colName, tableAlias string) (col *ColDef, err error) {
+func (tl *TableList) FindDef(profile *sqprofile.SQProfile, colName, tableAlias string) (col *column.Def, err error) {
 
 	if tableAlias == "" {
 		found := false
@@ -86,7 +87,7 @@ func (tl *TableList) Len() int {
 
 // Add  a new table to the list. Will return an error if a duplicate
 // tableName/Alias pair is added. If the TableDef is not provided it will be found
-func (tl *TableList) Add(profile *sqprofile.SQProfile, ft FromTable) error {
+func (tl *TableList) Add(profile *sqprofile.SQProfile, ft TableRef) error {
 	var err error
 
 	if ft.Table == nil {
@@ -114,14 +115,14 @@ func (tl *TableList) Add(profile *sqprofile.SQProfile, ft FromTable) error {
 }
 
 // AllCols returns an array of all cols in the tables of the tablelist as ColDefs
-func (tl *TableList) AllCols(profile *sqprofile.SQProfile) []ColDef {
+func (tl *TableList) AllCols(profile *sqprofile.SQProfile) []column.Ref {
 
-	var cols []ColDef
+	var cols []column.Ref
 	displayTName := tl.Len() > 1
-	colm := make(map[ColDef]bool)
+	colm := make(map[column.Ref]bool)
 	for _, tab := range tl.tables {
 		tc := tab.Table.GetCols(profile)
-		for _, cd := range tc.GetColDefs() {
+		for _, cd := range tc.GetRefs() {
 			cd.DisplayTableName = displayTName
 			colm[cd] = true
 		}
@@ -197,11 +198,11 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 
 	if tl.Len() == 1 {
 		// Single table query
-		var tab *TableDef
+		var tabRef *TableRef
 		for _, tabInfo := range tl.tables {
-			tab = tabInfo.Table
+			tabRef = tabInfo
 		}
-		finalResult, err = tab.GetRowData(profile, eList, whereExpr, groupBy, havingExpr)
+		finalResult, err = tabRef.Table.GetRowData(profile, eList, whereExpr, groupBy, havingExpr, tabRef.Alias)
 		if err != nil {
 			return nil, err
 		}
@@ -238,7 +239,7 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 		log.Infof("Filtering table %s", tabInfo.TableName)
 
 		// get the cols in the whereExpr
-		cols := whereExpr.ColDefs(tabInfo.Table)
+		cols := whereExpr.ColRefs(tabInfo.Table)
 		if cols != nil {
 			sort.Slice(cols, func(i, j int) bool { return cols[i].Idx < cols[j].Idx })
 			i := 0
@@ -249,13 +250,14 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 				i++
 			}
 		} else {
-			cols = make([]ColDef, 1)
-			cols[0] = tabInfo.Table.tableCols[0]
+			cols = make([]column.Ref, 1)
+			cols[0] = tabInfo.Table.tableCols[0].Ref()
+			cols[0].TableAlias = tabInfo.Alias
 		}
-		whereList = ColsToExpr(NewColListDefs(cols))
+		whereList = ColsToExpr(column.NewListRefs(cols))
 
 		// Get the pointers to the rows based on the conditions
-		tmpData, err := tabInfo.Table.GetRowData(profile, whereList, whereExpr, nil, nil)
+		tmpData, err := tabInfo.Table.GetRowData(profile, whereList, whereExpr, nil, nil, tabInfo.Alias)
 		if err != nil {
 			return nil, err
 		}
@@ -286,7 +288,7 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 	}
 
 	var validJoin bool
-	var lCol, rCol ColDef
+	var lCol, rCol column.Ref
 	var idx int
 	for len(joins) > 0 {
 		var intermresult [][]RowInterface
@@ -380,7 +382,7 @@ func (tl *TableList) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, w
 
 }
 
-func findCol(a []ColDef, b ColDef) int {
+func findCol(a []column.Ref, b column.Ref) int {
 	for i, col := range a {
 		if col == b {
 			return i
@@ -388,7 +390,7 @@ func findCol(a []ColDef, b ColDef) int {
 	}
 	return -1
 }
-func findJoin(whereExpr Expr, joinedTables []JoinTable, tableName string) (validJoin bool, lColDef, rColDef ColDef, joinidx int) {
+func findJoin(whereExpr Expr, joinedTables []JoinTable, tableName string) (validJoin bool, lColDef, rColDef column.Ref, joinidx int) {
 	tableName = strings.ToLower(tableName)
 	opExprs := findOps(whereExpr, tokens.Equal)
 	tnames := make([]string, len(joinedTables))
@@ -414,7 +416,7 @@ func findJoin(whereExpr Expr, joinedTables []JoinTable, tableName string) (valid
 			}
 		}
 	}
-	return false, ColDef{}, ColDef{}, -1
+	return false, column.Ref{}, column.Ref{}, -1
 }
 
 func contain(a []string, str string) int {
@@ -459,8 +461,8 @@ func findOps(whereExpr Expr, op tokens.TokenID) (ret []Expr) {
 }
 
 // NewTableList - Initialize a new TableList
-func NewTableList(profile *sqprofile.SQProfile, tables []FromTable) *TableList {
-	tl := TableList{tables: make(map[string]*FromTable)}
+func NewTableList(profile *sqprofile.SQProfile, tables []TableRef) *TableList {
+	tl := TableList{tables: make(map[string]*TableRef)}
 	for _, ft := range tables {
 		tl.Add(profile, ft)
 	}
@@ -469,9 +471,9 @@ func NewTableList(profile *sqprofile.SQProfile, tables []FromTable) *TableList {
 
 // NewTableListFromTableDef - Initialize a new TableList
 func NewTableListFromTableDef(profile *sqprofile.SQProfile, tabs ...*TableDef) *TableList {
-	tl := TableList{tables: make(map[string]*FromTable)}
+	tl := TableList{tables: make(map[string]*TableRef)}
 	for _, tab := range tabs {
-		ft := FromTable{TableName: tab.GetName(profile), Table: tab}
+		ft := TableRef{TableName: tab.GetName(profile), Table: tab}
 		tl.Add(profile, ft)
 	}
 

@@ -6,6 +6,7 @@ import (
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 )
 
@@ -84,9 +85,9 @@ func (el *ExprList) Pop() Expr {
 */
 
 // ColsToExpr creates an expression list out of a col list
-func ColsToExpr(clist *ColList) *ExprList {
+func ColsToExpr(clist *column.List) *ExprList {
 	var elist ExprList
-	cols := clist.GetColDefs()
+	cols := clist.GetRefs()
 	for _, col := range cols {
 		elist.Add(NewColExpr(col))
 	}

@@ -6,6 +6,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -30,7 +31,7 @@ func TestMiscJoinRow(t *testing.T) {
 		TableName: tName,
 	}
 
-	col := sqtables.NewColDef("col1", tokens.String, false)
+	col := column.NewRef("col1", tokens.String, false)
 
 	t.Run("joinRow is valid RowInterface", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")

@@ -16,14 +16,14 @@ func TestNewIndex(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	// Setup table for testing
 	colNames := []string{"rownum", "col1", "col2", "col3", "col4"}
-	cols := []sqtables.ColDef{
-		sqtables.NewColDef(colNames[0], tokens.Int, false),
-		sqtables.NewColDef(colNames[1], tokens.Int, false),
-		sqtables.NewColDef(colNames[2], tokens.String, false),
-		sqtables.NewColDef(colNames[3], tokens.Int, false),
-		sqtables.NewColDef(colNames[4], tokens.Bool, false),
+	cols := []column.Ref{
+		column.NewRef(colNames[0], tokens.Int, false),
+		column.NewRef(colNames[1], tokens.Int, false),
+		column.NewRef(colNames[2], tokens.String, false),
+		column.NewRef(colNames[3], tokens.Int, false),
+		column.NewRef(colNames[4], tokens.Bool, false),
 	}
-	colList := sqtables.NewColListDefs(cols)
+	colList := column.NewListRefs(cols)
 	testT := sqtables.CreateTableDef("indextest", cols...)
 	_, err := sqtables.CreateTable(profile, testT)
 	if err != nil {
@@ -51,7 +51,7 @@ func TestNewIndex(t *testing.T) {
 
 	//col0 := []sqtypes.Value{sqtypes.NewSQInt(1), sqtypes.NewSQInt(2), sqtypes.NewSQInt(3), sqtypes.NewSQInt(4), sqtypes.NewSQInt(5), sqtypes.NewSQInt(6), sqtypes.NewSQInt(7)}
 	//col2 := []sqtypes.Value{sqtypes.NewSQString("d test string"), sqtypes.NewSQString("j test string"), sqtypes.NewSQString("q test string"), sqtypes.NewSQString("a test string"), sqtypes.NewSQString("z test string"), sqtypes.NewSQString("c test string"), sqtypes.NewSQString("f test string")}
-	idxCol := sqtables.NewColListNames([]string{colNames[2]})
+	idxCol := column.NewListNames([]string{colNames[2]})
 	idxDataSet, err := testT.GetRowData(profile, idxCol, nil)
 	if err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
@@ -104,7 +104,7 @@ func TestMultiColIndex(t *testing.T) {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 	fmt.Println(msg)
-	idxCol := sqtables.NewColListNames([]string{"lastname", "firstname"})
+	idxCol := column.NewListNames([]string{"lastname", "firstname"})
 	idxDataSet, err := tab.GetRowData(profile, idxCol, nil)
 	if err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())

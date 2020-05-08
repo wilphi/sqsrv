@@ -7,6 +7,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -18,7 +19,7 @@ func init() {
 
 func testNewDataSetFunc(
 	tables *sqtables.TableList,
-	eList *sqtables.ExprList, groupBy *sqtables.ColList, ExpErr string,
+	eList *sqtables.ExprList, groupBy *column.List, ExpErr string,
 ) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
@@ -48,9 +49,9 @@ func TestDataSet(t *testing.T) {
 
 	tableName := "dataset"
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
-		sqtables.NewColDef("col3", tokens.Bool, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
+		column.NewDef("col3", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -84,10 +85,10 @@ func TestDataSet(t *testing.T) {
 	//colStr := []string{"col2", "col1"}
 	colStrErr := []string{"col2", "col1", "colX"}
 
-	colds := []sqtables.ColDef{{ColName: "col2", ColType: tokens.String}, {ColName: "col1", ColType: tokens.Int}}
-	exprCols := sqtables.ColsToExpr(sqtables.NewColListDefs(colds))
+	colds := []column.Ref{{ColName: "col2", ColType: tokens.String}, {ColName: "col1", ColType: tokens.Int}}
+	exprCols := sqtables.ColsToExpr(column.NewListRefs(colds))
 	emptyExprCols := &sqtables.ExprList{}
-	exprColsErr := sqtables.ColsToExpr(sqtables.NewColListNames(colStrErr))
+	exprColsErr := sqtables.ColsToExpr(column.NewListNames(colStrErr))
 
 	if tab == nil {
 		t.Error("Unable to get table for testing")
@@ -377,16 +378,16 @@ func testGroupByFunc(d GroupByData) func(*testing.T) {
 func TestGroupBy(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 
-	firstnameCD := sqtables.NewColDef("firstname", tokens.String, false)
-	lastnameCD := sqtables.NewColDef("lastname", tokens.String, false)
-	ageCD := sqtables.NewColDef("age", tokens.Int, false)
+	firstnameCD := column.NewDef("firstname", tokens.String, false)
+	lastnameCD := column.NewDef("lastname", tokens.String, false)
+	ageCD := column.NewDef("age", tokens.Int, false)
 
 	tab1 := sqtables.CreateTableDef("testgroupby",
 		firstnameCD,
 		lastnameCD,
 		ageCD,
-		sqtables.NewColDef("salary", tokens.Float, false),
-		sqtables.NewColDef("cityid", tokens.Int, false),
+		column.NewDef("salary", tokens.Float, false),
+		column.NewDef("cityid", tokens.Int, false),
 	)
 	err := sqtables.CreateTable(profile, tab1)
 	if err != nil {
@@ -394,9 +395,9 @@ func TestGroupBy(t *testing.T) {
 		return
 	}
 	tab2 := sqtables.CreateTableDef("testgroupbycity",
-		sqtables.NewColDef("cityid", tokens.Int, false),
-		sqtables.NewColDef("name", tokens.String, false),
-		sqtables.NewColDef("country", tokens.String, false),
+		column.NewDef("cityid", tokens.Int, false),
+		column.NewDef("name", tokens.String, false),
+		column.NewDef("country", tokens.String, false),
 	)
 	err = sqtables.CreateTable(profile, tab2)
 	if err != nil {
@@ -405,12 +406,12 @@ func TestGroupBy(t *testing.T) {
 	}
 
 	tables := sqtables.NewTableListFromTableDef(profile, tab1)
-	firstNameExp := sqtables.NewColExpr(firstnameCD)
-	lastNameExp := sqtables.NewColExpr(lastnameCD)
+	firstNameExp := sqtables.NewColExpr(firstnameCD.Ref())
+	lastNameExp := sqtables.NewColExpr(lastnameCD.Ref())
 	multitable := sqtables.NewTableListFromTableDef(profile, tab1, tab2)
-	cityNameCD := sqtables.ColDef{ColName: "name", ColType: tokens.String, TableName: tab2.GetName(profile), DisplayTableName: true}
+	cityNameCD := column.Ref{ColName: "name", ColType: tokens.String, TableName: tab2.GetName(profile), DisplayTableName: true}
 	cityNameExp := sqtables.NewColExpr(cityNameCD)
-	ageExp := sqtables.NewColExpr(sqtables.ColDef{ColName: "age", ColType: tokens.Int})
+	ageExp := sqtables.NewColExpr(column.Ref{ColName: "age", ColType: tokens.Int})
 
 	having1 := sqtables.NewOpExpr(
 		sqtables.NewFuncExpr(tokens.Count, nil),
@@ -421,7 +422,7 @@ func TestGroupBy(t *testing.T) {
 		{
 			TestName: "GroupBy Dataset No Group Cols",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
@@ -446,7 +447,7 @@ func TestGroupBy(t *testing.T) {
 		{
 			TestName: "Dataset GroupBy firstname",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
@@ -466,13 +467,13 @@ func TestGroupBy(t *testing.T) {
 				{"whilma", 1},
 				{nil, 2},
 			}),
-			GroupBy: sqtables.ColsToExpr(sqtables.NewColListDefs([]sqtables.ColDef{firstnameCD})),
+			GroupBy: sqtables.ColsToExpr(column.NewListRefs([]column.Ref{firstnameCD.Ref()})),
 			ExpErr:  "",
 		},
 		{
 			TestName: "Dataset GroupBy first, last names",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewColExpr(lastnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", "flintstone", nil},
 				{nil, nil, nil},
@@ -499,7 +500,7 @@ func TestGroupBy(t *testing.T) {
 		{
 			TestName: "Dataset GroupBy firstname, extra col in elist",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewColExpr(lastnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
@@ -525,7 +526,7 @@ func TestGroupBy(t *testing.T) {
 		{
 			TestName: "Dataset GroupBy firstname non aggregate function",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewColExpr(lastnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
@@ -551,7 +552,7 @@ func TestGroupBy(t *testing.T) {
 		{
 			TestName: "Dataset implicity GroupBy int(firstname) non aggregate function",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Int, sqtables.NewColExpr(lastnameCD)), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Int, lastNameExp), sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
@@ -596,16 +597,16 @@ func TestGroupBy(t *testing.T) {
 			DataCols: sqtables.NewExprList(
 				sqtables.NewFuncExpr(tokens.Count, nil),
 				sqtables.NewFuncExpr(tokens.Sum,
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "age"}),
+					sqtables.NewColExpr(column.Ref{ColName: "age"}),
 				),
 				sqtables.NewFuncExpr(tokens.Min,
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "age"}),
+					sqtables.NewColExpr(column.Ref{ColName: "age"}),
 				),
 				sqtables.NewFuncExpr(tokens.Max,
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "age"}),
+					sqtables.NewColExpr(column.Ref{ColName: "age"}),
 				),
 				sqtables.NewFuncExpr(tokens.Avg,
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "age"}),
+					sqtables.NewColExpr(column.Ref{ColName: "age"}),
 				),
 			),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
@@ -633,16 +634,16 @@ func TestGroupBy(t *testing.T) {
 				cityNameExp,
 				sqtables.NewFuncExpr(tokens.Count, nil),
 				sqtables.NewFuncExpr(tokens.Sum,
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "age"}),
+					sqtables.NewColExpr(column.Ref{ColName: "age"}),
 				),
 				sqtables.NewFuncExpr(tokens.Min,
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "age"}),
+					sqtables.NewColExpr(column.Ref{ColName: "age"}),
 				),
 				sqtables.NewFuncExpr(tokens.Max,
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "age"}),
+					sqtables.NewColExpr(column.Ref{ColName: "age"}),
 				),
 				sqtables.NewFuncExpr(tokens.Avg,
-					sqtables.NewColExpr(sqtables.ColDef{ColName: "age"}),
+					sqtables.NewColExpr(column.Ref{ColName: "age"}),
 				),
 			),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
@@ -664,7 +665,7 @@ func TestGroupBy(t *testing.T) {
 		{
 			TestName: "Dataset GroupBy invalid",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
@@ -684,13 +685,13 @@ func TestGroupBy(t *testing.T) {
 				{"whilma", 1},
 				{nil, 2},
 			}),
-			GroupBy:       sqtables.ColsToExpr(sqtables.NewColListDefs([]sqtables.ColDef{cityNameCD})),
+			GroupBy:       sqtables.ColsToExpr(column.NewListRefs([]column.Ref{cityNameCD})),
 			NewDataSetErr: "Error: Table testgroupbycity not found in table list",
 		},
 		{
 			TestName: "Dataset GroupBy invalid not in elist",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
@@ -710,13 +711,13 @@ func TestGroupBy(t *testing.T) {
 				{"whilma", 1},
 				{nil, 2},
 			}),
-			GroupBy:       sqtables.ColsToExpr(sqtables.NewColListDefs([]sqtables.ColDef{firstnameCD, lastnameCD})),
+			GroupBy:       sqtables.ColsToExpr(column.NewListDefs([]column.Def{firstnameCD, lastnameCD})),
 			NewDataSetErr: "Syntax Error: lastname is not in the expression list: firstname,COUNT()",
 		},
 		{
 			TestName: "Dataset GroupBy non aggregate function",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewFuncExpr(tokens.String, ageExp)),
+			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.String, ageExp)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
@@ -736,13 +737,13 @@ func TestGroupBy(t *testing.T) {
 				{"whilma", 1},
 				{nil, 2},
 			}),
-			GroupBy:       sqtables.ColsToExpr(sqtables.NewColListDefs([]sqtables.ColDef{firstnameCD})),
+			GroupBy:       sqtables.ColsToExpr(column.NewListDefs([]column.Def{firstnameCD})),
 			NewDataSetErr: "Syntax Error: STRING(age) is not an aggregate function",
 		},
 		{
 			TestName: "Dataset GroupBy first, last names having count>1",
 			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewColExpr(firstnameCD), sqtables.NewColExpr(lastnameCD), sqtables.NewFuncExpr(tokens.Count, nil)),
+			DataCols: sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
 				{"fred", "flintstone", nil, nil},
 				{nil, nil, nil, nil},

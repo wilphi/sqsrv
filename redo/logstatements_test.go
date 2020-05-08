@@ -11,6 +11,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -21,7 +22,7 @@ type CreateData struct {
 	TableName string
 	ID        uint64
 	identstr  string
-	Cols      []sqtables.ColDef
+	Cols      []column.Def
 }
 
 func TestCreate(t *testing.T) {
@@ -30,7 +31,7 @@ func TestCreate(t *testing.T) {
 		{
 			TestName:  "Recreate table from redo",
 			TableName: "RedoCreate",
-			Cols: []sqtables.ColDef{
+			Cols: []column.Def{
 				{ColName: "col1", ColType: tokens.Int, Idx: 1, IsNotNull: false},
 				{ColName: "col2", ColType: tokens.String, Idx: 2, IsNotNull: false},
 			},
@@ -98,8 +99,10 @@ func testCreateFunc(d CreateData) func(*testing.T) {
 		defer sqtables.DropTable(profile, d.TableName)
 
 		cl := tab.GetCols(profile)
-		cd := cl.GetColDefs()
-		if !reflect.DeepEqual(d.Cols, cd) {
+		cd := cl.GetRefs()
+		expList := column.NewListDefs(d.Cols)
+		expRefs := expList.GetRefs()
+		if !reflect.DeepEqual(expRefs, cd) {
 			t.Errorf("Columns defintions are not the same for Recreated table")
 			return
 		}
@@ -432,7 +435,7 @@ type DeleteData struct {
 func TestDelete(t *testing.T) {
 	// Testing Data Setup
 	profile := sqprofile.CreateSQProfile()
-	cols := []sqtables.ColDef{
+	cols := []column.Def{
 		{ColName: "col1", ColType: tokens.Int, Idx: 1, IsNotNull: false},
 		{ColName: "col2", ColType: tokens.String, Idx: 2, IsNotNull: false},
 	}
@@ -441,7 +444,7 @@ func TestDelete(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 	}
-	cl := sqtables.NewColListDefs(cols)
+	cl := column.NewListDefs(cols)
 	ds, err := sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(cl))
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
@@ -562,7 +565,7 @@ type DropTableData struct {
 
 func TestDropTable(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-	cols := []sqtables.ColDef{
+	cols := []column.Def{
 		{ColName: "col1", ColType: tokens.Int, Idx: 1, IsNotNull: false},
 		{ColName: "col2", ColType: tokens.String, Idx: 2, IsNotNull: false},
 	}

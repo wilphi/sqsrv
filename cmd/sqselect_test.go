@@ -819,10 +819,10 @@ func TestSelect(t *testing.T) {
 				{"USA", 48, 27.9088, 47.4761, 1863.5617, 38.82420208333333},
 			},
 		},
-		/*// Known bug, work deferred
-		{ // Known bug, work deferred
+
+		{
 			TestName: "Multi Table Order By with table alias ",
-			Command:  "SELECT cn.short,city.cityid, city.name cname, lat,long  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",
+			Command:  "SELECT city.cityid, city.name cname, lat,long, cn.short  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",
 			ExpErr:   "",
 			ExpRows:  6,
 			ExpCols:  []string{"city.cityid", "cname", "lat", "long", "cn.short"},
@@ -835,7 +835,7 @@ func TestSelect(t *testing.T) {
 				{0, "Tofino", 49.1521, -125.9031, "CAN"},
 			},
 		},
-		*/
+
 		{
 			TestName: "Select COUNT with alias",
 			Command:  "SELECT count() test from person",
@@ -910,6 +910,27 @@ func TestSelect(t *testing.T) {
 				{"Largo", "USA", 4},
 				{"Sidney", "USA", 5},
 				{"Ventnor City", "USA", 4},
+			},
+		},
+
+		{
+			TestName: "Select with table alias",
+			Command:  "select c.name, c.country, c.prov from city c where c.prov = \"Québec\"",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"c.name", "c.country", "c.prov"},
+			ExpVals:  sqtypes.RawVals{{"Joliette", "Canada", "Québec"}},
+		},
+		{
+			TestName: "Select with table alias",
+			Command:  "select city.name, cn.name from city, country cn where city.name = \"Joliette\" order by cn.name",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"city.name", "cn.name"},
+			ExpVals: sqtypes.RawVals{
+				{"Joliette", "Canada"},
+				{"Joliette", "United Kingdom"},
+				{"Joliette", "United States"},
 			},
 		},
 		/* - This is an issue but deferred

@@ -21,7 +21,7 @@ import (
 )
 
 // SQVersion  - version of software
-const SQVersion = "SQSRV v0.12.1"
+const SQVersion = "SQSRV v0.12.2"
 
 //Options are the values set by the flag package
 var Options struct {
@@ -252,7 +252,7 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 			// There are rows to return
 			//First the columns
 			cl := data.GetColList()
-			err = srv.SendColumns(cl.GetColDefs())
+			err = srv.SendColumns(cl.GetRefs())
 			if err != nil {
 				return
 			}

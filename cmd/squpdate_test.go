@@ -9,6 +9,7 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -219,14 +220,14 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 		}
 
 		if d.ExpData != nil {
-			cList := sqtables.ColsToExpr(sqtables.NewColListNames(d.Cols))
+			cList := sqtables.ColsToExpr(column.NewListNames(d.Cols))
 			tab, err := sqtables.GetTable(profile, d.TableName)
 			if err != nil {
 				t.Error(err)
 				return
 			}
 
-			ds, err := tab.GetRowData(profile, cList, nil, nil, nil)
+			ds, err := tab.GetRowData(profile, cList, nil, nil, nil, "")
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return

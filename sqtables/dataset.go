@@ -8,6 +8,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -125,12 +126,12 @@ func (d *DataSet) NumCols() int {
 }
 
 // GetColList -
-func (d *DataSet) GetColList() *ColList {
-	cols := make([]ColDef, d.eList.Len())
+func (d *DataSet) GetColList() *column.List {
+	cols := make([]column.Ref, d.eList.Len())
 	for i, ex := range d.eList.exprlist {
-		cols[i] = ex.ColDef()
+		cols[i] = ex.ColRef()
 	}
-	return NewColListDefs(cols)
+	return column.NewListRefs(cols)
 }
 
 // GetTables -
@@ -461,7 +462,7 @@ func (r *DSRow) GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr {
 }
 
 // GetColData -
-func (r *DSRow) GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Value, error) {
+func (r *DSRow) GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
 	if c.Idx < 0 || c.Idx >= len(r.Vals) {
 		return nil, sqerr.Newf("Invalid index (%d) for Column in row. Col len = %d", c.Idx, len(r.Vals))
 	}

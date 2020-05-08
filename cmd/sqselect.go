@@ -8,6 +8,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -106,7 +107,7 @@ func (stmt *SelectStmt) SelectParse(profile *sqprofile.SQProfile) error {
 			}
 
 		} else {
-			stmt.eList = sqtables.ColsToExpr(sqtables.NewColListDefs(cols))
+			stmt.eList = sqtables.ColsToExpr(column.NewListRefs(cols))
 
 		}
 	} else {

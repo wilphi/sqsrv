@@ -9,6 +9,7 @@ import (
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -559,6 +560,14 @@ func TestGetExprList(t *testing.T) {
 			ListType:   tokens.Select,
 		},
 		{
+			TestName:   "ListType=By:No Cols in list",
+			Terminator: tokens.CloseBracket,
+			Command:    ")",
+			ExpErr:     "Syntax Error: No expressions defined for BY",
+			ExpExprTxt: "",
+			ListType:   tokens.By,
+		},
+		{
 			TestName:   "Value, col, OpExpr with FROM",
 			Terminator: tokens.From,
 			Command:    "1, lastname, \"Cell: \"+phonenum FROM",
@@ -573,6 +582,14 @@ func TestGetExprList(t *testing.T) {
 			ExpErr:     "Syntax Error: Expecting name of column or a valid expression",
 			ExpExprTxt: "",
 			ListType:   tokens.Select,
+		},
+		{
+			TestName:   "ListType=By:Empty Expression",
+			Terminator: tokens.CloseBracket,
+			Command:    "1,,test)",
+			ExpErr:     "Syntax Error: Expecting name of column or a valid expression for BY",
+			ExpExprTxt: "",
+			ListType:   tokens.By,
 		},
 
 		{
@@ -785,14 +802,14 @@ func TestGetTableList(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	tableData := []struct {
 		Name string
-		Col  sqtables.ColDef
+		Col  column.Def
 	}{
-		{Name: "gettablelistTable1", Col: sqtables.NewColDef("col1", tokens.Int, false)},
-		{Name: "gettablelistTable2", Col: sqtables.NewColDef("col1", tokens.Int, false)},
-		{Name: "gettablelistTable3", Col: sqtables.NewColDef("col1", tokens.Int, false)},
-		{Name: "gettablelistcountry", Col: sqtables.NewColDef("col1", tokens.Int, false)},
-		{Name: "gettablelistcity", Col: sqtables.NewColDef("col1", tokens.Int, false)},
-		{Name: "gettablelistperson", Col: sqtables.NewColDef("col1", tokens.Int, false)},
+		{Name: "gettablelistTable1", Col: column.NewDef("col1", tokens.Int, false)},
+		{Name: "gettablelistTable2", Col: column.NewDef("col1", tokens.Int, false)},
+		{Name: "gettablelistTable3", Col: column.NewDef("col1", tokens.Int, false)},
+		{Name: "gettablelistcountry", Col: column.NewDef("col1", tokens.Int, false)},
+		{Name: "gettablelistcity", Col: column.NewDef("col1", tokens.Int, false)},
+		{Name: "gettablelistperson", Col: column.NewDef("col1", tokens.Int, false)},
 	}
 	for _, tabDat := range tableData {
 		tab := sqtables.CreateTableDef(tabDat.Name, tabDat.Col)

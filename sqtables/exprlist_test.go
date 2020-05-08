@@ -7,6 +7,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -61,8 +62,8 @@ func TestEvalListExpr(t *testing.T) {
 
 	tableName := "elisttest"
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -105,7 +106,7 @@ func TestEvalListExpr(t *testing.T) {
 		},
 		{
 			TestName: "Col Expr",
-			List:     []sqtables.Expr{sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false))},
+			List:     []sqtables.Expr{sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false))},
 			profile:  profile,
 			Tables:   tables,
 			rows:     rows,
@@ -116,7 +117,7 @@ func TestEvalListExpr(t *testing.T) {
 			TestName: "Col Expr not validated",
 			List: []sqtables.Expr{
 				sqtables.NewValueExpr(sqtypes.NewSQString("Test STring")),
-				sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.Int, false)),
+				sqtables.NewColExpr(column.NewRef("colX", tokens.Int, false)),
 			},
 			profile: profile,
 			Tables:  tables,
@@ -290,7 +291,7 @@ func TestEvalListMisc(t *testing.T) {
 			tokens.Plus,
 			sqtables.NewValueExpr(sqtypes.NewSQInt(9)),
 		),
-		sqtables.NewColExpr(sqtables.NewColDef("col1", tokens.Int, false)),
+		sqtables.NewColExpr(column.NewRef("col1", tokens.Int, false)),
 	)
 	t.Run("ExprList GetValues with Column", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
@@ -309,10 +310,10 @@ func TestValidateColsExprList(t *testing.T) {
 
 	tableName := "elistValidatetest"
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
-		sqtables.NewColDef("col3", tokens.Float, false),
-		sqtables.NewColDef("col4", tokens.Bool, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
+		column.NewDef("col3", tokens.Float, false),
+		column.NewDef("col4", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -321,13 +322,13 @@ func TestValidateColsExprList(t *testing.T) {
 	}
 
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
-	cols := sqtables.NewColListNames([]string{"col1", "col4", "col3", "col2"})
+	cols := column.NewListNames([]string{"col1", "col4", "col3", "col2"})
 	eList := sqtables.ColsToExpr(cols)
 
 	t.Run("Validate eList", testValidateColsFunc(eList, "", profile, tables))
 	eList.Add(sqtables.NewValueExpr(sqtypes.NewSQInt(1)))
 	t.Run("Validate eList with ValueExpr", testValidateColsFunc(eList, "", profile, tables))
-	eList.Add(sqtables.NewColExpr(sqtables.ColDef{ColName: "colx"}))
+	eList.Add(sqtables.NewColExpr(column.Ref{ColName: "colx"}))
 	t.Run("Validate eList with Error", testValidateColsFunc(eList, "Error: Column \"colx\" not found in Table(s): elistvalidatetest", profile, tables))
 
 }

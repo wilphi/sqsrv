@@ -6,6 +6,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -19,7 +20,7 @@ func CreateTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, 
 // CreateTableFromTokens - Creates a table from array of tokens that represent a CREATE TABLE statement
 func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, error) {
 	var tableName string
-	var cols []sqtables.ColDef
+	var cols []column.Def
 
 	log.Info("CREATE TABLE command")
 	if tkns.IsA(tokens.Create) {
@@ -82,7 +83,7 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 				return "", sqerr.NewSyntax("Expecting a NULL after NOT in Column definition")
 			}
 
-			col := sqtables.NewColDef(cName, typeTkn.ID(), isNot)
+			col := column.NewDef(cName, typeTkn.ID(), isNot)
 			cols = append(cols, col)
 			i++
 

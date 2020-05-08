@@ -15,6 +15,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/transid"
 )
@@ -33,7 +34,7 @@ type DBInfo struct {
 // DBTable stores table information
 type DBTable struct {
 	TableName  string
-	Cols       []ColDef
+	Cols       []column.Def
 	NRows      int
 	NextRowPtr uint64
 }

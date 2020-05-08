@@ -11,6 +11,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 )
 
@@ -48,7 +49,7 @@ func CreateLogMsg(resp chan error, stmt LogStatement) LogMsg {
 // CreateDDL - Transaction Recording for Create Statement
 type CreateDDL struct {
 	TableName string
-	Cols      []sqtables.ColDef
+	Cols      []column.Def
 }
 
 // Encode uses sqbin.Codec to return a binary encoded version of the statement
@@ -88,7 +89,7 @@ func (c *CreateDDL) Identify(ID uint64) string {
 }
 
 // NewCreateDDL returns a logstatement that is a CREATE TABLE
-func NewCreateDDL(name string, cols []sqtables.ColDef) *CreateDDL {
+func NewCreateDDL(name string, cols []column.Def) *CreateDDL {
 	return &CreateDDL{TableName: name, Cols: cols}
 }
 
@@ -141,7 +142,7 @@ func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 	}
 	tables := sqtables.NewTableListFromTableDef(profile, tab)
 
-	colList := sqtables.NewColListNames(i.Cols)
+	colList := column.NewListNames(i.Cols)
 	if err := colList.Validate(profile, tables); err != nil {
 		return err
 	}
@@ -336,7 +337,7 @@ func DecodeStatement(dec *sqbin.Codec) LogStatement {
 	stmt.Decode(dec)
 	return stmt
 }
-func encColDef(enc *sqbin.Codec, cols []sqtables.ColDef) {
+func encColDef(enc *sqbin.Codec, cols []column.Def) {
 	// encode size of slice
 	enc.WriteInt(len(cols))
 
@@ -344,10 +345,10 @@ func encColDef(enc *sqbin.Codec, cols []sqtables.ColDef) {
 		col.Encode(enc)
 	}
 }
-func decColDef(dec *sqbin.Codec) []sqtables.ColDef {
+func decColDef(dec *sqbin.Codec) []column.Def {
 	// encode size of slice
 	lCols := dec.ReadInt()
-	cols := make([]sqtables.ColDef, lCols)
+	cols := make([]column.Def, lCols)
 
 	for i := 0; i < lCols; i++ {
 		cols[i].Decode(dec)

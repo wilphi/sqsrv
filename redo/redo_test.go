@@ -13,19 +13,17 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqbin"
+	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
+	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 	"github.com/wilphi/sqsrv/transid"
-
-	"github.com/wilphi/sqsrv/sqtables"
-
-	log "github.com/sirupsen/logrus"
-
-	"github.com/wilphi/sqsrv/sqerr"
 )
 
 const (
@@ -454,7 +452,7 @@ func testRecoveryFunc(d RecoveryData) func(*testing.T) {
 func createTransLog(testFileName string, tableName string) error {
 
 	data := []LogStatement{
-		NewCreateDDL(tableName, []sqtables.ColDef{sqtables.NewColDef("col1", tokens.Int, false)}),
+		NewCreateDDL(tableName, []column.Def{column.NewDef("col1", tokens.Int, false)}),
 		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1}, {2}, {3}}), sqptr.SQPtrs{1, 2, 3}),
 		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{4}, {5}, {6}}), sqptr.SQPtrs{4, 5, 6}),
 		NewInsertRows(tableName, []string{"col1"}, sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{7}, {8}, {9}}), sqptr.SQPtrs{7, 8, 9}),

@@ -9,6 +9,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -47,7 +48,7 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 			}
 		}
 
-		data, err := d.Tab.GetRowData(profile, d.Cols, d.Where, d.GroupBy, nil)
+		data, err := d.Tab.GetRowData(profile, d.Cols, d.Where, d.GroupBy, nil, "")
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -73,11 +74,11 @@ func TestGetRowData(t *testing.T) {
 	// Data Setup
 	tableName := "rowdatatest"
 	testT := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("rownum", tokens.Int, false),
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
-		sqtables.NewColDef("col3", tokens.Int, false),
-		sqtables.NewColDef("col4", tokens.Bool, false),
+		column.NewDef("rownum", tokens.Int, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
+		column.NewDef("col3", tokens.Int, false),
+		column.NewDef("col4", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
@@ -105,7 +106,7 @@ func TestGetRowData(t *testing.T) {
 	// Delete a row to make sure that soft deleted rows do not cause a problem
 	where := sqtables.NewOpExpr(
 		sqtables.NewColExpr(
-			sqtables.NewColDef("rownum", tokens.Int, false)),
+			column.NewRef("rownum", tokens.Int, false)),
 		tokens.Equal,
 		sqtables.NewValueExpr(sqtypes.NewSQInt(3)),
 	)
@@ -127,7 +128,7 @@ func TestGetRowData(t *testing.T) {
 			Cols:     cols,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col1", tokens.Int, false)),
+					column.NewRef("col1", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
 			),
@@ -140,7 +141,7 @@ func TestGetRowData(t *testing.T) {
 			Cols:     cols,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col1", tokens.Int, false)),
+					column.NewRef("col1", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
 			),
@@ -153,7 +154,7 @@ func TestGetRowData(t *testing.T) {
 			Cols:     cols,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col1", tokens.Int, false)),
+					column.NewRef("col1", tokens.Int, false)),
 				tokens.LessThan,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
 			),
@@ -166,7 +167,7 @@ func TestGetRowData(t *testing.T) {
 			Cols:     cols,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col1", tokens.Int, false)),
+					column.NewRef("col1", tokens.Int, false)),
 				tokens.LessThan,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
 			),
@@ -179,7 +180,7 @@ func TestGetRowData(t *testing.T) {
 			Cols:     cols,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col2", tokens.Int, false)),
+					column.NewRef("col2", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
 			),
@@ -200,7 +201,7 @@ func TestGetRowData(t *testing.T) {
 			Tab:      testT,
 			Cols: sqtables.NewExprList(
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewColExpr(sqtables.NewColDef("colX", tokens.String, false)),
+				sqtables.NewColExpr(column.NewRef("colX", tokens.String, false)),
 			),
 			Where:   nil,
 			ExpErr:  "Error: Column \"colX\" not found in Table(s): rowdatatest",
@@ -213,12 +214,12 @@ func TestGetRowData(t *testing.T) {
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 				sqtables.NewFuncExpr(
 					tokens.Float,
-					sqtables.NewColExpr(sqtables.NewColDef("col2", tokens.String, false)),
+					sqtables.NewColExpr(column.NewRef("col2", tokens.String, false)),
 				),
 			),
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col2", tokens.Int, false)),
+					column.NewRef("col2", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQString("d test string")),
 			),
@@ -282,9 +283,9 @@ func TestGetRowPtrs(t *testing.T) {
 	// Data Setup
 	tableName := "rowptrstest"
 	testT := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("rowid", tokens.Int, false),
-		sqtables.NewColDef("firstname", tokens.String, false),
-		sqtables.NewColDef("active", tokens.Bool, false),
+		column.NewDef("rowid", tokens.Int, false),
+		column.NewDef("firstname", tokens.String, false),
+		column.NewDef("active", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
@@ -316,7 +317,7 @@ func TestGetRowPtrs(t *testing.T) {
 	// Delete a row to make sure that soft deleted rows do not cause a problem
 	where := sqtables.NewOpExpr(
 		sqtables.NewColExpr(
-			sqtables.NewColDef("rowid", tokens.Int, false)),
+			column.NewRef("rowid", tokens.Int, false)),
 		tokens.Equal,
 		sqtables.NewValueExpr(sqtypes.NewSQInt(7)),
 	)
@@ -345,7 +346,7 @@ func TestGetRowPtrs(t *testing.T) {
 			Tab:      testT,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("rowid", tokens.Int, false)),
+					column.NewRef("rowid", tokens.Int, false)),
 				tokens.LessThan,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(50)),
 			),
@@ -358,7 +359,7 @@ func TestGetRowPtrs(t *testing.T) {
 			Tab:      testT,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("rowid", tokens.Int, false)),
+					column.NewRef("rowid", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(26)),
 			),
@@ -371,7 +372,7 @@ func TestGetRowPtrs(t *testing.T) {
 			Tab:      testT,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("rowid", tokens.Int, false)),
+					column.NewRef("rowid", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 			),
@@ -384,7 +385,7 @@ func TestGetRowPtrs(t *testing.T) {
 			Tab:      testT,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("active", tokens.Bool, false)),
+					column.NewRef("active", tokens.Bool, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQBool(false)),
 			),
@@ -399,14 +400,14 @@ func TestGetRowPtrs(t *testing.T) {
 				sqtables.NewOpExpr(
 					sqtables.NewOpExpr(
 						sqtables.NewColExpr(
-							sqtables.NewColDef("rowid", tokens.Int, false)),
+							column.NewRef("rowid", tokens.Int, false)),
 						tokens.Equal,
 						sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
 					),
 					tokens.Or,
 					sqtables.NewOpExpr(
 						sqtables.NewColExpr(
-							sqtables.NewColDef("rowid", tokens.Int, false)),
+							column.NewRef("rowid", tokens.Int, false)),
 						tokens.Equal,
 						sqtables.NewValueExpr(sqtypes.NewSQInt(3)),
 					),
@@ -414,7 +415,7 @@ func TestGetRowPtrs(t *testing.T) {
 				tokens.Or,
 				sqtables.NewOpExpr(
 					sqtables.NewColExpr(
-						sqtables.NewColDef("active", tokens.Bool, false)),
+						column.NewRef("active", tokens.Bool, false)),
 					tokens.Equal,
 					sqtables.NewValueExpr(sqtypes.NewSQBool(false)),
 				),
@@ -428,7 +429,7 @@ func TestGetRowPtrs(t *testing.T) {
 			Tab:      testT,
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("rowid", tokens.Int, false)),
+					column.NewRef("rowid", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQString("TEST")),
 			),
@@ -451,9 +452,9 @@ func TestMisc(t *testing.T) {
 	// Data Setup
 	tableName := "rowcounttest"
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("rowid", tokens.Int, true),
-		sqtables.NewColDef("firstname", tokens.String, false),
-		sqtables.NewColDef("active", tokens.Bool, false),
+		column.NewDef("rowid", tokens.Int, true),
+		column.NewDef("firstname", tokens.String, false),
+		column.NewDef("active", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -500,7 +501,7 @@ func TestMisc(t *testing.T) {
 	// Delete a row to make sure that soft deleted rows do not cause a problem
 	where := sqtables.NewOpExpr(
 		sqtables.NewColExpr(
-			sqtables.NewColDef("rowid", tokens.Int, false)),
+			column.NewRef("rowid", tokens.Int, false)),
 		tokens.Equal,
 		sqtables.NewValueExpr(sqtypes.NewSQInt(7)),
 	)
@@ -569,11 +570,11 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 
 		// Data Setup
 		tab := sqtables.CreateTableDef(tableName,
-			sqtables.NewColDef("rownum", tokens.Int, false),
-			sqtables.NewColDef("col1", tokens.Int, false),
-			sqtables.NewColDef("col2", tokens.String, false),
-			sqtables.NewColDef("col3", tokens.Int, false),
-			sqtables.NewColDef("col4", tokens.Bool, false),
+			column.NewDef("rownum", tokens.Int, false),
+			column.NewDef("col1", tokens.Int, false),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Int, false),
+			column.NewDef("col4", tokens.Bool, false),
 		)
 		err := sqtables.CreateTable(profile, tab)
 		if err != nil {
@@ -602,7 +603,7 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 		// Delete a row to make sure that soft deleted rows do not cause a problem
 		where := sqtables.NewOpExpr(
 			sqtables.NewColExpr(
-				sqtables.NewColDef("rownum", tokens.Int, false)),
+				column.NewRef("rownum", tokens.Int, false)),
 			tokens.Equal,
 			sqtables.NewValueExpr(sqtypes.NewSQInt(3)),
 		)
@@ -655,7 +656,7 @@ func TestDeleteRows(t *testing.T) {
 			TestName: "col1(5) = 5 ->1",
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col1", tokens.Int, false)),
+					column.NewRef("col1", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
 			),
@@ -666,7 +667,7 @@ func TestDeleteRows(t *testing.T) {
 			TestName: "col1(6) = 5 ->0",
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col1", tokens.Int, false)),
+					column.NewRef("col1", tokens.Int, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
 			),
@@ -677,7 +678,7 @@ func TestDeleteRows(t *testing.T) {
 			TestName: "col1 < 5 ->0",
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col1", tokens.Int, false)),
+					column.NewRef("col1", tokens.Int, false)),
 				tokens.LessThan,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
 			),
@@ -688,7 +689,7 @@ func TestDeleteRows(t *testing.T) {
 			TestName: "col1 < 7 ->1",
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col1", tokens.Int, false)),
+					column.NewRef("col1", tokens.Int, false)),
 				tokens.LessThan,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
 			),
@@ -705,7 +706,7 @@ func TestDeleteRows(t *testing.T) {
 			TestName: "Delete where error",
 			Where: sqtables.NewOpExpr(
 				sqtables.NewColExpr(
-					sqtables.NewColDef("col2", tokens.String, false)),
+					column.NewRef("col2", tokens.String, false)),
 				tokens.Equal,
 				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
 			),
@@ -780,11 +781,11 @@ func TestGetRowDataFromPtrs(t *testing.T) {
 
 	// Data Setup
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("rownum", tokens.Int, false),
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
-		sqtables.NewColDef("col3", tokens.Int, false),
-		sqtables.NewColDef("col4", tokens.Bool, false),
+		column.NewDef("rownum", tokens.Int, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
+		column.NewDef("col3", tokens.Int, false),
+		column.NewDef("col4", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -878,7 +879,7 @@ func testUpdateRowsFromPtrsFunc(d *UpdateRowsFromPtrsData) func(*testing.T) {
 
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-			ds, err := d.Tab.GetRowData(profile, cList, nil, nil, nil)
+			ds, err := d.Tab.GetRowData(profile, cList, nil, nil, nil, "")
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return
@@ -903,11 +904,11 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 
 	// Data Setup
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("rownum", tokens.Int, false),
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
-		sqtables.NewColDef("col3", tokens.Int, false),
-		sqtables.NewColDef("col4", tokens.Bool, false),
+		column.NewDef("rownum", tokens.Int, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
+		column.NewDef("col3", tokens.Int, false),
+		column.NewDef("col4", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -983,7 +984,7 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 			ExpErr:   "Error: Column \"ColX\" not found in Table(s): updaterowsfromptrstest",
 			Ptrs:     sqptr.SQPtrs{1},
 			Cols:     []string{"col4"},
-			ExpList:  sqtables.NewExprList(sqtables.NewColExpr(sqtables.NewColDef("ColX", tokens.Float, false))),
+			ExpList:  sqtables.NewExprList(sqtables.NewColExpr(column.NewRef("ColX", tokens.Float, false))),
 			ExpData: sqtypes.RawVals{
 				{1, 5, "d test string", 10, true},
 				{2, 7, "f test string", 100, true},
@@ -1015,11 +1016,11 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		profile := sqprofile.CreateSQProfile()
-		clist := sqtables.NewColListNames(d.Cols)
+		clist := column.NewListNames(d.Cols)
 		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
 		err := clist.Validate(profile, tables)
 		if err != nil {
-			t.Errorf("Unexpected Error setting up ColList for test %s: %s", t.Name(), err)
+			t.Errorf("Unexpected Error setting up column.List for test %s: %s", t.Name(), err)
 		}
 		data, err := sqtables.NewDataSet(profile, tables, sqtables.ColsToExpr(d.Tab.GetCols(profile)))
 		if err != nil {
@@ -1037,7 +1038,7 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 
 		if d.ExpData != nil {
 			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-			ds, err := d.Tab.GetRowData(profile, cList, nil, nil, nil)
+			ds, err := d.Tab.GetRowData(profile, cList, nil, nil, nil, "")
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return
@@ -1063,11 +1064,11 @@ func TestAddRows(t *testing.T) {
 
 	// Data Setup
 	tab := sqtables.CreateTableDef(tableName,
-		sqtables.NewColDef("rownum", tokens.Int, false),
-		sqtables.NewColDef("col1", tokens.Int, false),
-		sqtables.NewColDef("col2", tokens.String, false),
-		sqtables.NewColDef("col3", tokens.Int, false),
-		sqtables.NewColDef("col4", tokens.Bool, false),
+		column.NewDef("rownum", tokens.Int, false),
+		column.NewDef("col1", tokens.Int, false),
+		column.NewDef("col2", tokens.String, false),
+		column.NewDef("col3", tokens.Int, false),
+		column.NewDef("col4", tokens.Bool, false),
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {

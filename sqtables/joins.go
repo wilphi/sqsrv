@@ -4,6 +4,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 )
 
@@ -12,7 +13,7 @@ type JoinTable struct {
 	Name string
 	Tab  *TableDef
 	Rows []JoinRow
-	Cols []ColDef
+	Cols []column.Ref
 }
 
 // JoinRow defines row definition for joins
@@ -33,7 +34,7 @@ func (r *JoinRow) GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr {
 }
 
 // GetColData -
-func (r *JoinRow) GetColData(profile *sqprofile.SQProfile, c *ColDef) (sqtypes.Value, error) {
+func (r *JoinRow) GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
 	if c.Idx < 0 || c.Idx >= len(r.Vals) {
 		return nil, sqerr.Newf("Invalid index (%d) for Column in row. Col len = %d", c.Idx, len(r.Vals))
 	}

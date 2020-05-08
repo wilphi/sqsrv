@@ -24,7 +24,7 @@ type Index struct {
 	name        string
 	elemArray   elementArray
 	colHasNulls bool
-	col         []ColDef
+	col         []column.Ref
 }
 
 func (ea elementArray) Len() int {

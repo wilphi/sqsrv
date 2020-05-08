@@ -6,6 +6,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -165,7 +166,7 @@ func getValCol(tkns *tokens.TokenList) (exp sqtables.Expr, err error) {
 				tkns.Remove()
 				displayTable = true
 			}
-			exp = sqtables.NewColExpr(sqtables.ColDef{ColName: cName, TableName: tName, DisplayTableName: displayTable})
+			exp = sqtables.NewColExpr(column.Ref{ColName: cName, TableName: tName, TableAlias: tName, DisplayTableName: displayTable})
 			if mSign {
 				exp = sqtables.NewNegateExpr(exp)
 			}
@@ -382,7 +383,7 @@ func GetExprList(tkns *tokens.TokenList, terminatorID tokens.TokenID, listtype t
 		case tokens.Select, tokens.Group:
 			errStr += "Expecting name of column or a valid expression"
 		default:
-			errStr += "No expressions defined for " + tokens.IDName(listtype)
+			errStr += "Expecting name of column or a valid expression for " + tokens.IDName(listtype)
 		}
 		return nil, sqerr.NewSyntax(errStr)
 	}
@@ -416,10 +417,10 @@ func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminat
 			// Check for an Alias
 			if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 				aName := tkn.(*tokens.ValueToken).Value()
-				err = tables.Add(profile, sqtables.FromTable{TableName: tName, Alias: aName})
+				err = tables.Add(profile, sqtables.TableRef{TableName: tName, Alias: aName})
 				tkns.Remove()
 			} else {
-				err = tables.Add(profile, sqtables.FromTable{TableName: tName})
+				err = tables.Add(profile, sqtables.TableRef{TableName: tName})
 			}
 			if err != nil {
 				return nil, err

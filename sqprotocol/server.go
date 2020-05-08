@@ -11,7 +11,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -86,7 +86,7 @@ func (srv *SvrConfig) Close() error {
 }
 
 // SendColumns -
-func (srv *SvrConfig) SendColumns(cols []sqtables.ColDef) error {
+func (srv *SvrConfig) SendColumns(cols []column.Ref) error {
 	for _, c := range cols {
 		cInfo := ColInfo{ColName: c.ColName, Width: getTypeWidth(c.ColType)}
 		err := srv.enc.Encode(cInfo)

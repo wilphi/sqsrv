@@ -69,7 +69,7 @@ func testDeleteFunc(profile *sqprofile.SQProfile, d DeleteData) func(*testing.T)
 				return
 			}
 
-			data, err := tab.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil, nil, nil)
+			data, err := tab.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil, nil, nil, "")
 			if err != nil {
 				t.Error("Unable to get data from table")
 				return
@@ -121,7 +121,7 @@ func TestDelete(t *testing.T) {
 		return
 	}
 
-	ds, err := tab.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil, nil, nil)
+	ds, err := tab.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil, nil, nil, "")
 	if err != nil {
 		t.Errorf("Error setting up table for TestSelect: %s", err)
 		return

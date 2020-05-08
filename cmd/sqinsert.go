@@ -8,6 +8,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
+	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -81,7 +82,7 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 		return sqerr.New("Table " + ins.tableName + " does not exist")
 	}
 
-	ins.data, err = sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(sqtables.NewColListNames(colNames)))
+	ins.data, err = sqtables.NewDataSet(profile, sqtables.NewTableListFromTableDef(profile, tab), sqtables.ColsToExpr(column.NewListNames(colNames)))
 	if err != nil {
 		return err
 	}
