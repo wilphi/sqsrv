@@ -69,6 +69,31 @@ func CheckErr(t TestingT, err error, ExpErr string) bool {
 	return false
 }
 
+//CheckErrContain checks an error to see if it contains the substring
+// Returns:
+//  true if an unsuccessful error check has occurred
+//  false if the testing should continue
+func CheckErrContain(t TestingT, err error, ExpSubString string) bool {
+	t.Helper()
+
+	if err != nil {
+		if ExpSubString == "" {
+			t.Errorf("Unexpected Error: %q", err.Error())
+			return true
+		}
+		if !strings.Contains(err.Error(), ExpSubString) {
+			t.Errorf("Expecting Error containing %q but got: %q", ExpSubString, err.Error())
+			return true
+		}
+		return true
+	}
+	if ExpSubString != "" { // && err==nil
+		t.Errorf("Unexpected Success should have returned error containing: %q", ExpSubString)
+		return true
+	}
+	return false
+}
+
 // PanicTrace Prints a simplified stack trace after a panic
 func PanicTrace() (ret string) {
 	skipFragment := []string{"sqtest/sqtest.go", "testing/testing.go", "runtime/", "/sirupsen/logrus/"}
