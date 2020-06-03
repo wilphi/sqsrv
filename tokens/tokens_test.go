@@ -22,11 +22,11 @@ type TokenData struct {
 	Tokens   *TokenList
 }
 
-func allWords() []Token {
+func allWords(mask TokenFlags) []Token {
 	var tkns []Token
 
 	for _, tkn := range wordTokens {
-		if tkn.TestFlags(IsWord) {
+		if tkn.TestFlags(mask) {
 			tkns = append(tkns, tkn)
 		}
 	}
@@ -34,18 +34,6 @@ func allWords() []Token {
 	return tkns
 }
 
-func allFunctions() []Token {
-	var tkns []Token
-
-	for _, tkn := range wordTokens {
-		if tkn.TestFlags(IsFunction) {
-			tkns = append(tkns, tkn)
-		}
-	}
-	sort.Slice(tkns, func(i, j int) bool { return tkns[i].Name() < tkns[j].Name() })
-
-	return tkns
-}
 func TestTokenize(t *testing.T) {
 	data := []TokenData{
 		{
@@ -118,13 +106,23 @@ func TestTokenize(t *testing.T) {
 		},
 		{
 			TestName: "All WordTokens ",
-			testStr:  "AND ASC AVG BOOL BY COUNT CREATE DELETE DESC DISTINCT DROP FALSE FLOAT FROM FULL GROUP HAVING INNER INSERT INT INTO JOIN LEFT MAX MIN NOT NULL ON OR ORDER OUTER RIGHT SELECT SET STRING SUM TABLE TRUE UPDATE VALUES WHERE \n",
-			Tokens:   CreateList(allWords()),
+			testStr:  "AND ASC AVG BOOL BY COUNT CREATE CROSS DELETE DESC DISTINCT DROP FALSE FLOAT FROM FULL GROUP HAVING INNER INSERT INT INTO JOIN LEFT MAX MIN NOT NULL ON OR ORDER OUTER RIGHT SELECT SET STRING SUM TABLE TRUE UPDATE VALUES WHERE \n",
+			Tokens:   CreateList(allWords(IsWord)),
 		},
 		{
 			TestName: "All Functions ",
 			testStr:  "AVG BOOL COUNT FLOAT INT MAX MIN STRING SUM\n",
-			Tokens:   CreateList(allFunctions()),
+			Tokens:   CreateList(allWords(IsFunction)),
+		},
+		{
+			TestName: "All Symbols",
+			testStr:  "!= % ( ) * + , - . / : ; < <= = > >= _\n",
+			Tokens:   CreateList(allWords(IsSymbol)),
+		},
+		{
+			TestName: "All Aggregate Functions",
+			testStr:  "AVG COUNT MAX MIN SUM \n",
+			Tokens:   CreateList(allWords(IsAggregate)),
 		},
 	}
 

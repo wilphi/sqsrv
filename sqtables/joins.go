@@ -5,13 +5,13 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtypes"
 )
 
 //JoinTable defines table like struct for joins
 type JoinTable struct {
-	Name string
-	Tab  *TableDef
+	TR   TableRef
 	Rows []JoinRow
 	Cols []column.Ref
 }
@@ -20,12 +20,12 @@ type JoinTable struct {
 type JoinRow struct {
 	Ptr       sqptr.SQPtr
 	Vals      []sqtypes.Value
-	TableName string
+	TableName *moniker.Moniker
 }
 
 // GetTableName gets the table name that the JoinRow is based off on.
 func (r *JoinRow) GetTableName(profile *sqprofile.SQProfile) string {
-	return r.TableName
+	return r.TableName.Show()
 }
 
 // GetPtr returns the pointer to the given row

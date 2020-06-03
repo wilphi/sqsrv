@@ -10,6 +10,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -762,7 +763,7 @@ type GetTableListData struct {
 	Command        string
 	ExpErr         string
 	ExpTab         *sqtables.TableList
-	ExpectedTables []string
+	ExpectedTables []*moniker.Moniker
 	ExpTokenLen    int
 }
 
@@ -787,9 +788,9 @@ func testGetTableListFunc(d GetTableListData) func(*testing.T) {
 			t.Errorf("The length Expected TableNames (%d) and returned TableNames (%d) do not match", len(d.ExpectedTables), rIdents.Len())
 			return
 		}
-		sort.Strings(d.ExpectedTables)
+		sort.Slice(d.ExpectedTables, func(i int, j int) bool { return d.ExpectedTables[i].Name < d.ExpectedTables[j].Name })
 		if !reflect.DeepEqual(d.ExpectedTables, rIdents.TableNames()) {
-			t.Error("Expected Tables do not match actual Tables")
+			t.Errorf("Expected Tables: %v  - do not match actual Tables: %v", d.ExpectedTables, rIdents.TableNames())
 			return
 		}
 
@@ -826,7 +827,7 @@ func TestGetTableList(t *testing.T) {
 			Terminators:    []tokens.TokenID{tokens.CloseBracket},
 			Command:        "gettablelistTable1",
 			ExpErr:         "",
-			ExpectedTables: []string{"gettablelistTable1"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", "")},
 		},
 		{
 			TestName:       "Expect another Table",
@@ -840,7 +841,7 @@ func TestGetTableList(t *testing.T) {
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        "gettablelistTable1, gettablelistTable2",
 			ExpErr:         "",
-			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", ""), moniker.New("gettablelistTable2", "")},
 		},
 		{
 			TestName:       "Expect a third Table",
@@ -854,14 +855,14 @@ func TestGetTableList(t *testing.T) {
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        "gettablelistTable1, gettablelistTable2, gettablelistTable3",
 			ExpErr:         "",
-			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", ""), moniker.New("gettablelistTable2", ""), moniker.New("gettablelistTable3", "")},
 		},
 		{
 			TestName:       "Complete Table definition with Where",
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        "gettablelistTable1, gettablelistTable2, gettablelistTable3 Where",
 			ExpErr:         "",
-			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", ""), moniker.New("gettablelistTable2", ""), moniker.New("gettablelistTable3", "")},
 			ExpTokenLen:    1,
 		},
 		{
@@ -869,7 +870,7 @@ func TestGetTableList(t *testing.T) {
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        "gettablelistcountry, gettablelistcity,gettablelistperson ORDER",
 			ExpErr:         "",
-			ExpectedTables: []string{"gettablelistcountry", "gettablelistcity", "gettablelistperson"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelistcountry", ""), moniker.New("gettablelistcity", ""), moniker.New("gettablelistperson", "")},
 			ExpTokenLen:    1,
 		},
 		{
@@ -877,35 +878,35 @@ func TestGetTableList(t *testing.T) {
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        "gettablelistTable1, gettablelistTable2, gettablelistTable3, Where",
 			ExpErr:         "Syntax Error: Unexpected ',' in From clause",
-			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", ""), moniker.New("gettablelistTable2", ""), moniker.New("gettablelistTable3", "")},
 		},
 		{
 			TestName:       "No Tables in list",
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        "Where",
 			ExpErr:         "Syntax Error: No Tables defined for query",
-			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", ""), moniker.New("gettablelistTable2", ""), moniker.New("gettablelistTable3", "")},
 		},
 		{
 			TestName:       "Not a tablename",
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        "gettablelistTable1, () Where",
 			ExpErr:         "Syntax Error: Expecting name of Table",
-			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", ""), moniker.New("gettablelistTable2", ""), moniker.New("gettablelistTable3", "")},
 		},
 		{
 			TestName:       "Missing tablename",
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        ", test Where",
 			ExpErr:         "Syntax Error: Expecting name of Table",
-			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", ""), moniker.New("gettablelistTable2", ""), moniker.New("gettablelistTable3", "")},
 		},
 		{
 			TestName:       "Missing comma",
 			Terminators:    []tokens.TokenID{tokens.Where, tokens.Order},
 			Command:        "gettablelistTable1  alias1 gettablelistTable2 Where",
 			ExpErr:         "Syntax Error: Comma is required to separate tables",
-			ExpectedTables: []string{"gettablelistTable1", "gettablelistTable2", "gettablelistTable3"},
+			ExpectedTables: []*moniker.Moniker{moniker.New("gettablelisttable1", ""), moniker.New("gettablelistTable2", ""), moniker.New("gettablelistTable3", "")},
 		},
 	}
 

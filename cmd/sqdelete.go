@@ -62,7 +62,7 @@ func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (num
 	// Optional Where clause processing goes here
 	if tkns.IsA(tokens.Where) {
 		tkns.Remove()
-		whereExpr, err = ParseWhereClause(tkns, tokens.Order)
+		whereExpr, err = ParseWhereClause(tkns, false, tokens.Order)
 
 		if err != nil {
 			return

@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
+	"github.com/wilphi/sqsrv/isdebug"
 )
 
 ///////////////////////////////////////
@@ -34,7 +35,7 @@ func TestInit(logname string) {
 			panic(err)
 		}
 		mode := os.Getenv("SQSRV_MODE")
-		if mode == "DEBUG" {
+		if mode == "DEBUG" || isdebug.Enabled {
 			log.SetLevel(log.DebugLevel)
 			log.SetOutput(os.Stdout)
 		} else {

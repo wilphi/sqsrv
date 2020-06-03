@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtest"
@@ -316,461 +317,172 @@ func testSortFunc(d SortData) func(*testing.T) {
 	}
 }
 
-type GroupByData struct {
-	TestName      string
-	Tables        *sqtables.TableList
-	DataCols      *sqtables.ExprList
-	InitVals      [][]sqtypes.Value
-	Order         []sqtables.OrderItem
-	ExpVals       [][]sqtypes.Value
-	GroupBy       *sqtables.ExprList
-	Having        *sqtables.Expr
-	NewDataSetErr string
-	ExpErr        string
-	SortOrderErr  string
-	SortErr       string
-}
+///////////////////////////////////////////////////////////////////////////////////////////
+//
 
-func testGroupByFunc(d GroupByData) func(*testing.T) {
-	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, "")
+func TestDSGetColData(t *testing.T) {
 
-		profile := sqprofile.CreateSQProfile()
-
-		data, err := sqtables.NewQueryDataSet(profile, d.Tables, d.DataCols, d.GroupBy, d.Having)
-		if sqtest.CheckErr(t, err, d.NewDataSetErr) {
-			return
-		}
-
-		data.Vals = d.InitVals
-
-		if d.GroupBy != nil || d.DataCols.HasAggregateFunc() {
-			err = data.GroupBy(profile)
-		}
-
-		if sqtest.CheckErr(t, err, d.ExpErr) {
-			return
-		}
-
-		//fmt.Println(data.Vals)
-		if d.Order != nil {
-			err := data.SetOrder(d.Order)
-			if sqtest.CheckErr(t, err, d.SortOrderErr) {
-				return
-			}
-
-			err = data.Sort()
-			if sqtest.CheckErr(t, err, d.SortErr) {
-				return
-			}
-
-		}
-		if !reflect.DeepEqual(data.Vals, d.ExpVals) {
-			fmt.Println("  Actual Values:", data.Vals)
-			fmt.Println("Expected Values:", d.ExpVals)
-			t.Error("The actual values after the Group By did not match expected values")
-			return
-		}
-
-	}
-}
-
-func TestGroupBy(t *testing.T) {
-	profile := sqprofile.CreateSQProfile()
-
-	firstnameCD := column.NewDef("firstname", tokens.String, false)
-	lastnameCD := column.NewDef("lastname", tokens.String, false)
-	ageCD := column.NewDef("age", tokens.Int, false)
-
-	tab1 := sqtables.CreateTableDef("testgroupby",
-		firstnameCD,
-		lastnameCD,
-		ageCD,
-		column.NewDef("salary", tokens.Float, false),
-		column.NewDef("cityid", tokens.Int, false),
-	)
-	err := sqtables.CreateTable(profile, tab1)
-	if err != nil {
-		t.Error("Error creating table: ", err)
-		return
-	}
-	tab2 := sqtables.CreateTableDef("testgroupbycity",
-		column.NewDef("cityid", tokens.Int, false),
-		column.NewDef("name", tokens.String, false),
-		column.NewDef("country", tokens.String, false),
-	)
-	err = sqtables.CreateTable(profile, tab2)
-	if err != nil {
-		t.Error("Error creating table: ", err)
-		return
+	DSRow1 := sqtables.DSRow{
+		Ptr:       sqptr.SQPtr(1),
+		Vals:      sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{1, "test", false}),
+		TableName: "Does not matter",
 	}
 
-	tables := sqtables.NewTableListFromTableDef(profile, tab1)
-	firstNameExp := sqtables.NewColExpr(firstnameCD.Ref())
-	lastNameExp := sqtables.NewColExpr(lastnameCD.Ref())
-	multitable := sqtables.NewTableListFromTableDef(profile, tab1, tab2)
-	cityNameCD := column.Ref{ColName: "name", ColType: tokens.String, TableName: tab2.GetName(profile), DisplayTableName: true}
-	cityNameExp := sqtables.NewColExpr(cityNameCD)
-	ageExp := sqtables.NewColExpr(column.Ref{ColName: "age", ColType: tokens.Int})
-
-	having1 := sqtables.NewOpExpr(
-		sqtables.NewFuncExpr(tokens.Count, nil),
-		tokens.GreaterThan,
-		sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-	)
-	data := []GroupByData{
+	data := []DSGetColData{
 		{
-			TestName: "GroupBy Dataset No Group Cols",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-				{"whilma", nil},
-				{"barney", nil},
-				{"barney", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", 2},
-				{"betty", 2},
-				{"fred", 3},
-				{"whilma", 1},
-				{nil, 2},
-			}),
-			NewDataSetErr: "Syntax Error: Select Statements with Aggregate functions (count, sum, min, max, avg) must not have other expressions",
+			TestName: "First Col",
+			Row:      DSRow1,
+			Col:      &column.Ref{ColName: "test0", ColType: tokens.Int, Idx: 0},
+			ExpErr:   "",
+			ExpVal:   sqtypes.Raw(1),
 		},
 		{
-			TestName: "Dataset GroupBy firstname",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-				{"whilma", nil},
-				{"barney", nil},
-				{"barney", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", 2},
-				{"betty", 2},
-				{"fred", 3},
-				{"whilma", 1},
-				{nil, 2},
-			}),
-			GroupBy: sqtables.ColsToExpr(column.NewListRefs([]column.Ref{firstnameCD.Ref()})),
-			ExpErr:  "",
+			TestName: "Error -1 idx",
+			Row:      DSRow1,
+			Col:      &column.Ref{ColName: "test1", ColType: tokens.Int, Idx: -1},
+			ExpErr:   "Error: Invalid index (-1) for Column in row. Col len = 3",
+			ExpVal:   sqtypes.Raw(1),
 		},
 		{
-			TestName: "Dataset GroupBy first, last names",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", "flintstone", nil},
-				{nil, nil, nil},
-				{"betty", "rubble", nil},
-				{"fred", "flintstone", nil},
-				{"whilma", "flintstone", nil},
-				{"barney", "rubble", nil},
-				{"barney", "rubble", nil},
-				{nil, nil, nil},
-				{"betty", "rubble", nil},
-				{"fred", "mercury", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", "rubble", 2},
-				{"betty", "rubble", 2},
-				{"fred", "flintstone", 2},
-				{"fred", "mercury", 1},
-				{"whilma", "flintstone", 1},
-				{nil, nil, 2},
-			}),
-			GroupBy: sqtables.NewExprList(firstNameExp, lastNameExp),
-			ExpErr:  "",
+			TestName: "Error idx=len",
+			Row:      DSRow1,
+			Col:      &column.Ref{ColName: "testx", ColType: tokens.Int, Idx: len(DSRow1.Vals)},
+			ExpErr:   "Error: Invalid index (3) for Column in row. Col len = 3",
+			ExpVal:   sqtypes.Raw(1),
 		},
 		{
-			TestName: "Dataset GroupBy firstname, extra col in elist",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-				{"whilma", nil},
-				{"barney", nil},
-				{"barney", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", 2},
-				{"betty", 2},
-				{"fred", 3},
-				{"whilma", 1},
-				{nil, 2},
-			}),
-			GroupBy:       sqtables.NewExprList(firstNameExp),
-			NewDataSetErr: "Syntax Error: lastname is not in the group by clause: firstname",
-		},
-		{
-			TestName: "Dataset GroupBy firstname non aggregate function",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-				{"whilma", nil},
-				{"barney", nil},
-				{"barney", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", 2},
-				{"betty", 2},
-				{"fred", 3},
-				{"whilma", 1},
-				{nil, 2},
-			}),
-			GroupBy:       sqtables.NewExprList(firstNameExp),
-			NewDataSetErr: "Syntax Error: lastname is not in the group by clause: firstname",
-		},
-		{
-			TestName: "Dataset implicity GroupBy int(firstname) non aggregate function",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Int, lastNameExp), sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-				{"whilma", nil},
-				{"barney", nil},
-				{"barney", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-			}),
-
-			GroupBy:       nil,
-			NewDataSetErr: "Syntax Error: INT(lastname) is not an aggregate function",
-		},
-		{
-			TestName: "Dataset implicit group by",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred"},
-				{nil},
-				{"betty"},
-				{"fred"},
-				{"whilma"},
-				{"barney"},
-				{"barney"},
-				{nil},
-				{"betty"},
-				{"fred"},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{10},
-			}),
-			GroupBy:       nil,
-			NewDataSetErr: "",
-		},
-		{
-			TestName: "Dataset implicit group by with count, sum, min, max, avg",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(
-				sqtables.NewFuncExpr(tokens.Count, nil),
-				sqtables.NewFuncExpr(tokens.Sum,
-					sqtables.NewColExpr(column.Ref{ColName: "age"}),
-				),
-				sqtables.NewFuncExpr(tokens.Min,
-					sqtables.NewColExpr(column.Ref{ColName: "age"}),
-				),
-				sqtables.NewFuncExpr(tokens.Max,
-					sqtables.NewColExpr(column.Ref{ColName: "age"}),
-				),
-				sqtables.NewFuncExpr(tokens.Avg,
-					sqtables.NewColExpr(column.Ref{ColName: "age"}),
-				),
-			),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", 10, 10, 10, 10},
-				{nil, nil, nil, nil, nil},
-				{"betty", 20, 20, 20, 20},
-				{"fred", 10, 10, 10, 10},
-				{"whilma", 20, 20, 20, 20},
-				{"barney", 11, 5, 5, 11},
-				{"barney", 11, 11, 11, 11},
-				{nil, nil, nil, nil, nil},
-				{"betty", 21, 21, 21, 21},
-				{"fred", 75, 75, 75, 75},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{10, 178, 5, 75, 22.25},
-			}),
-			GroupBy:       nil,
-			NewDataSetErr: "",
-		},
-		{
-			TestName: "Dataset multi table group by city.name with count, sum, min, max, avg",
-			Tables:   multitable,
-			DataCols: sqtables.NewExprList(
-				cityNameExp,
-				sqtables.NewFuncExpr(tokens.Count, nil),
-				sqtables.NewFuncExpr(tokens.Sum,
-					sqtables.NewColExpr(column.Ref{ColName: "age"}),
-				),
-				sqtables.NewFuncExpr(tokens.Min,
-					sqtables.NewColExpr(column.Ref{ColName: "age"}),
-				),
-				sqtables.NewFuncExpr(tokens.Max,
-					sqtables.NewColExpr(column.Ref{ColName: "age"}),
-				),
-				sqtables.NewFuncExpr(tokens.Avg,
-					sqtables.NewColExpr(column.Ref{ColName: "age"}),
-				),
-			),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"Toronto", nil, 25, 25, 25, 25},
-				{"Ottawa", nil, 75, 75, 75, 75},
-				{"Barrie", nil, 16, 16, 16, 16},
-				{"Toronto", nil, 3, 3, 3, 3},
-				{"Ottawa", nil, 28, 28, 28, 28},
-				{"Toronto", nil, 31, 31, 31, 31},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"Barrie", 1, 16, 16, 16, 16.0},
-				{"Ottawa", 2, 103, 28, 75, 51.5},
-				{"Toronto", 3, 59, 3, 31, 19.666666666666668},
-			}),
-			GroupBy:       sqtables.NewExprList(cityNameExp),
-			NewDataSetErr: "",
-		},
-		{
-			TestName: "Dataset GroupBy invalid",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-				{"whilma", nil},
-				{"barney", nil},
-				{"barney", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", 2},
-				{"betty", 2},
-				{"fred", 3},
-				{"whilma", 1},
-				{nil, 2},
-			}),
-			GroupBy:       sqtables.ColsToExpr(column.NewListRefs([]column.Ref{cityNameCD})),
-			NewDataSetErr: "Error: Table testgroupbycity not found in table list",
-		},
-		{
-			TestName: "Dataset GroupBy invalid not in elist",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-				{"whilma", nil},
-				{"barney", nil},
-				{"barney", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", 2},
-				{"betty", 2},
-				{"fred", 3},
-				{"whilma", 1},
-				{nil, 2},
-			}),
-			GroupBy:       sqtables.ColsToExpr(column.NewListDefs([]column.Def{firstnameCD, lastnameCD})),
-			NewDataSetErr: "Syntax Error: lastname is not in the expression list: firstname,COUNT()",
-		},
-		{
-			TestName: "Dataset GroupBy non aggregate function",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.String, ageExp)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-				{"whilma", nil},
-				{"barney", nil},
-				{"barney", nil},
-				{nil, nil},
-				{"betty", nil},
-				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", 2},
-				{"betty", 2},
-				{"fred", 3},
-				{"whilma", 1},
-				{nil, 2},
-			}),
-			GroupBy:       sqtables.ColsToExpr(column.NewListDefs([]column.Def{firstnameCD})),
-			NewDataSetErr: "Syntax Error: STRING(age) is not an aggregate function",
-		},
-		{
-			TestName: "Dataset GroupBy first, last names having count>1",
-			Tables:   tables,
-			DataCols: sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"fred", "flintstone", nil, nil},
-				{nil, nil, nil, nil},
-				{"betty", "rubble", nil, nil},
-				{"fred", "flintstone", nil, nil},
-				{"whilma", "flintstone", nil, nil},
-				{"barney", "rubble", nil, nil},
-				{"barney", "rubble", nil, nil},
-				{nil, nil, nil, nil},
-				{"betty", "rubble", nil, nil},
-				{"fred", "mercury", nil, nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
-				{"barney", "rubble", 2},
-				{"betty", "rubble", 2},
-				{"fred", "flintstone", 2},
-				{nil, nil, 2},
-			}),
-			GroupBy: sqtables.NewExprList(firstNameExp, lastNameExp),
-			Having:  &having1,
-			ExpErr:  "",
+			TestName: "Error idx>len",
+			Row:      DSRow1,
+			Col:      &column.Ref{ColName: "testx", ColType: tokens.Int, Idx: len(DSRow1.Vals) + 1},
+			ExpErr:   "Error: Invalid index (4) for Column in row. Col len = 3",
+			ExpVal:   sqtypes.Raw(1),
 		},
 	}
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testGroupByFunc(row))
+			testDSGetColDataFunc(row))
 
+	}
+
+}
+
+type DSGetColData struct {
+	TestName string
+	Row      sqtables.DSRow
+	Col      *column.Ref
+	ExpErr   string
+	ExpVal   sqtypes.Raw
+}
+
+func testDSGetColDataFunc(d DSGetColData) func(*testing.T) {
+	return func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		profile := sqprofile.CreateSQProfile()
+		s := d.Row.GetTableName(profile)
+		if s != sqtables.DataSetTableName {
+			t.Errorf("GetTableName (%q) did not return expected value (%q)", s, sqtables.DataSetTableName)
+		}
+		if d.Row.GetPtr(profile) != d.Row.Ptr {
+			t.Errorf("GetPtr (%d) did not return expected value (%d)", d.Row.GetPtr(profile), d.Row.Ptr)
+		}
+
+		v, err := d.Row.GetColData(profile, d.Col)
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
+		}
+
+		expVal := sqtypes.RawValue(d.ExpVal)
+
+		if !v.Equal(expVal) {
+			t.Errorf("GetColData (%s) does not match expected value (%s)", v.String(), expVal.String())
+			return
+		}
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//
+
+func TestDSGetIdxVal(t *testing.T) {
+
+	DSRow1 := sqtables.DSRow{
+		Ptr:       sqptr.SQPtr(1),
+		Vals:      sqtypes.CreateValueArrayFromRaw([]sqtypes.Raw{1, "test", false}),
+		TableName: "Does not matter",
+	}
+
+	data := []DSGetIdxValData{
+		{
+			TestName: "First Col",
+			Row:      DSRow1,
+			Col:      0,
+			ExpErr:   "",
+			ExpVal:   sqtypes.Raw(1),
+		},
+		{
+			TestName: "Error -1 idx",
+			Row:      DSRow1,
+			Col:      -1,
+			ExpErr:   "Error: Invalid index (-1) for row. Data len = 3",
+			ExpVal:   sqtypes.Raw(1),
+		},
+		{
+			TestName: "Error idx=len",
+			Row:      DSRow1,
+			Col:      len(DSRow1.Vals),
+			ExpErr:   "Error: Invalid index (3) for row. Data len = 3",
+			ExpVal:   sqtypes.Raw(1),
+		},
+		{
+			TestName: "Error idx>len",
+			Row:      DSRow1,
+			Col:      len(DSRow1.Vals) + 1,
+			ExpErr:   "Error: Invalid index (4) for row. Data len = 3",
+			ExpVal:   sqtypes.Raw(1),
+		},
+	}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testDSGetIdxValFunc(row))
+
+	}
+
+}
+
+type DSGetIdxValData struct {
+	TestName string
+	Row      sqtables.DSRow
+	Col      int
+	ExpErr   string
+	ExpVal   sqtypes.Raw
+}
+
+func testDSGetIdxValFunc(d DSGetIdxValData) func(*testing.T) {
+	return func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		profile := sqprofile.CreateSQProfile()
+		s := d.Row.GetTableName(profile)
+		if s != sqtables.DataSetTableName {
+			t.Errorf("GetTableName (%q) did not return expected value (%q)", s, sqtables.DataSetTableName)
+		}
+		if d.Row.GetPtr(profile) != d.Row.Ptr {
+			t.Errorf("GetPtr (%d) did not return expected value (%d)", d.Row.GetPtr(profile), d.Row.Ptr)
+		}
+
+		v, err := d.Row.GetIdxVal(profile, d.Col)
+		if sqtest.CheckErr(t, err, d.ExpErr) {
+			return
+		}
+
+		expVal := sqtypes.RawValue(d.ExpVal)
+
+		if !v.Equal(expVal) {
+			t.Errorf("GetColData (%s) does not match expected value (%s)", v.String(), expVal.String())
+			return
+		}
 	}
 }

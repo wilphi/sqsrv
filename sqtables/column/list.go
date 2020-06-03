@@ -5,6 +5,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -45,7 +46,7 @@ func NewListRefs(cols []Ref) *List {
 	valid := true
 	for i, col := range cols {
 		colNames[i] = col.ColName
-		if col.Idx == -1 || col.TableName == "" {
+		if col.Idx == -1 || col.TableName == nil {
 			valid = false
 		}
 	}
@@ -59,7 +60,7 @@ func NewListNames(colNames []string) *List {
 		x := strings.Index(name, ".")
 		if x != -1 && x < len(name) {
 			cols[i].ColName = name[x+1:]
-			cols[i].TableName = name[:x]
+			cols[i].TableName = moniker.New(name[:x], "")
 		} else {
 			cols[i].ColName = name
 		}

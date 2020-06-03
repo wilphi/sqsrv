@@ -68,8 +68,11 @@ func testDeleteFunc(profile *sqprofile.SQProfile, d DeleteData) func(*testing.T)
 				t.Error(err)
 				return
 			}
-
-			data, err := tab.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil, nil, nil, "")
+			q := sqtables.Query{
+				Tables: sqtables.NewTableListFromTableDef(profile, tab),
+				EList:  sqtables.ColsToExpr(tab.GetCols(profile)),
+			}
+			data, err := q.GetRowData(profile)
 			if err != nil {
 				t.Error("Unable to get data from table")
 				return
@@ -90,7 +93,7 @@ func TestDelete(t *testing.T) {
 	tkns := tokens.Tokenize("CREATE TABLE deltest (col1 int, col2 string, col3 bool)")
 	_, err := cmd.CreateTableFromTokens(profile, tkns)
 	if err != nil {
-		t.Errorf("Error setting up table for TestSelect: %s", err)
+		t.Errorf("Error setting up table for TestDelete: %s", err)
 		return
 	}
 
@@ -98,7 +101,7 @@ func TestDelete(t *testing.T) {
 	tkns = tokens.Tokenize("CREATE TABLE delEmpty (col1 int, col2 string, col3 bool)")
 	_, err = cmd.CreateTableFromTokens(profile, tkns)
 	if err != nil {
-		t.Errorf("Error setting up table for TestSelect: %s", err)
+		t.Errorf("Error setting up table for TestDelete: %s", err)
 		return
 	}
 
@@ -120,10 +123,13 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
-	ds, err := tab.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil, nil, nil, "")
+	q := sqtables.Query{
+		Tables: sqtables.NewTableListFromTableDef(profile, tab),
+		EList:  sqtables.ColsToExpr(tab.GetCols(profile)),
+	}
+	ds, err := q.GetRowData(profile)
 	if err != nil {
-		t.Errorf("Error setting up table for TestSelect: %s", err)
+		t.Errorf("Error setting up table for TestDelete: %s", err)
 		return
 	}
 

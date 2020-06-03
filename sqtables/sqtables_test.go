@@ -26,10 +26,7 @@ func init() {
 
 type RowDataTest struct {
 	TestName       string
-	Tab            *sqtables.TableDef
-	Cols           *sqtables.ExprList
-	Where          sqtables.Expr
-	GroupBy        *sqtables.ExprList
+	Query          sqtables.Query
 	ExpErr         string
 	ExpPtrs        []int
 	SkipRowNumTest bool
@@ -39,16 +36,7 @@ func testGetRowDataFunc(profile *sqprofile.SQProfile, d *RowDataTest) func(*test
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		tables := sqtables.NewTableListFromTableDef(profile, d.Tab)
-		if d.Where != nil {
-			err := d.Where.ValidateCols(profile, tables)
-			if err != nil {
-				t.Errorf("Unable to validate cols in Where %q", d.Where)
-				return
-			}
-		}
-
-		data, err := d.Tab.GetRowData(profile, d.Cols, d.Where, d.GroupBy, nil, "")
+		data, err := d.Query.GetRowData(profile)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -124,105 +112,111 @@ func TestGetRowData(t *testing.T) {
 	testData := []RowDataTest{
 		{
 			TestName: "col1(5) = 5 ->1",
-			Tab:      testT,
-			Cols:     cols,
-			Where: sqtables.NewOpExpr(
-				sqtables.NewColExpr(
-					column.NewRef("col1", tokens.Int, false)),
-				tokens.Equal,
-				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
-			),
+			Query: sqtables.Query{
+				Tables: tables,
+				EList:  cols,
+				WhereExpr: sqtables.NewOpExpr(
+					sqtables.NewColExpr(
+						column.NewRef("col1", tokens.Int, false)),
+					tokens.Equal,
+					sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+				),
+			},
 			ExpErr:  "",
 			ExpPtrs: []int{1},
 		},
 		{
 			TestName: "col1(6) = 5 ->0",
-			Tab:      testT,
-			Cols:     cols,
-			Where: sqtables.NewOpExpr(
-				sqtables.NewColExpr(
-					column.NewRef("col1", tokens.Int, false)),
-				tokens.Equal,
-				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
-			),
+			Query: sqtables.Query{
+				Tables: tables,
+				EList:  cols,
+				WhereExpr: sqtables.NewOpExpr(
+					sqtables.NewColExpr(
+						column.NewRef("col1", tokens.Int, false)),
+					tokens.Equal,
+					sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
+				),
+			},
 			ExpErr:  "",
 			ExpPtrs: []int{},
 		},
 		{
 			TestName: "col1 < 5 ->0",
-			Tab:      testT,
-			Cols:     cols,
-			Where: sqtables.NewOpExpr(
-				sqtables.NewColExpr(
-					column.NewRef("col1", tokens.Int, false)),
-				tokens.LessThan,
-				sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
-			),
+			Query: sqtables.Query{
+				Tables: tables,
+				EList:  cols,
+				WhereExpr: sqtables.NewOpExpr(
+					sqtables.NewColExpr(
+						column.NewRef("col1", tokens.Int, false)),
+					tokens.LessThan,
+					sqtables.NewValueExpr(sqtypes.NewSQInt(5)),
+				),
+			},
 			ExpErr:  "",
 			ExpPtrs: []int{},
 		},
 		{
 			TestName: "col1 < 7 ->1",
-			Tab:      testT,
-			Cols:     cols,
-			Where: sqtables.NewOpExpr(
-				sqtables.NewColExpr(
-					column.NewRef("col1", tokens.Int, false)),
-				tokens.LessThan,
-				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
-			),
+			Query: sqtables.Query{
+				Tables: tables,
+				EList:  cols,
+				WhereExpr: sqtables.NewOpExpr(
+					sqtables.NewColExpr(
+						column.NewRef("col1", tokens.Int, false)),
+					tokens.LessThan,
+					sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
+				),
+			},
 			ExpErr:  "",
 			ExpPtrs: []int{1},
 		},
 		{
 			TestName: "Where Error",
-			Tab:      testT,
-			Cols:     cols,
-			Where: sqtables.NewOpExpr(
-				sqtables.NewColExpr(
-					column.NewRef("col2", tokens.Int, false)),
-				tokens.Equal,
-				sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
-			),
+			Query: sqtables.Query{
+				Tables: tables,
+				EList:  cols,
+				WhereExpr: sqtables.NewOpExpr(
+					sqtables.NewColExpr(
+						column.NewRef("col2", tokens.Int, false)),
+					tokens.Equal,
+					sqtables.NewValueExpr(sqtypes.NewSQInt(6)),
+				),
+			},
 			ExpErr:  "Error: Type Mismatch: 6 is not a String",
 			ExpPtrs: []int{1},
 		},
-		{
-			TestName:       "Count Expression",
-			Tab:            testT,
-			Cols:           sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Count, nil)),
-			Where:          nil,
-			ExpErr:         "",
-			ExpPtrs:        []int{1, 2},
-			SkipRowNumTest: true,
-		},
+
 		{
 			TestName: "Invalid Col in Expression",
-			Tab:      testT,
-			Cols: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewColExpr(column.NewRef("colX", tokens.String, false)),
-			),
-			Where:   nil,
+			Query: sqtables.Query{
+				Tables: tables,
+				EList: sqtables.NewExprList(
+					sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
+					sqtables.NewColExpr(column.NewRef("colX", tokens.String, false)),
+				),
+				WhereExpr: nil,
+			},
 			ExpErr:  "Error: Column \"colX\" not found in Table(s): rowdatatest",
 			ExpPtrs: []int{2},
 		},
 		{
 			TestName: "Invalid function in Expression on Evaluate",
-			Tab:      testT,
-			Cols: sqtables.NewExprList(
-				sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
-				sqtables.NewFuncExpr(
-					tokens.Float,
-					sqtables.NewColExpr(column.NewRef("col2", tokens.String, false)),
+			Query: sqtables.Query{
+				Tables: tables,
+				EList: sqtables.NewExprList(
+					sqtables.NewValueExpr(sqtypes.NewSQInt(1)),
+					sqtables.NewFuncExpr(
+						tokens.Float,
+						sqtables.NewColExpr(column.NewRef("col2", tokens.String, false)),
+					),
 				),
-			),
-			Where: sqtables.NewOpExpr(
-				sqtables.NewColExpr(
-					column.NewRef("col2", tokens.Int, false)),
-				tokens.Equal,
-				sqtables.NewValueExpr(sqtypes.NewSQString("d test string")),
-			),
+				WhereExpr: sqtables.NewOpExpr(
+					sqtables.NewColExpr(
+						column.NewRef("col2", tokens.Int, false)),
+					tokens.Equal,
+					sqtables.NewValueExpr(sqtypes.NewSQString("d test string")),
+				),
+			},
 			ExpErr:  "strconv.ParseFloat: parsing \"d test string\": invalid syntax",
 			ExpPtrs: []int{2},
 		},
@@ -878,8 +872,11 @@ func testUpdateRowsFromPtrsFunc(d *UpdateRowsFromPtrsData) func(*testing.T) {
 		}
 
 		if d.ExpData != nil {
-			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-			ds, err := d.Tab.GetRowData(profile, cList, nil, nil, nil, "")
+			q := sqtables.Query{
+				Tables: sqtables.NewTableListFromTableDef(profile, d.Tab),
+				EList:  sqtables.ColsToExpr(d.Tab.GetCols(profile)),
+			}
+			ds, err := q.GetRowData(profile)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return
@@ -1037,8 +1034,11 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 		}
 
 		if d.ExpData != nil {
-			cList := sqtables.ColsToExpr(d.Tab.GetCols(profile))
-			ds, err := d.Tab.GetRowData(profile, cList, nil, nil, nil, "")
+			q := sqtables.Query{
+				Tables: sqtables.NewTableListFromTableDef(profile, d.Tab),
+				EList:  sqtables.ColsToExpr(d.Tab.GetCols(profile)),
+			}
+			ds, err := q.GetRowData(profile)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return

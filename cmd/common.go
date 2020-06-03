@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/wilphi/sqsrv/sqerr"
-	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -166,7 +166,8 @@ func getValCol(tkns *tokens.TokenList) (exp sqtables.Expr, err error) {
 				tkns.Remove()
 				displayTable = true
 			}
-			exp = sqtables.NewColExpr(column.Ref{ColName: cName, TableName: tName, TableAlias: tName, DisplayTableName: displayTable})
+			// moniker.New(tName,tName)
+			exp = sqtables.NewColExpr(column.Ref{ColName: cName, TableName: moniker.New(tName, ""), DisplayTableName: displayTable})
 			if mSign {
 				exp = sqtables.NewNegateExpr(exp)
 			}
@@ -389,57 +390,4 @@ func GetExprList(tkns *tokens.TokenList, terminatorID tokens.TokenID, listtype t
 	}
 
 	return &eList, nil
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// GetTableList - get a comma separated list of Tables ended by a terminatorID token.
-func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminators ...tokens.TokenID) (*sqtables.TableList, error) {
-	var err error
-	isHangingComma := false
-	tables := sqtables.NewTableList(profile, nil)
-	// loop to get the table names
-	for {
-		if tkns.IsEmpty() || tkns.TestTkn(terminators...) != nil {
-			if isHangingComma {
-				return nil, sqerr.NewSyntax("Unexpected ',' in From clause")
-			}
-			break
-		}
-		if tables.Len() > 0 && !isHangingComma {
-			return nil, sqerr.NewSyntax("Comma is required to separate tables")
-		}
-		// Ident(tableName),  opt comma
-		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
-			tName := tkn.(*tokens.ValueToken).Value()
-			tkns.Remove()
-
-			// Check for an Alias
-			if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
-				aName := tkn.(*tokens.ValueToken).Value()
-				err = tables.Add(profile, sqtables.TableRef{TableName: tName, Alias: aName})
-				tkns.Remove()
-			} else {
-				err = tables.Add(profile, sqtables.TableRef{TableName: tName})
-			}
-			if err != nil {
-				return nil, err
-			}
-			// check for optional comma
-			if tkns.IsA(tokens.Comma) {
-				isHangingComma = true
-				tkns.Remove()
-			} else {
-				isHangingComma = false
-			}
-		} else {
-			return nil, sqerr.NewSyntax("Expecting name of Table")
-
-		}
-	}
-	if tables.Len() <= 0 {
-		return nil, sqerr.NewSyntax("No Tables defined for query")
-	}
-
-	return tables, nil
 }

@@ -846,7 +846,7 @@ func TestCompare2DValues(t *testing.T) {
 			NameA:  "Actual",
 			NameB:  "Expected",
 			DoSort: false,
-			ExpRet: "The number of cols does not match! Actual[1]-len=4 Expected[1]-len=5",
+			ExpRet: "The number of cols does not match! Actual[1]-len=4 Expected[1]-len=5\nActual[1] = [2 3 4 5] Does not match Expected[1] = [2 3 4 5 9]",
 		},
 		{
 			TestName: "Different Value",

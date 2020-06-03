@@ -7,6 +7,7 @@ import (
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -19,7 +20,7 @@ func TestMiscJoinRow(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	// Setup Data
 	ptr12 := sqptr.SQPtr(12)
-	tName := "jointable"
+	tName := moniker.New("jointable", "")
 	row := sqtables.JoinRow{
 		Ptr: ptr12,
 		Vals: []sqtypes.Value{
@@ -47,7 +48,7 @@ func TestMiscJoinRow(t *testing.T) {
 	t.Run("GetTableName", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		if row.GetTableName(profile) != tName {
+		if row.GetTableName(profile) != tName.Name {
 			t.Error("GetTableName did not match expected value")
 			return
 		}

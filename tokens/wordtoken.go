@@ -68,6 +68,7 @@ const (
 	Outer
 	Left
 	Right
+	Cross
 )
 
 var wordNames = []string{"Invalid", "CREATE", "TABLE",
@@ -81,71 +82,11 @@ var wordNames = []string{"Invalid", "CREATE", "TABLE",
 	"*", ".", "=", "(", ")", ",", ":", "_", ";",
 	"<", ">", "-", "+", "/", "%",
 	"!=", "<=", ">=", "HAVING", "INNER", "JOIN", "ON",
-	"FULL", "OUTER", "LEFT", "RIGHT",
+	"FULL", "OUTER", "LEFT", "RIGHT", "CROSS",
 }
 
 //wordTokens -
-var wordTokens = map[TokenID]Token{
-	Create:           &WordToken{tokenID: Create, flags: IsWord},
-	Table:            &WordToken{tokenID: Table, flags: IsWord},
-	Select:           &WordToken{tokenID: Select, flags: IsWord},
-	From:             &WordToken{tokenID: From, flags: IsWord},
-	Where:            &WordToken{tokenID: Where, flags: IsWord},
-	And:              &WordToken{tokenID: And, flags: IsWord},
-	Insert:           &WordToken{tokenID: Insert, flags: IsWord},
-	Into:             &WordToken{tokenID: Into, flags: IsWord},
-	Values:           &WordToken{tokenID: Values, flags: IsWord},
-	RWTrue:           &WordToken{tokenID: RWTrue, flags: IsWord},
-	RWFalse:          &WordToken{tokenID: RWFalse, flags: IsWord},
-	Not:              &WordToken{tokenID: Not, flags: IsWord},
-	Or:               &WordToken{tokenID: Or, flags: IsWord},
-	Delete:           &WordToken{tokenID: Delete, flags: IsWord},
-	Count:            &WordToken{tokenID: Count, flags: IsWord | IsFunction | IsOneArg | IsNoArg | IsAggregate},
-	Null:             &WordToken{tokenID: Null, flags: IsWord},
-	Drop:             &WordToken{tokenID: Drop, flags: IsWord},
-	Update:           &WordToken{tokenID: Update, flags: IsWord},
-	Set:              &WordToken{tokenID: Set, flags: IsWord},
-	Order:            &WordToken{tokenID: Order, flags: IsWord},
-	By:               &WordToken{tokenID: By, flags: IsWord},
-	Asc:              &WordToken{tokenID: Asc, flags: IsWord},
-	Desc:             &WordToken{tokenID: Desc, flags: IsWord},
-	Distinct:         &WordToken{tokenID: Distinct, flags: IsWord},
-	Group:            &WordToken{tokenID: Group, flags: IsWord},
-	Min:              &WordToken{tokenID: Min, flags: IsWord | IsFunction | IsOneArg | IsAggregate},
-	Max:              &WordToken{tokenID: Max, flags: IsWord | IsFunction | IsOneArg | IsAggregate},
-	Avg:              &WordToken{tokenID: Avg, flags: IsWord | IsFunction | IsOneArg | IsAggregate},
-	Sum:              &WordToken{tokenID: Sum, flags: IsWord | IsFunction | IsOneArg | IsAggregate},
-	Int:              &WordToken{tokenID: Int, flags: IsWord | IsType | IsFunction | IsOneArg},
-	String:           &WordToken{tokenID: String, flags: IsWord | IsType | IsFunction | IsOneArg},
-	Bool:             &WordToken{tokenID: Bool, flags: IsWord | IsType | IsFunction | IsOneArg},
-	Float:            &WordToken{tokenID: Float, flags: IsWord | IsType | IsFunction | IsOneArg},
-	Asterix:          &WordToken{tokenID: Asterix, flags: IsSymbol},
-	Period:           &WordToken{tokenID: Period, flags: IsSymbol},
-	Equal:            &WordToken{tokenID: Equal, flags: IsSymbol},
-	OpenBracket:      &WordToken{tokenID: OpenBracket, flags: IsSymbol},
-	CloseBracket:     &WordToken{tokenID: CloseBracket, flags: IsSymbol},
-	Comma:            &WordToken{tokenID: Comma, flags: IsSymbol},
-	Colon:            &WordToken{tokenID: Colon, flags: IsSymbol},
-	UnderScore:       &WordToken{tokenID: UnderScore, flags: IsSymbol},
-	SemiColon:        &WordToken{tokenID: SemiColon, flags: IsSymbol},
-	LessThan:         &WordToken{tokenID: LessThan, flags: IsSymbol},
-	GreaterThan:      &WordToken{tokenID: GreaterThan, flags: IsSymbol},
-	Minus:            &WordToken{tokenID: Minus, flags: IsSymbol},
-	Plus:             &WordToken{tokenID: Plus, flags: IsSymbol},
-	Divide:           &WordToken{tokenID: Divide, flags: IsSymbol},
-	Modulus:          &WordToken{tokenID: Modulus, flags: IsSymbol},
-	NotEqual:         &WordToken{tokenID: NotEqual, flags: IsSymbol},
-	LessThanEqual:    &WordToken{tokenID: LessThanEqual, flags: IsSymbol},
-	GreaterThanEqual: &WordToken{tokenID: GreaterThanEqual, flags: IsSymbol},
-	Having:           &WordToken{tokenID: Having, flags: IsWord},
-	Inner:            &WordToken{tokenID: Inner, flags: IsWord},
-	Join:             &WordToken{tokenID: Join, flags: IsWord},
-	On:               &WordToken{tokenID: On, flags: IsWord},
-	Full:             &WordToken{tokenID: Full, flags: IsWord},
-	Outer:            &WordToken{tokenID: Outer, flags: IsWord},
-	Left:             &WordToken{tokenID: Left, flags: IsWord},
-	Right:            &WordToken{tokenID: Right, flags: IsWord},
-}
+var wordTokens map[TokenID]Token
 
 //WordMap will map a string to a token
 var WordMap map[string]Token
@@ -154,6 +95,69 @@ var WordMap map[string]Token
 var AllTypes []TokenID
 
 func init() {
+
+	wordTokens = map[TokenID]Token{
+		Create:           newWordToken(Create, IsWord),
+		Table:            newWordToken(Table, IsWord),
+		Select:           newWordToken(Select, IsWord),
+		From:             newWordToken(From, IsWord),
+		Where:            newWordToken(Where, IsWord),
+		And:              newWordToken(And, IsWord),
+		Insert:           newWordToken(Insert, IsWord),
+		Into:             newWordToken(Into, IsWord),
+		Values:           newWordToken(Values, IsWord),
+		RWTrue:           newWordToken(RWTrue, IsWord),
+		RWFalse:          newWordToken(RWFalse, IsWord),
+		Not:              newWordToken(Not, IsWord),
+		Or:               newWordToken(Or, IsWord),
+		Delete:           newWordToken(Delete, IsWord),
+		Count:            newWordToken(Count, IsWord|IsFunction|IsOneArg|IsNoArg|IsAggregate),
+		Null:             newWordToken(Null, IsWord),
+		Drop:             newWordToken(Drop, IsWord),
+		Update:           newWordToken(Update, IsWord),
+		Set:              newWordToken(Set, IsWord),
+		Order:            newWordToken(Order, IsWord),
+		By:               newWordToken(By, IsWord),
+		Asc:              newWordToken(Asc, IsWord),
+		Desc:             newWordToken(Desc, IsWord),
+		Distinct:         newWordToken(Distinct, IsWord),
+		Group:            newWordToken(Group, IsWord),
+		Min:              newWordToken(Min, IsWord|IsFunction|IsOneArg|IsAggregate),
+		Max:              newWordToken(Max, IsWord|IsFunction|IsOneArg|IsAggregate),
+		Avg:              newWordToken(Avg, IsWord|IsFunction|IsOneArg|IsAggregate),
+		Sum:              newWordToken(Sum, IsWord|IsFunction|IsOneArg|IsAggregate),
+		Int:              newWordToken(Int, IsWord|IsType|IsFunction|IsOneArg),
+		String:           newWordToken(String, IsWord|IsType|IsFunction|IsOneArg),
+		Bool:             newWordToken(Bool, IsWord|IsType|IsFunction|IsOneArg),
+		Float:            newWordToken(Float, IsWord|IsType|IsFunction|IsOneArg),
+		Asterix:          newWordToken(Asterix, IsSymbol),
+		Period:           newWordToken(Period, IsSymbol),
+		Equal:            newWordToken(Equal, IsSymbol),
+		OpenBracket:      newWordToken(OpenBracket, IsSymbol),
+		CloseBracket:     newWordToken(CloseBracket, IsSymbol),
+		Comma:            newWordToken(Comma, IsSymbol),
+		Colon:            newWordToken(Colon, IsSymbol),
+		UnderScore:       newWordToken(UnderScore, IsSymbol),
+		SemiColon:        newWordToken(SemiColon, IsSymbol),
+		LessThan:         newWordToken(LessThan, IsSymbol),
+		GreaterThan:      newWordToken(GreaterThan, IsSymbol),
+		Minus:            newWordToken(Minus, IsSymbol),
+		Plus:             newWordToken(Plus, IsSymbol),
+		Divide:           newWordToken(Divide, IsSymbol),
+		Modulus:          newWordToken(Modulus, IsSymbol),
+		NotEqual:         newWordToken(NotEqual, IsSymbol),
+		LessThanEqual:    newWordToken(LessThanEqual, IsSymbol),
+		GreaterThanEqual: newWordToken(GreaterThanEqual, IsSymbol),
+		Having:           newWordToken(Having, IsWord),
+		Inner:            newWordToken(Inner, IsWord),
+		Join:             newWordToken(Join, IsWord),
+		On:               newWordToken(On, IsWord),
+		Full:             newWordToken(Full, IsWord),
+		Outer:            newWordToken(Outer, IsWord),
+		Left:             newWordToken(Left, IsWord),
+		Right:            newWordToken(Right, IsWord),
+		Cross:            newWordToken(Cross, IsWord),
+	}
 	// create the word map of reserved words and symbols
 	// making sure that all words are uppercase
 	WordMap = make(map[string]Token)
@@ -173,7 +177,12 @@ func init() {
 // WordToken is for reserved words
 type WordToken struct {
 	tokenID TokenID
+	tName   string
 	flags   TokenFlags
+}
+
+func newWordToken(tokenID TokenID, flags TokenFlags) *WordToken {
+	return &WordToken{tokenID: tokenID, tName: IDName(tokenID), flags: flags}
 }
 
 // ID returns the Id of the token

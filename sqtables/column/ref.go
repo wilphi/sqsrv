@@ -3,6 +3,7 @@ package column
 import (
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -12,8 +13,7 @@ type Ref struct {
 	ColType          tokens.TokenID
 	Idx              int
 	IsNotNull        bool
-	TableName        string
-	TableAlias       string
+	TableName        *moniker.Moniker
 	DisplayTableName bool
 }
 
@@ -30,7 +30,7 @@ func (c *Ref) String() string {
 		ntype = " NOT NULL"
 	}
 	if c.DisplayTableName {
-		tName = c.TableName
+		tName = c.TableName.Show()
 	}
 
 	ret := "{"
@@ -44,12 +44,8 @@ func (c *Ref) String() string {
 // DisplayName returns the display name of the Ref
 func (c *Ref) DisplayName() string {
 	ret := ""
-	if c.DisplayTableName && c.TableName != "" {
-		if c.TableAlias != "" {
-			ret += c.TableAlias + "."
-		} else {
-			ret += c.TableName + "."
-		}
+	if c.DisplayTableName && c.TableName != nil {
+		ret += c.TableName.Show() + "."
 	}
 	ret += c.ColName
 	return ret
@@ -57,10 +53,10 @@ func (c *Ref) DisplayName() string {
 
 // GetTableName returns the TableName alias or if that is empty,  the TableName  of the Ref
 func (c *Ref) GetTableName() string {
-	if c.TableAlias != "" {
-		return c.TableAlias
+	if c.TableName == nil {
+		return ""
 	}
-	return c.TableName
+	return c.TableName.Show()
 }
 
 // MergeRefDef combines a Ref & a Def
@@ -77,12 +73,15 @@ func MergeRefDef(colA Ref, colB Def) (Ref, error) {
 	result.Idx = colB.Idx
 	result.IsNotNull = colB.IsNotNull
 
-	result.TableName = colB.TableName
-	if colA.TableName != colB.TableName {
-		// Use colA TableName as alias
-		result.TableAlias = colA.TableName
+	if colA.TableName != nil {
+		if colA.TableName.Name != colB.TableName {
+			// Use colA TableName as alias
+			result.TableName = moniker.New(colB.TableName, colA.TableName.Name)
+		} else {
+			result.TableName = moniker.New(colB.TableName, colA.TableName.Alias)
+		}
 	} else {
-		result.TableAlias = colA.TableAlias
+		result.TableName = moniker.New(colB.TableName, "")
 	}
 
 	//Display table Name of original is preserved
@@ -97,8 +96,14 @@ func (c *Ref) Encode(enc *sqbin.Codec) {
 	enc.WriteUint64(uint64(c.ColType))
 	enc.WriteInt(c.Idx)
 	enc.WriteBool(c.IsNotNull)
-	enc.WriteString(c.TableName)
-	enc.WriteString(c.TableAlias)
+	if c.TableName != nil {
+		enc.WriteString(c.TableName.Name)
+		enc.WriteString(c.TableName.Alias)
+	} else {
+		enc.WriteString("")
+		enc.WriteString("")
+	}
+
 	enc.WriteBool(c.DisplayTableName)
 }
 
@@ -109,7 +114,9 @@ func (c *Ref) Decode(dec *sqbin.Codec) {
 	c.ColType = tokens.TokenID(dec.ReadUint64())
 	c.Idx = dec.ReadInt()
 	c.IsNotNull = dec.ReadBool()
-	c.TableName = dec.ReadString()
-	c.TableAlias = dec.ReadString()
+	c.TableName = moniker.New(dec.ReadString(), dec.ReadString())
+	if c.TableName.Name == "" {
+		c.TableName = nil
+	}
 	c.DisplayTableName = dec.ReadBool()
 }

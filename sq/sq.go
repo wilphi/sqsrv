@@ -21,7 +21,7 @@ import (
 )
 
 // SQVersion  - version of software
-const SQVersion = "SQSRV v0.12.2"
+const SQVersion = "SQSRV v0.13"
 
 //Options are the values set by the flag package
 var Options struct {

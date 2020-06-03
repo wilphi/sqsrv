@@ -12,6 +12,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -31,6 +32,14 @@ type TableDef struct {
 	nextRowID  *uint64
 	isDropped  bool
 	*sqmutex.SQMtx
+}
+
+// TableRef structure holds the alias name, actual tableName and pointer to actual table
+type TableRef struct {
+	//TableName string
+	//Alias     string
+	Name  *moniker.Moniker
+	Table *TableDef
 }
 
 // RowOrder sets the default sort for a dataset. If true then all rows are sorted by the RowID
@@ -85,6 +94,11 @@ func (t *TableDef) RowCount(profile *sqprofile.SQProfile) (int, error) {
 		}
 	}
 	return cnt, nil
+}
+
+// TableRef returns a table reference to the table def
+func (t *TableDef) TableRef(profile *sqprofile.SQProfile) *TableRef {
+	return &TableRef{Name: moniker.New(t.tableName, ""), Table: t}
 }
 
 // String -
@@ -184,50 +198,6 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 		ds.Vals[i] = append(row.Data[:0:0], row.Data...)
 	}
 	return ds, nil
-}
-
-// GetRowData - Returns a dataset with the data from table
-func (t *TableDef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr, groupBy *ExprList, havingExpr *Expr, alias string) (*DataSet, error) {
-	var err error
-
-	err = t.RLock(profile)
-	if err != nil {
-		return nil, err
-	}
-
-	defer t.RUnlock(profile)
-
-	tables := NewTableList(profile, []TableRef{{TableName: t.GetName(profile), Alias: alias, Table: t}})
-
-	// Setup the dataset for the results
-	ret, err := NewQueryDataSet(profile, tables, eList, groupBy, havingExpr)
-	if err != nil {
-		return nil, err
-	}
-	ret.usePtrs = !eList.HasAggregateFunc()
-
-	// Get the pointers to the rows based on the conditions
-	ptrs, err := t.GetRowPtrs(profile, whereExpr, RowOrder)
-	if err != nil {
-		return nil, err
-	}
-
-	ret.Vals = make([][]sqtypes.Value, len(ptrs))
-	ret.Ptrs = ptrs
-
-	for i, ptr := range ptrs {
-		// make sure the ptr points to the correct row
-		if t.rowm[ptr].RowPtr != ptr {
-			log.Panic("rowPtr does not match Map index")
-		}
-
-		ret.Vals[i], err = eList.Evaluate(profile, EvalFull, t.rowm[ptr])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return ret, nil
-
 }
 
 // FindCol - Returns the col index and col Type index < 0 if not found
@@ -355,4 +325,63 @@ func (t *TableDef) GetRow(profile *sqprofile.SQProfile, RowPtr sqptr.SQPtr) *Row
 		return nil
 	}
 	return row
+}
+
+// GetRowData - Returns a dataset with the data from table
+func (tr *TableRef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, whereExpr Expr) (*DataSet, error) {
+	var err error
+
+	err = tr.Table.RLock(profile)
+	if err != nil {
+		return nil, err
+	}
+
+	defer tr.Table.RUnlock(profile)
+
+	tables := NewTableList(profile, []TableRef{*tr})
+	// Setup the dataset for the results
+	ret, err := NewDataSet(profile, tables, eList)
+	if err != nil {
+		return nil, err
+	}
+	ret.usePtrs = !eList.HasAggregateFunc()
+
+	// Get the pointers to the rows based on the conditions
+	ptrs, err := tr.Table.GetRowPtrs(profile, whereExpr, RowOrder)
+	if err != nil {
+		return nil, err
+	}
+
+	ret.Vals = make([][]sqtypes.Value, len(ptrs))
+	ret.Ptrs = ptrs
+
+	for i, ptr := range ptrs {
+		// make sure the ptr points to the correct row
+		if tr.Table.rowm[ptr].RowPtr != ptr {
+			log.Panic("rowPtr does not match Map index")
+		}
+
+		ret.Vals[i], err = eList.Evaluate(profile, EvalFull, tr.Table.rowm[ptr])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ret, nil
+
+}
+
+// Validate makes sure that the TableRef points to a valid table
+func (tr *TableRef) Validate(profile *sqprofile.SQProfile) error {
+	var err error
+	if tr.Table == nil {
+		// Get the TableDef
+		tr.Table, err = GetTable(profile, tr.Name.Name)
+		if err != nil {
+			return err
+		}
+		if tr.Table == nil {
+			return sqerr.Newf("Table %q does not exist", tr.Name.Name)
+		}
+	}
+	return nil
 }

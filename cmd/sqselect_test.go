@@ -176,7 +176,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "Invalid table name",
 			Command:  "SELECT col1, col2 FROM NotATable",
-			ExpErr:   "Error: Table \"NotATable\" does not exist",
+			ExpErr:   "Error: Table \"notatable\" does not exist",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -200,7 +200,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "Select * from NotATable",
 			Command:  "Select * from NotATable",
-			ExpErr:   "Error: Table \"NotATable\" does not exist",
+			ExpErr:   "Error: Table \"notatable\" does not exist",
 			ExpRows:  0,
 			ExpCols:  []string{},
 			ExpVals:  nil,
@@ -357,7 +357,7 @@ func TestSelect(t *testing.T) {
 		{
 			TestName: "SELECT + Extra stuff",
 			Command:  "SELECT * FROM seltest extra stuff",
-			ExpErr:   "Syntax Error: Comma is required to separate tables",
+			ExpErr:   "Syntax Error: Missing Join in From clause near \"stuff\"",
 			ExpRows:  2,
 			ExpCols:  []string{"col1", "col2", "col3"},
 			ExpVals: sqtypes.RawVals{
@@ -499,7 +499,7 @@ func TestSelect(t *testing.T) {
 		},
 		{
 			TestName: "SELECT Join country city ",
-			Command:  "SELECT city.name, country.short FROM city, country where city.country = country.name and country.name != \"United States\"",
+			Command:  "SELECT city.name, country.short FROM city join country on city.country = country.name where country.name != \"United States\"",
 			ExpErr:   "",
 			ExpRows:  6,
 			ExpCols:  []string{"city.name", "country.short"},
@@ -515,7 +515,7 @@ func TestSelect(t *testing.T) {
 		},
 		{
 			TestName: "SELECT Join country city person ",
-			Command:  "select firstname, lastname, city.name, city.prov, country.short from city, country, person where city.country = country.name and country.short!=\"USA\" and city.cityid = person.cityid",
+			Command:  "select firstname, lastname, city.name, city.prov, country.short from city INNER JOIN country ON city.country = country.name INNER JOIN person ON  city.cityid = person.cityid WHERE country.short!=\"USA\"",
 			ExpErr:   "",
 			ExpRows:  16,
 			ExpCols:  []string{"firstname", "lastname", "city.name", "city.prov", "country.short"},
@@ -541,7 +541,7 @@ func TestSelect(t *testing.T) {
 		},
 		{
 			TestName: "Multi Table Order By with * ",
-			Command:  "SELECT * FROM city, country where city.country = country.name and country.name != \"United States\" order by city.name",
+			Command:  "SELECT * FROM city JOIN country ON city.country = country.name WHERE country.name != \"United States\" order by city.name",
 			ExpErr:   "",
 			ExpRows:  6,
 			ExpCols:  []string{"city.cityid", "city.name", "city.country", "city.prov", "city.lat", "city.long", "country.name", "country.short"},
@@ -556,7 +556,7 @@ func TestSelect(t *testing.T) {
 		},
 		{
 			TestName: "Multi Table Order By with alias ",
-			Command:  "SELECT city.cityid, city.name cname, lat,long, short  FROM city, country where city.country = country.name and country.name != \"United States\" order by cname",
+			Command:  "SELECT city.cityid, city.name cname, lat,long, short  FROM city INNER JOIN country ON city.country = country.name WHERE country.name != \"United States\" order by cname",
 			ExpErr:   "",
 			ExpRows:  6,
 			ExpCols:  []string{"city.cityid", "cname", "lat", "long", "short"},
@@ -797,7 +797,7 @@ func TestSelect(t *testing.T) {
 		},
 		{
 			TestName: "Select Multitable Group By ",
-			Command:  "SELECT short,count(), min(lat), max(lat), sum(lat), avg(lat)  FROM city, country where city.country = country.name group by short",
+			Command:  "SELECT short,count(), min(lat), max(lat), sum(lat), avg(lat)  FROM city JOIN country ON city.country = country.name group by short",
 			ExpErr:   "",
 			ExpRows:  3,
 			ExpCols:  []string{"short", "COUNT()", "MIN(lat)", "MAX(lat)", "SUM(lat)", "AVG(lat)"},
@@ -809,7 +809,7 @@ func TestSelect(t *testing.T) {
 		},
 		{
 			TestName: "Select Multitable Group By ",
-			Command:  "SELECT short,count(), min(lat), max(lat), sum(lat), avg(lat)  FROM city, country where city.country = country.name ",
+			Command:  "SELECT short,count(), min(lat), max(lat), sum(lat), avg(lat)  FROM city INNER JOIN country ON city.country = country.name ",
 			ExpErr:   "Syntax Error: Select Statements with Aggregate functions (count, sum, min, max, avg) must not have other expressions",
 			ExpRows:  3,
 			ExpCols:  []string{"short", "COUNT()", "MIN(lat)", "MAX(lat)", "SUM(lat)", "AVG(lat)"},
@@ -822,7 +822,7 @@ func TestSelect(t *testing.T) {
 
 		{
 			TestName: "Multi Table Order By with table alias ",
-			Command:  "SELECT city.cityid, city.name cname, lat,long, cn.short  FROM city, country cn where city.country = cn.name and cn.name != \"United States\" order by cname",
+			Command:  "SELECT city.cityid, city.name cname, lat,long, cn.short  FROM city JOIN country cn ON city.country = cn.name WHERE cn.name != \"United States\" order by cname",
 			ExpErr:   "",
 			ExpRows:  6,
 			ExpCols:  []string{"city.cityid", "cname", "lat", "long", "cn.short"},
@@ -899,7 +899,7 @@ func TestSelect(t *testing.T) {
 		},
 		{
 			TestName: "Select Multitable Group By Having",
-			Command:  "select city.name, country.short, count() from city, country, person group by city.name, country.short where city.cityid = person.cityid and city.country = country.name having count() > 3 order by country.short, city.name",
+			Command:  "select city.name, country.short, count() from city JOIN country ON city.country = country.name INNER JOIN person ON city.cityid = person.cityid group by city.name, country.short having count() > 3 order by country.short, city.name",
 			ExpErr:   "",
 			ExpRows:  7, ExpCols: []string{"city.name", "country.short", "COUNT()"},
 			ExpVals: sqtypes.RawVals{
@@ -914,7 +914,7 @@ func TestSelect(t *testing.T) {
 		},
 
 		{
-			TestName: "Select with table alias",
+			TestName: "Select with table alias single table",
 			Command:  "select c.name, c.country, c.prov from city c where c.prov = \"Québec\"",
 			ExpErr:   "",
 			ExpRows:  1,
@@ -922,8 +922,8 @@ func TestSelect(t *testing.T) {
 			ExpVals:  sqtypes.RawVals{{"Joliette", "Canada", "Québec"}},
 		},
 		{
-			TestName: "Select with table alias",
-			Command:  "select city.name, cn.name from city, country cn where city.name = \"Joliette\" order by cn.name",
+			TestName: "Select with table alias CROSS JOIN",
+			Command:  "select city.name, cn.name from city CROSS JOIN country cn where city.name = \"Joliette\" order by cn.name",
 			ExpErr:   "",
 			ExpRows:  3,
 			ExpCols:  []string{"city.name", "cn.name"},
@@ -931,6 +931,29 @@ func TestSelect(t *testing.T) {
 				{"Joliette", "Canada"},
 				{"Joliette", "United Kingdom"},
 				{"Joliette", "United States"},
+			},
+		},
+
+		{
+			TestName: "Select with table alias DOUBLE CROSS JOIN",
+			Command:  "select p.firstname, c.name, cn.name from city c CROSS JOIN country cn CROSS JOIN person p where c.name = \"Joliette\" AND  p.firstname = \"Yvone\" order by cn.name",
+			ExpErr:   "",
+			ExpRows:  3,
+			ExpCols:  []string{"p.firstname", "c.name", "cn.name"},
+			ExpVals: sqtypes.RawVals{
+				{"Yvone", "Joliette", "Canada"},
+				{"Yvone", "Joliette", "United Kingdom"},
+				{"Yvone", "Joliette", "United States"},
+			},
+		},
+		{
+			TestName: "Select with From Table Inner Join",
+			Command:  "select city.name, country.name from city INNER JOIN country ON city.country = country.name where city.name = \"Joliette\" ",
+			ExpErr:   "",
+			ExpRows:  1,
+			ExpCols:  []string{"city.name", "country.name"},
+			ExpVals: sqtypes.RawVals{
+				{"Joliette", "Canada"},
 			},
 		},
 		/* - This is an issue but deferred

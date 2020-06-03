@@ -9,6 +9,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
@@ -456,7 +457,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName:   "Col Expr",
-			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
+			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: moniker.New("valueexprtest", "")}),
 			profile:    profile,
 			Tables:     tables,
 			rows:       rows,
@@ -466,7 +467,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName:   "Col Expr Partial",
-			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "TableX"}),
+			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: moniker.New("TableX", "")}),
 			profile:    profile,
 			Tables:     tables,
 			rows:       rows,
@@ -477,7 +478,7 @@ func TestEvaluateExpr(t *testing.T) {
 		},
 		{
 			TestName:   "Col Expr Error",
-			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.String, Idx: 0, TableName: "valueexprtest"}),
+			e:          sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.String, Idx: 0, TableName: moniker.New("valueexprtest", "")}),
 			profile:    profile,
 			Tables:     tables,
 			rows:       rows,
@@ -597,9 +598,9 @@ func TestEvaluateExpr(t *testing.T) {
 		{
 			TestName: "OpExpr col1+col2 partial",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: moniker.New("valueexprtest", "")}),
 				tokens.Plus,
-				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: moniker.New("tableX", "")}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -613,10 +614,10 @@ func TestEvaluateExpr(t *testing.T) {
 			TestName: "OpExpr col2+col1 partial",
 			e: sqtables.NewOpExpr(
 				sqtables.NewNegateExpr(
-					sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
+					sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: moniker.New("tableX", "")}),
 				),
 				tokens.Plus,
-				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: moniker.New("valueexprtest", "")}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -629,9 +630,9 @@ func TestEvaluateExpr(t *testing.T) {
 		{
 			TestName: "OpExpr col3 AND col2 partial",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(column.Ref{ColName: "col3", ColType: tokens.Bool, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col3", ColType: tokens.Bool, Idx: 0, TableName: moniker.New("valueexprtest", "")}),
 				tokens.And,
-				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Bool, Idx: 0, TableName: "tableX"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Bool, Idx: 0, TableName: moniker.New("tableX", "")}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -644,9 +645,9 @@ func TestEvaluateExpr(t *testing.T) {
 		{
 			TestName: "OpExpr col2 AND col3 partial",
 			e: sqtables.NewOpExpr(
-				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Bool, Idx: 0, TableName: "tableX"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Bool, Idx: 0, TableName: moniker.New("tableX", "")}),
 				tokens.And,
-				sqtables.NewColExpr(column.Ref{ColName: "col3", ColType: tokens.Bool, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col3", ColType: tokens.Bool, Idx: 0, TableName: moniker.New("valueexprtest", "")}),
 			),
 			profile:    profile,
 			Tables:     tables,
@@ -660,10 +661,10 @@ func TestEvaluateExpr(t *testing.T) {
 			TestName: "OpExpr col2 AND col1 partial",
 			e: sqtables.NewOpExpr(
 				sqtables.NewNegateExpr(
-					sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: "tableX"}),
+					sqtables.NewColExpr(column.Ref{ColName: "col2", ColType: tokens.Int, Idx: 0, TableName: moniker.New("tableX", "")}),
 				),
 				tokens.Equal,
-				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: "valueexprtest"}),
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: moniker.New("valueexprtest", "")}),
 			),
 			profile:    profile,
 			Tables:     tables,

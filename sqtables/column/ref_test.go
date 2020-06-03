@@ -7,6 +7,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -16,6 +17,9 @@ func init() {
 }
 
 func TestRef(t *testing.T) {
+
+	tlist1 := moniker.New("tlist1", "")
+
 	data := []RefData{
 		{
 			TestName:  "NewRef with nulls",
@@ -24,6 +28,7 @@ func TestRef(t *testing.T) {
 			IsNotNull: false,
 			ExpString: "{col1, INT}",
 			ExpName:   "col1",
+			TableName: tlist1,
 		},
 		{
 			TestName:  "NewRef without nulls",
@@ -32,6 +37,7 @@ func TestRef(t *testing.T) {
 			IsNotNull: true,
 			ExpString: "{col1, INT NOT NULL}",
 			ExpName:   "col1",
+			TableName: tlist1,
 		},
 		{
 			TestName:         "NewRef all values",
@@ -39,10 +45,10 @@ func TestRef(t *testing.T) {
 			ColType:          tokens.Int,
 			IsNotNull:        true,
 			Idx:              5,
-			TableName:        "testTab",
+			TableName:        moniker.New("testTab", ""),
 			DisplayTableName: true,
-			ExpString:        "{testTab.col1, INT NOT NULL}",
-			ExpName:          "testTab.col1",
+			ExpString:        "{testtab.col1, INT NOT NULL}",
+			ExpName:          "testtab.col1",
 		},
 		{
 			TestName:         "NewRef do not display tablename",
@@ -50,7 +56,7 @@ func TestRef(t *testing.T) {
 			ColType:          tokens.Int,
 			IsNotNull:        true,
 			Idx:              5,
-			TableName:        "testTab",
+			TableName:        moniker.New("testTab", ""),
 			DisplayTableName: false,
 			ExpString:        "{col1, INT NOT NULL}",
 			ExpName:          "col1",
@@ -61,21 +67,21 @@ func TestRef(t *testing.T) {
 			ColType:   tokens.Int,
 			IsNotNull: true,
 			MergeCD:   &column.Def{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1"},
-			ExpCD:     column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
+			ExpCD:     column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: moniker.New("tlist1", ""), DisplayTableName: false},
 			ExpString: "{col1, INT NOT NULL}",
 			ExpName:   "col1",
+			TableName: tlist1,
 		},
 		{
 			TestName:         "NewRef Merge with TableAlias",
 			ColName:          "col1",
 			ColType:          tokens.Int,
 			IsNotNull:        true,
-			TableName:        "tlist1",
-			TableAlias:       "alias1",
+			TableName:        moniker.New("testTab", "alias1"),
 			DisplayTableName: true,
-			MergeCD:          &column.Def{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1"},
-			ExpCD:            column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", TableAlias: "alias1", DisplayTableName: true},
-			ExpString:        "{tlist1.col1, INT NOT NULL}",
+			MergeCD:          &column.Def{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "testtab"},
+			ExpCD:            column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: moniker.New("testTab", "alias1"), DisplayTableName: true},
+			ExpString:        "{alias1.col1, INT NOT NULL}",
 			ExpName:          "alias1.col1",
 		},
 		{
@@ -84,10 +90,11 @@ func TestRef(t *testing.T) {
 			ColType:   tokens.Int,
 			IsNotNull: true,
 			MergeCD:   &column.Def{ColName: "col2", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1"},
-			ExpCD:     column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: "tlist1", DisplayTableName: false},
+			ExpCD:     column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 12, IsNotNull: false, TableName: moniker.New("tlist1", ""), DisplayTableName: false},
 			ExpString: "{col1, INT NOT NULL}",
 			ExpErr:    "Internal Error: Can't merge Ref col1, col2",
 			ExpName:   "col1",
+			TableName: tlist1,
 		},
 	}
 
@@ -103,8 +110,7 @@ type RefData struct {
 	TestName         string
 	ColName          string
 	ColType          tokens.TokenID
-	TableName        string
-	TableAlias       string
+	TableName        *moniker.Moniker
 	Idx              int
 	IsNotNull        bool
 	DisplayTableName bool
@@ -127,8 +133,7 @@ func testRefFunc(d RefData) func(*testing.T) {
 		if d.Idx != 0 {
 			cd.Idx = d.Idx
 		}
-		cd.TableName = d.TableName
-		cd.TableAlias = d.TableAlias
+		cd.TableName = d.TableName.Clone()
 		cd.DisplayTableName = d.DisplayTableName
 		if d.ExpString != cd.String() {
 			t.Errorf("String %q does not match expected: %q", cd.String(), d.ExpString)
@@ -139,12 +144,9 @@ func testRefFunc(d RefData) func(*testing.T) {
 			t.Errorf("DisplayName %q does not match expected: %q", cd.DisplayName(), d.ExpName)
 
 		}
-		ExpTableName := cd.TableName
-		if cd.TableAlias != "" {
-			ExpTableName = cd.TableAlias
-		}
-		if ExpTableName != cd.GetTableName() {
-			t.Errorf("GetTableName %q does not match expected: %q", cd.GetTableName(), ExpTableName)
+
+		if cd.TableName.Show() != cd.GetTableName() {
+			t.Errorf("GetTableName %q does not match expected: %q", cd.GetTableName(), cd.TableName.Show())
 
 		}
 

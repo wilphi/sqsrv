@@ -226,8 +226,11 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 				t.Error(err)
 				return
 			}
-
-			ds, err := tab.GetRowData(profile, cList, nil, nil, nil, "")
+			q := sqtables.Query{
+				Tables: sqtables.NewTableListFromTableDef(profile, tab),
+				EList:  cList,
+			}
+			ds, err := q.GetRowData(profile)
 			if err != nil {
 				t.Errorf("Error getting data for comparison: %s", err)
 				return

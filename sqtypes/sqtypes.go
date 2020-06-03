@@ -185,7 +185,8 @@ func Compare2DValue(a, b [][]Value, aName, bName string, doSort bool) string {
 
 	for i := range a {
 		if len(a[i]) != len(b[i]) {
-			return fmt.Sprintf("The number of cols does not match! %s[%d]-len=%d %s[%d]-len=%d", aName, i, len(a[i]), bName, i, len(b[i]))
+			return fmt.Sprintf("The number of cols does not match! %s[%d]-len=%d %s[%d]-len=%d", aName, i, len(a[i]), bName, i, len(b[i])) +
+				fmt.Sprintf("\n%s[%d] = %v Does not match %s[%d] = %v", aName, i, a[i], bName, i, b[i])
 		}
 	}
 	if doSort {

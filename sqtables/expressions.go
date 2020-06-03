@@ -8,6 +8,7 @@ import (
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtypes"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -46,6 +47,7 @@ type Expr interface {
 	Name() string
 	ColRef() column.Ref
 	ColRefs(tables ...*TableDef) []column.Ref
+	ColRefsMoniker(names ...*moniker.Moniker) []column.Ref
 	Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error)
 	Reduce() (Expr, error)
 	ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error
@@ -117,6 +119,11 @@ func (e *ValueExpr) ColRef() column.Ref {
 
 // ColRefs returns a list of all actual columns in the expression
 func (e *ValueExpr) ColRefs(tables ...*TableDef) []column.Ref {
+	return nil
+}
+
+// ColRefsMoniker returns a list of all actual columns in the expression
+func (e *ValueExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
 	return nil
 }
 
@@ -243,7 +250,21 @@ func (e *ColExpr) ColRefs(tables ...*TableDef) []column.Ref {
 		return []column.Ref{e.col}
 	}
 	for _, tab := range tables {
-		if e.col.TableName == tab.tableName {
+		if e.col.TableName.Name == tab.tableName {
+			ret = append(ret, e.col)
+		}
+	}
+	return ret
+}
+
+// ColRefsMoniker returns a list of all actual columns in the expression, filtered by the name (moniker)
+func (e *ColExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
+	var ret []column.Ref
+	if names == nil {
+		return []column.Ref{e.col}
+	}
+	for _, name := range names {
+		if moniker.Equal(e.col.TableName, name) {
 			ret = append(ret, e.col)
 		}
 	}
@@ -256,7 +277,7 @@ func (e *ColExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...R
 
 	// Find the row with the proper table name
 	for _, rw := range rows {
-		if e.col.TableName == rw.GetTableName(profile) {
+		if e.col.TableName != nil && e.col.TableName.Name == rw.GetTableName(profile) {
 			row = rw
 			break
 		}
@@ -288,7 +309,7 @@ func (e *ColExpr) Reduce() (Expr, error) {
 
 // ValidateCols make sure that the cols in the expression match the tabledef
 func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
-	if e.col.TableName == DataSetTableName {
+	if moniker.Equal(e.col.TableName, DataSetMoniker) {
 		return nil
 	}
 
@@ -343,6 +364,7 @@ func (e *ColExpr) IsAggregate() bool {
 type OpExpr struct {
 	exL, exR Expr
 	Operator tokens.TokenID
+	OpName   string
 	alias    string
 }
 
@@ -406,6 +428,20 @@ func (e *OpExpr) ColRef() column.Ref {
 func (e *OpExpr) ColRefs(tables ...*TableDef) []column.Ref {
 	colsL := e.exL.ColRefs(tables...)
 	colsR := e.exR.ColRefs(tables...)
+	if colsL == nil {
+		return colsR
+	}
+	if colsR == nil {
+		return colsL
+	}
+	ret := append(colsL, colsR...)
+	return ret
+}
+
+// ColRefsMoniker returns a list of all actual columns in the expression
+func (e *OpExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
+	colsL := e.exL.ColRefsMoniker(names...)
+	colsR := e.exR.ColRefsMoniker(names...)
 	if colsL == nil {
 		return colsR
 	}
@@ -496,7 +532,7 @@ func (e *OpExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) e
 
 // NewOpExpr creates a new OpExpr and returns it as an Expr
 func NewOpExpr(exL Expr, op tokens.TokenID, exR Expr) Expr {
-	return &OpExpr{exL: exL, Operator: op, exR: exR}
+	return &OpExpr{exL: exL, Operator: op, OpName: tokens.IDName(op), exR: exR}
 }
 
 // Encode returns a binary encoded version of the expression
@@ -524,6 +560,7 @@ func (e *OpExpr) Decode(dec *sqbin.Codec) {
 
 	e.alias = dec.ReadString()
 	e.Operator = tokens.TokenID(dec.ReadUint64())
+	e.OpName = tokens.IDName(e.Operator)
 	e.exL = DecodeExpr(dec)
 
 	e.exR = DecodeExpr(dec)
@@ -606,6 +643,12 @@ func (e *NegateExpr) ColRef() column.Ref {
 // ColRefs returns a list of all actual columns in the expression
 func (e *NegateExpr) ColRefs(tables ...*TableDef) []column.Ref {
 	colsL := e.exL.ColRefs(tables...)
+	return colsL
+}
+
+// ColRefsMoniker returns a list of all actual columns in the expression
+func (e *NegateExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
+	colsL := e.exL.ColRefsMoniker(names...)
 	return colsL
 }
 
@@ -769,6 +812,15 @@ func (e *FuncExpr) ColRef() column.Ref {
 func (e *FuncExpr) ColRefs(tables ...*TableDef) []column.Ref {
 	if e.exL != nil {
 		colsL := e.exL.ColRefs(tables...)
+		return colsL
+	}
+	return nil
+}
+
+// ColRefsMoniker returns a list of all actual columns in the expression
+func (e *FuncExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
+	if e.exL != nil {
+		colsL := e.exL.ColRefsMoniker(names...)
 		return colsL
 	}
 	return nil
@@ -941,7 +993,7 @@ func ProcessHaving(e Expr, flist []FuncExpr, cnt int) (Expr, []FuncExpr, int) {
 			alias = " Hidden_" + fexpr.Name()
 			fexpr.SetAlias(alias)
 			flist = append(flist, *fexpr)
-			exp = NewColExpr(column.Ref{ColName: alias, Idx: cnt, TableName: DataSetTableName})
+			exp = NewColExpr(column.Ref{ColName: alias, Idx: cnt, TableName: moniker.New(DataSetTableName, "")})
 			cnt++
 			return exp, flist, cnt
 		}

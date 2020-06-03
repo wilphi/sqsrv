@@ -7,6 +7,7 @@ import (
 
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -111,7 +112,7 @@ func testDefFunc(d DefData) func(*testing.T) {
 
 		colref := cd.Ref()
 		if colref.ColName != cd.ColName || colref.ColType != cd.ColType || colref.Idx != cd.Idx || colref.IsNotNull != cd.IsNotNull ||
-			colref.TableName != cd.TableName || colref.TableAlias != "" || colref.DisplayTableName != false {
+			!moniker.Equal(colref.TableName, moniker.New(cd.TableName, "")) || colref.DisplayTableName != false {
 			t.Errorf(".Ref() value did not match expected: %v", colref)
 		}
 		bin := sqbin.NewCodec(nil)

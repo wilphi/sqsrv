@@ -2,6 +2,7 @@ package column
 
 import (
 	"github.com/wilphi/sqsrv/sqbin"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
@@ -33,7 +34,7 @@ func (c *Def) String() string {
 
 // Ref makes a column.Ref to the column.Def
 func (c *Def) Ref() Ref {
-	return Ref{ColName: c.ColName, ColType: c.ColType, Idx: c.Idx, IsNotNull: c.IsNotNull, TableName: c.TableName}
+	return Ref{ColName: c.ColName, ColType: c.ColType, Idx: c.Idx, IsNotNull: c.IsNotNull, TableName: moniker.New(c.TableName, "")}
 }
 
 //Encode outputs a binary encoded version of the Def to the codec

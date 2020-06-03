@@ -206,3 +206,12 @@ func LockCatalog(profile *sqprofile.SQProfile) {
 func GetTable(profile *sqprofile.SQProfile, tableName string) (*TableDef, error) {
 	return _Catalog.FindTableDef(profile, tableName)
 }
+
+//GetTableRef returns a table reference for the given table name
+func GetTableRef(profile *sqprofile.SQProfile, tableName string) (*TableRef, error) {
+	d, err := _Catalog.FindTableDef(profile, tableName)
+	if err != nil {
+		return nil, err
+	}
+	return d.TableRef(profile), nil
+}

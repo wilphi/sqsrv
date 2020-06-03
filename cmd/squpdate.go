@@ -100,7 +100,7 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 	// Optional Where Clause
 	if tkns.Len() > 0 && tkns.IsA(tokens.Where) {
 		tkns.Remove()
-		whereExpr, err = ParseWhereClause(tkns)
+		whereExpr, err = ParseWhereClause(tkns, false)
 		if err != nil {
 			return "", nil, err
 		}

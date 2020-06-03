@@ -9,6 +9,7 @@ import (
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtables/column"
+	"github.com/wilphi/sqsrv/sqtables/moniker"
 	"github.com/wilphi/sqsrv/sqtest"
 	"github.com/wilphi/sqsrv/tokens"
 )
@@ -183,7 +184,7 @@ func TestNewListMethods(t *testing.T) {
 			case 1:
 				refarray[i] = column.Ref{ColName: s[0]}
 			case 2:
-				refarray[i] = column.Ref{ColName: s[1], TableName: s[0]}
+				refarray[i] = column.Ref{ColName: s[1], TableName: moniker.New(s[0], "")}
 			}
 		}
 
