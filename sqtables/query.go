@@ -339,48 +339,6 @@ func findJoin(joins []JoinInfo, joined, unjoined []JoinTable) (joinIdx int, join
 	return -1, -1, -1
 }
 
-func containName(names []*moniker.Moniker, name *moniker.Moniker) int {
-	for idx, val := range names {
-		if moniker.Equal(val, name) {
-			return idx
-		}
-	}
-	return -1
-}
-
-func findOps(WhereExpr Expr, op tokens.TokenID) (ret []Expr) {
-	var lOk, rOk bool
-	lEx := WhereExpr.Left()
-	rEx := WhereExpr.Right()
-
-	opex, ok := WhereExpr.(*OpExpr)
-	if ok {
-		if lEx != nil {
-			_, lOk = lEx.(*ColExpr)
-		}
-		if rEx != nil {
-			_, rOk = rEx.(*ColExpr)
-		}
-		if lOk && rOk && opex.Operator == op {
-			ret = append(ret, opex)
-		}
-
-	}
-	if lEx != nil {
-		tRet := findOps(lEx, op)
-		if tRet != nil {
-			ret = append(ret, tRet...)
-		}
-	}
-	if rEx != nil {
-		tRet := findOps(rEx, op)
-		if tRet != nil {
-			ret = append(ret, tRet...)
-		}
-	}
-	return
-}
-
 //ValidateGroupBySemantics validates a query that it follows the group by rules
 func (q *Query) ValidateGroupBySemantics(profile *sqprofile.SQProfile) error {
 	var err error
