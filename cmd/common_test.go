@@ -788,7 +788,7 @@ func testGetTableListFunc(d GetTableListData) func(*testing.T) {
 			t.Errorf("The length Expected TableNames (%d) and returned TableNames (%d) do not match", len(d.ExpectedTables), rIdents.Len())
 			return
 		}
-		sort.Slice(d.ExpectedTables, func(i int, j int) bool { return d.ExpectedTables[i].Name < d.ExpectedTables[j].Name })
+		sort.Slice(d.ExpectedTables, func(i int, j int) bool { return d.ExpectedTables[i].Name() < d.ExpectedTables[j].Name() })
 		if !reflect.DeepEqual(d.ExpectedTables, rIdents.TableNames()) {
 			t.Errorf("Expected Tables: %v  - do not match actual Tables: %v", d.ExpectedTables, rIdents.TableNames())
 			return

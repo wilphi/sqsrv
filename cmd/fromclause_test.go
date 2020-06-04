@@ -49,7 +49,7 @@ func testParseFromClauseFunc(d ParseFromClauseData) func(*testing.T) {
 			return
 		}
 
-		sort.Slice(d.ExpectedTables, func(i int, j int) bool { return d.ExpectedTables[i].Name < d.ExpectedTables[j].Name })
+		sort.Slice(d.ExpectedTables, func(i int, j int) bool { return d.ExpectedTables[i].Name() < d.ExpectedTables[j].Name() })
 		if !reflect.DeepEqual(d.ExpectedTables, rIdents.TableNames()) {
 			t.Errorf("Expected Tables: %v  - do not match actual Tables: %v", d.ExpectedTables, rIdents.TableNames())
 			return

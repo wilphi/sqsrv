@@ -112,11 +112,11 @@ func (tl *TableList) AllCols(profile *sqprofile.SQProfile) []column.Ref {
 	colm := make(map[column.Ref]bool)
 	for _, tab := range tl.tables {
 		tc := tab.Table.GetCols(profile)
-		alias := tab.Name.Alias
+		//alias := tab.Name.Alias
 		for _, cd := range tc.GetRefs() {
 			cd.DisplayTableName = displayTName
 			// make sure that the table alias in the tablelist is added to the Col Ref
-			cd.TableName.Alias = alias
+			cd.TableName = tab.Name
 			colm[cd] = true
 		}
 	}

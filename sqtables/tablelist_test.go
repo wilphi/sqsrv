@@ -233,7 +233,7 @@ func TestFindColDef(t *testing.T) {
 			return
 		}
 		if tdata[i].Alias != "" {
-			ft.Name.Alias = ""
+			ft.Name.SetAlias("")
 			err = tList.Add(profile, ft)
 			if err != nil {
 				t.Errorf("Error setting up data for %s: %s", tdata[i].Name, err)

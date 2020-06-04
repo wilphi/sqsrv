@@ -176,7 +176,8 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 		} else {
 			cols = make([]column.Ref, 1)
 			cols[0] = tabInfo.Table.tableCols[0].Ref()
-			cols[0].TableName.Alias = tabInfo.Name.Alias
+			cols[0].TableName = tabInfo.Name
+			//*****************
 		}
 		whereList = ColsToExpr(column.NewListRefs(cols))
 

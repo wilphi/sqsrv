@@ -74,11 +74,11 @@ func MergeRefDef(colA Ref, colB Def) (Ref, error) {
 	result.IsNotNull = colB.IsNotNull
 
 	if colA.TableName != nil {
-		if colA.TableName.Name != colB.TableName {
+		if colA.TableName.Name() != colB.TableName {
 			// Use colA TableName as alias
-			result.TableName = moniker.New(colB.TableName, colA.TableName.Name)
+			result.TableName = moniker.New(colB.TableName, colA.TableName.Name())
 		} else {
-			result.TableName = moniker.New(colB.TableName, colA.TableName.Alias)
+			result.TableName = moniker.New(colB.TableName, colA.TableName.Alias())
 		}
 	} else {
 		result.TableName = moniker.New(colB.TableName, "")
@@ -97,8 +97,8 @@ func (c *Ref) Encode(enc *sqbin.Codec) {
 	enc.WriteInt(c.Idx)
 	enc.WriteBool(c.IsNotNull)
 	if c.TableName != nil {
-		enc.WriteString(c.TableName.Name)
-		enc.WriteString(c.TableName.Alias)
+		enc.WriteString(c.TableName.Name())
+		enc.WriteString(c.TableName.Alias())
 	} else {
 		enc.WriteString("")
 		enc.WriteString("")
@@ -115,7 +115,7 @@ func (c *Ref) Decode(dec *sqbin.Codec) {
 	c.Idx = dec.ReadInt()
 	c.IsNotNull = dec.ReadBool()
 	c.TableName = moniker.New(dec.ReadString(), dec.ReadString())
-	if c.TableName.Name == "" {
+	if c.TableName.Name() == "" {
 		c.TableName = nil
 	}
 	c.DisplayTableName = dec.ReadBool()

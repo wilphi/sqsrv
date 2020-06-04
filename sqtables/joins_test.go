@@ -48,7 +48,7 @@ func TestMiscJoinRow(t *testing.T) {
 	t.Run("GetTableName", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		if row.GetTableName(profile) != tName.Name {
+		if row.GetTableName(profile) != tName.Name() {
 			t.Error("GetTableName did not match expected value")
 			return
 		}

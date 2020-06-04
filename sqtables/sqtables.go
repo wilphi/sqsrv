@@ -375,12 +375,12 @@ func (tr *TableRef) Validate(profile *sqprofile.SQProfile) error {
 	var err error
 	if tr.Table == nil {
 		// Get the TableDef
-		tr.Table, err = GetTable(profile, tr.Name.Name)
+		tr.Table, err = GetTable(profile, tr.Name.Name())
 		if err != nil {
 			return err
 		}
 		if tr.Table == nil {
-			return sqerr.Newf("Table %q does not exist", tr.Name.Name)
+			return sqerr.Newf("Table %q does not exist", tr.Name.Name())
 		}
 	}
 	return nil

@@ -250,7 +250,7 @@ func (e *ColExpr) ColRefs(tables ...*TableDef) []column.Ref {
 		return []column.Ref{e.col}
 	}
 	for _, tab := range tables {
-		if e.col.TableName.Name == tab.tableName {
+		if e.col.TableName.Name() == tab.tableName {
 			ret = append(ret, e.col)
 		}
 	}
@@ -277,7 +277,7 @@ func (e *ColExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...R
 
 	// Find the row with the proper table name
 	for _, rw := range rows {
-		if e.col.TableName != nil && e.col.TableName.Name == rw.GetTableName(profile) {
+		if e.col.TableName != nil && e.col.TableName.Name() == rw.GetTableName(profile) {
 			row = rw
 			break
 		}
