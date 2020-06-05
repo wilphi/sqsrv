@@ -102,43 +102,7 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Single table query
-	if q.Tables.Len() == 1 {
-		finalResult.usePtrs = !q.EList.HasAggregateFunc()
-
-		// get a reference to the single table
-		var tabRef *TableRef
-		for _, tabInfo := range q.Tables.tables {
-			tabRef = tabInfo
-		}
-		// Get the pointers to the rows based on the conditions
-		ptrs, err := tabRef.Table.GetRowPtrs(profile, q.WhereExpr, RowOrder)
-		if err != nil {
-			return nil, err
-		}
-
-		finalResult.Vals = make([][]sqtypes.Value, len(ptrs))
-		finalResult.Ptrs = ptrs
-
-		for i, ptr := range ptrs {
-			// make sure the ptr points to the correct row
-			if tabRef.Table.rowm[ptr].RowPtr != ptr {
-				log.Panic("rowPtr does not match Map index")
-			}
-
-			finalResult.Vals[i], err = q.EList.Evaluate(profile, EvalFull, tabRef.Table.rowm[ptr])
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if q.GroupBy != nil || q.EList.HasAggregateFunc() {
-			err = q.ProcessGroupBy(profile, finalResult)
-
-		}
-		return finalResult, err
-	}
+	finalResult.usePtrs = !q.EList.HasAggregateFunc()
 
 	// Added if statement to prevent the exection of String unless required
 	if log.GetLevel() >= log.DebugLevel {
@@ -163,7 +127,10 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 		log.Infof("Filtering table %s", tabInfo.Name)
 
 		// get the cols in the virtual Where
-		cols := vWhere.ColRefsMoniker(tabInfo.Name)
+		var cols []column.Ref
+		if vWhere != nil {
+			cols = vWhere.ColRefsMoniker(tabInfo.Name)
+		}
 		if cols != nil {
 			sort.Slice(cols, func(i, j int) bool { return cols[i].Idx < cols[j].Idx })
 			i := 0
@@ -177,7 +144,6 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 			cols = make([]column.Ref, 1)
 			cols[0] = tabInfo.Table.tableCols[0].Ref()
 			cols[0].TableName = tabInfo.Name
-			//*****************
 		}
 		whereList = ColsToExpr(column.NewListRefs(cols))
 
@@ -215,7 +181,6 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 	var joinIdx, joinedIdx, unJoinedIdx int
 	unusedJoins := q.Joins // list of joins that have not already been used to join intermediate results
 	for len(unJoined) > 0 {
-		var intermresult [][]RowInterface
 		// find the join clause
 		joinIdx, joinedIdx, unJoinedIdx = findJoin(unusedJoins, joined, unJoined)
 		if joinIdx == -1 || joinedIdx == -1 || unJoinedIdx == -1 {
@@ -229,62 +194,24 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 
 		switch currentJoin.JoinType {
 		case tokens.Inner:
-			// do inner join
-			if currentJoin.ONClause == nil {
-				return nil, sqerr.NewInternal("Missing ON Clause for inner join")
+			jresult, err = innerJoin(profile, currentJoin, joined[joinedIdx], unJoined[unJoinedIdx], joinedIdx, jresult)
+			if err != nil {
+				return nil, err
 			}
-			table1 := joined[joinedIdx]
-			table2 := unJoined[unJoinedIdx]
-			col1 := currentJoin.ONClause.ColRefsMoniker(table1.TR.Name)
-			col2 := currentJoin.ONClause.ColRefsMoniker(table2.TR.Name)
-			col1Idx := findCol(table1.Cols, col1[0])
-			col2Idx := findCol(table2.Cols, col2[0])
-			log.Printf("Joining cols %s.%s : %s.%s", table1.TR.Name, table1.Cols[col1Idx].ColName, table2.TR.Name, table2.Cols[col2Idx].ColName)
-			sort.Slice(table2.Rows, func(i, j int) bool { return table2.Rows[i].Vals[col2Idx].LessThan(table2.Rows[j].Vals[col2Idx]) })
-			for _, tuple := range jresult {
-				leftVal, err := tuple[joinedIdx].GetIdxVal(profile, col1Idx)
-				if err != nil {
-					return nil, err
-				}
-				rowIdx := sort.Search(len(table2.Rows), func(i int) bool { return !table2.Rows[i].Vals[col2Idx].LessThan(leftVal) })
-				for (rowIdx < len(table2.Rows)) && table2.Rows[rowIdx].Vals[col2Idx].Equal(leftVal) {
-					tmpRow := table2.Rows[rowIdx]
-					newTup := append(tuple, &tmpRow)
-					intermresult = append(intermresult, newTup)
-					rowIdx++
-				}
-			}
-			jresult = intermresult
-			jtab := unJoined[unJoinedIdx]
-			unJoined = append(unJoined[:unJoinedIdx], unJoined[unJoinedIdx+1:]...)
-			joined = append(joined, jtab)
 			log.Printf("Join resulted in %d rows", len(jresult))
 		case tokens.Cross:
-			//table1 := joined[joinedIdx]
-			table2 := unJoined[unJoinedIdx]
-			cnt := 0
-			log.Printf("Cross join with table %s: creates %d rows", table2.TR.Name, len(jresult)*len(table2.Rows))
-			for _, tuple := range jresult {
-				for _, row := range table2.Rows {
-					cnt++
-					if cnt%1000000 == 0 {
-						log.Print(cnt)
-						if atomic.LoadInt32(timeOut) != 0 {
-							return nil, sqerr.New("Query terminated due to timeout")
-						}
-					}
-					tmpRow := row
-					newTup := append(tuple, &tmpRow)
-					intermresult = append(intermresult, newTup)
-				}
+			jresult, err = crossJoin(profile, currentJoin, joined[joinedIdx], unJoined[unJoinedIdx], joinedIdx, jresult, timeOut)
+			if err != nil {
+				return nil, err
 			}
-			jresult = intermresult
-			unJoined = append(unJoined[:unJoinedIdx], unJoined[unJoinedIdx+1:]...)
-			joined = append(joined, table2)
-
+			log.Printf("Cross Join resulted in %d rows", len(jresult))
 		default:
 			return nil, sqerr.NewInternalf("Join Type %s is not currently implemented", tokens.IDName(currentJoin.JoinType))
 		}
+		jtab := unJoined[unJoinedIdx]
+		unJoined = append(unJoined[:unJoinedIdx], unJoined[unJoinedIdx+1:]...)
+		joined = append(joined, jtab)
+
 	}
 
 	// Fill in the final Datastore result
@@ -300,6 +227,9 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 			rows[j] = RowInterface(row)
 		}
 		finalResult.Vals[i], err = q.EList.Evaluate(profile, EvalPartial, rows...)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if q.GroupBy != nil || q.EList.HasAggregateFunc() {
 		err = q.ProcessGroupBy(profile, finalResult)
@@ -338,6 +268,62 @@ func findJoin(joins []JoinInfo, joined, unjoined []JoinTable) (joinIdx int, join
 	}
 	// If the parser is doing its job properly, this function should never return -1, -1, -1
 	return -1, -1, -1
+}
+
+//crossJoin
+func crossJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, table1, table2 JoinTable, joinedIdx int,
+	jresult [][]RowInterface, timeOut *int32) ([][]RowInterface, error) {
+	var intermresult [][]RowInterface
+	cnt := 0
+	log.Printf("Cross join with table %s: creates %d rows", table2.TR.Name, len(jresult)*len(table2.Rows))
+	for _, tuple := range jresult {
+		for _, row := range table2.Rows {
+			cnt++
+			if cnt%1000000 == 0 {
+				log.Print(cnt)
+				if atomic.LoadInt32(timeOut) != 0 {
+					return nil, sqerr.New("Query terminated due to timeout")
+				}
+			}
+			tmpRow := row
+			newTup := append(tuple, &tmpRow)
+			intermresult = append(intermresult, newTup)
+		}
+	}
+	return intermresult, nil
+}
+
+//innerJoin
+func innerJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, table1, table2 JoinTable, joinedIdx int,
+	jresult [][]RowInterface) ([][]RowInterface, error) {
+	var intermresult [][]RowInterface
+	// do inner join
+	if currentJoin.ONClause == nil {
+		return nil, sqerr.NewInternal("Missing ON Clause for inner join")
+	}
+	//table1 := joined[joinedIdx]
+	//table2 := unJoined[unJoinedIdx]
+	col1 := currentJoin.ONClause.ColRefsMoniker(table1.TR.Name)
+	col2 := currentJoin.ONClause.ColRefsMoniker(table2.TR.Name)
+	col1Idx := findCol(table1.Cols, col1[0])
+	col2Idx := findCol(table2.Cols, col2[0])
+	log.Printf("Joining cols %s.%s : %s.%s", table1.TR.Name, table1.Cols[col1Idx].ColName, table2.TR.Name, table2.Cols[col2Idx].ColName)
+	sort.Slice(table2.Rows, func(i, j int) bool { return table2.Rows[i].Vals[col2Idx].LessThan(table2.Rows[j].Vals[col2Idx]) })
+	for _, tuple := range jresult {
+		leftVal, err := tuple[joinedIdx].GetIdxVal(profile, col1Idx)
+		if err != nil {
+			return nil, err
+		}
+		rowIdx := sort.Search(len(table2.Rows), func(i int) bool { return !table2.Rows[i].Vals[col2Idx].LessThan(leftVal) })
+		for (rowIdx < len(table2.Rows)) && table2.Rows[rowIdx].Vals[col2Idx].Equal(leftVal) {
+			tmpRow := table2.Rows[rowIdx]
+			newTup := append(tuple, &tmpRow)
+			intermresult = append(intermresult, newTup)
+			rowIdx++
+		}
+	}
+	return intermresult, nil
+
 }
 
 //ValidateGroupBySemantics validates a query that it follows the group by rules
