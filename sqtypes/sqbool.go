@@ -41,12 +41,18 @@ func (b SQBool) Equal(v Value) bool {
 
 // LessThan -
 func (b SQBool) LessThan(v Value) bool {
+	if v.IsNull() {
+		return true
+	}
 
 	return false
 }
 
 //GreaterThan -
 func (b SQBool) GreaterThan(v Value) bool {
+	if v.IsNull() {
+		return false
+	}
 
 	return false
 }

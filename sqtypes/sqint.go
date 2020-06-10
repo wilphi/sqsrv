@@ -39,6 +39,9 @@ func (i SQInt) Equal(v Value) bool {
 
 // LessThan -
 func (i SQInt) LessThan(v Value) bool {
+	if v.IsNull() {
+		return true
+	}
 	vint, ok := v.(SQInt)
 	ret := ok && (i.Val < vint.Val)
 	return ret
@@ -47,6 +50,9 @@ func (i SQInt) LessThan(v Value) bool {
 
 // GreaterThan -
 func (i SQInt) GreaterThan(v Value) bool {
+	if v.IsNull() {
+		return false
+	}
 	vint, ok := v.(SQInt)
 	return ok && (i.Val > vint.Val)
 

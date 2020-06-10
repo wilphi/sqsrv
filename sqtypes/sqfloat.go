@@ -38,6 +38,9 @@ func (fp SQFloat) Equal(v Value) bool {
 
 // LessThan -
 func (fp SQFloat) LessThan(v Value) bool {
+	if v.IsNull() {
+		return true
+	}
 	vfp, ok := v.(SQFloat)
 	ret1 := (fp.Val < vfp.Val)
 	ret2 := ok && ret1
@@ -47,6 +50,9 @@ func (fp SQFloat) LessThan(v Value) bool {
 
 // GreaterThan -
 func (fp SQFloat) GreaterThan(v Value) bool {
+	if v.IsNull() {
+		return false
+	}
 	vfp, ok := v.(SQFloat)
 	return ok && (fp.Val > vfp.Val)
 

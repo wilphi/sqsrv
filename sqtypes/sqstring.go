@@ -39,12 +39,18 @@ func (s SQString) Equal(v Value) bool {
 
 // LessThan -
 func (s SQString) LessThan(v Value) bool {
+	if v.IsNull() {
+		return true
+	}
 	vint, ok := v.(SQString)
 	return ok && (s.Val < vint.Val)
 }
 
 //GreaterThan -
 func (s SQString) GreaterThan(v Value) bool {
+	if v.IsNull() {
+		return false
+	}
 	vint, ok := v.(SQString)
 	return ok && (s.Val > vint.Val)
 }
