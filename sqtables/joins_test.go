@@ -144,3 +144,130 @@ func TestMiscJoinRow(t *testing.T) {
 	})
 
 }
+
+func TestMiscNullRow(t *testing.T) {
+	profile := sqprofile.CreateSQProfile()
+	// Setup Data
+	tName := moniker.New("nulltable", "")
+	row := sqtables.NullRow{
+		TableName: tName,
+	}
+
+	col := column.NewRef("col1", tokens.String, false)
+
+	t.Run("NullRow is valid RowInterface", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		var i sqtables.RowInterface
+		i = &row
+		_, ok := i.(sqtables.RowInterface)
+		if !ok {
+			t.Error("Row is not a RowInterface")
+			return
+		}
+	})
+	t.Run("GetTableName", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		if row.GetTableName(profile) != tName.Name() {
+			t.Error("GetTableName did not match expected value")
+			return
+		}
+	})
+	t.Run("GetPtr", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		if row.GetPtr(profile) != 0 {
+			t.Error("GetPtr did not match expected value")
+			return
+		}
+	})
+	t.Run("GetIdxVal idx=-1", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		val, err := row.GetIdxVal(profile, -1)
+
+		if !val.IsNull() {
+			t.Errorf("Value is not null")
+			return
+		}
+		if err != nil {
+			t.Errorf("Unexpected err %q ", err)
+			return
+		}
+	})
+	t.Run("GetIdxVal idx=4", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		val, err := row.GetIdxVal(profile, 4)
+
+		if !val.IsNull() {
+			t.Errorf("Value is not null")
+			return
+		}
+		if err != nil {
+			t.Errorf("Unexpected err %q ", err)
+			return
+		}
+	})
+	t.Run("GetIdxVal idx=1", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		v, err := row.GetIdxVal(profile, 1)
+
+		if err != nil {
+			t.Errorf("Unexpected err %q ", err)
+			return
+		}
+
+		if !v.IsNull() {
+			t.Errorf("Value is not null")
+			return
+		}
+	})
+
+	t.Run("GetColData idx=-1", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		val, err := row.GetColData(profile, &col)
+
+		if !val.IsNull() {
+			t.Errorf("Value is not null")
+			return
+		}
+		if err != nil {
+			t.Errorf("Unexpected err %q ", err)
+			return
+		}
+	})
+	t.Run("GetColData idx=4", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		val, err := row.GetColData(profile, &col)
+
+		if !val.IsNull() {
+			t.Errorf("Value is not null")
+			return
+		}
+		if err != nil {
+			t.Errorf("Unexpected err %q ", err)
+			return
+		}
+	})
+	t.Run("GetColData idx=1", func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		val, err := row.GetColData(profile, &col)
+
+		if !val.IsNull() {
+			t.Errorf("Value is not null")
+			return
+		}
+		if err != nil {
+			t.Errorf("Unexpected err %q ", err)
+			return
+		}
+
+	})
+
+}

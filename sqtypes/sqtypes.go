@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -199,10 +200,38 @@ func Compare2DValue(a, b [][]Value, aName, bName string, doSort bool) string {
 	for i, row := range a {
 		for j, val := range row {
 			if val.Type() != b[i][j].Type() {
-				return fmt.Sprintf("Type Mismatch: %s[%d][%d] = %s Does not match %s[%d][%d] = %s", aName, i, j, tokens.IDName(a[i][j].Type()), bName, i, j, tokens.IDName(b[i][j].Type()))
+				return fmt.Sprintf("Type Mismatch: %s[%d][%d] = %s Does not match %s[%d][%d] = %s", aName, i, j, strings.ToLower(tokens.IDName(a[i][j].Type())), bName, i, j, strings.ToLower(tokens.IDName(b[i][j].Type())))
 			}
 			if !val.Equal(b[i][j]) {
 				if !(val.IsNull() && b[i][j].IsNull()) {
+					return fmt.Sprintf("%s[%d] = %v Does not match %s[%d] = %v", aName, i, a[i], bName, i, b[i])
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// Compare2DRaw - returns "" is arrays match otherwise a string describing where the arrays do not match.
+func Compare2DRaw(a, b RawVals, aName, bName string) string {
+	if len(a) != len(b) {
+		return fmt.Sprintf("The number of rows does not match! %s(%d) %s(%d)", aName, len(a), bName, len(b))
+	}
+
+	for i := range a {
+		if len(a[i]) != len(b[i]) {
+			return fmt.Sprintf("The number of cols does not match! %s[%d]-len=%d %s[%d]-len=%d", aName, i, len(a[i]), bName, i, len(b[i])) +
+				fmt.Sprintf("\n%s[%d] = %v Does not match %s[%d] = %v", aName, i, a[i], bName, i, b[i])
+		}
+	}
+
+	for i, row := range a {
+		for j, val := range row {
+			if reflect.TypeOf(val) != reflect.TypeOf(b[i][j]) {
+				return fmt.Sprintf("Type Mismatch: %s[%d][%d] = %T Does not match %s[%d][%d] = %T", aName, i, j, a[i][j], bName, i, j, b[i][j])
+			}
+			if val != b[i][j] {
+				if !(val == nil && b[i][j] == nil) {
 					return fmt.Sprintf("%s[%d] = %v Does not match %s[%d] = %v", aName, i, a[i], bName, i, b[i])
 				}
 			}

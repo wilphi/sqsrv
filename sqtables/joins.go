@@ -48,3 +48,31 @@ func (r *JoinRow) GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Valu
 	}
 	return r.Vals[idx], nil
 }
+
+////////////////////////////////////
+
+// NullRow defines a row that always has values of null. used for outer joins
+type NullRow struct {
+	TableName *moniker.Moniker
+}
+
+// GetTableName gets the table name that the JoinRow is based off on.
+func (r *NullRow) GetTableName(profile *sqprofile.SQProfile) string {
+	return r.TableName.Show()
+}
+
+// GetPtr returns the pointer to the given row
+func (r *NullRow) GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr {
+	return 0
+}
+
+// GetColData -
+func (r *NullRow) GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
+	return sqtypes.NewSQNull(), nil
+}
+
+// GetIdxVal gets the value of the col at the index idx
+func (r *NullRow) GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
+	return sqtypes.NewSQNull(), nil
+
+}

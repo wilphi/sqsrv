@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/wilphi/sqsrv/sq"
+	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtables/column"
@@ -25,19 +25,18 @@ func TestQueryGetRowData(t *testing.T) {
 
 	//var err error
 	profile := sqprofile.CreateSQProfile()
-	err := sq.ProcessSQFile("./testdata/multitable.sq")
+
+	tCountry, err := sqtables.CreateTableFromRawFile(profile, "./testdata/query/country.txt", "country")
 	if err != nil {
 		panic(err)
 	}
-	tPerson, err := sqtables.GetTableRef(profile, "person")
+
+	tCity, err := sqtables.CreateTableFromRawFile(profile, "./testdata/query/city.txt", "city")
 	if err != nil {
 		panic(err)
 	}
-	tCity, err := sqtables.GetTableRef(profile, "city")
-	if err != nil {
-		panic(err)
-	}
-	tCountry, err := sqtables.GetTableRef(profile, "country")
+
+	tPerson, err := sqtables.CreateTableFromRawFile(profile, "./testdata/query/person.txt", "person")
 	if err != nil {
 		panic(err)
 	}
@@ -57,9 +56,16 @@ func TestQueryGetRowData(t *testing.T) {
 	)
 	whereExpr :=
 		sqtables.NewOpExpr(
-			sqtables.NewColExpr(column.Ref{ColName: "short", ColType: tokens.String, TableName: moniker.New("country", "")}),
+			sqtables.NewColExpr(column.Ref{ColName: "short", ColType: tokens.String, TableName: tCountry.Name.Clone()}),
 			tokens.NotEqual,
 			sqtables.NewValueExpr(sqtypes.NewSQString("USA")),
+		)
+
+	whereExpr2 :=
+		sqtables.NewOpExpr(
+			sqtables.NewColExpr(column.Ref{ColName: "country", ColType: tokens.String, TableName: tCity.Name.Clone()}),
+			tokens.NotEqual,
+			sqtables.NewValueExpr(sqtypes.NewSQString("United States")),
 		)
 
 	joins := []sqtables.JoinInfo{
@@ -68,7 +74,7 @@ func TestQueryGetRowData(t *testing.T) {
 			TableB:   *tCountry,
 			JoinType: tokens.Inner,
 			ONClause: sqtables.NewOpExpr(
-				sqtables.NewColExpr(column.Ref{ColName: "country", ColType: tokens.String, TableName: moniker.New("city", "")}),
+				sqtables.NewColExpr(column.Ref{ColName: "country", ColType: tokens.String, TableName: tCity.Name.Clone()}),
 				tokens.Equal,
 				sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.String, TableName: moniker.New("country", "")}),
 			),
@@ -88,6 +94,29 @@ func TestQueryGetRowData(t *testing.T) {
 	data := []QueryGetRowData{
 
 		{
+			TestName: "City/Country Query",
+			Query: sqtables.Query{
+				Tables:    sqtables.NewTableList(profile, []sqtables.TableRef{*tCity, *tCountry}),
+				EList:     sqtables.ColsToExpr(column.NewListNames([]string{"city.name", "city.prov", "country.short"})),
+				WhereExpr: whereExpr,
+				Joins:     joins[:1],
+			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/citycountryquery.txt",
+		},
+		{
+			TestName: "City/Person Query",
+			Query: sqtables.Query{
+				Tables:    sqtables.NewTableList(profile, []sqtables.TableRef{*tPerson, *tCity}),
+				EList:     sqtables.ColsToExpr(column.NewListNames([]string{"firstname", "lastname", "city.name", "city.prov"})),
+				WhereExpr: whereExpr2,
+				Joins:     joins[1:],
+			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/citypersonquery.txt",
+		},
+
+		{
 			TestName: "Multitable Query",
 			Query: sqtables.Query{
 				Tables:    tList,
@@ -95,25 +124,8 @@ func TestQueryGetRowData(t *testing.T) {
 				WhereExpr: whereExpr,
 				Joins:     joins,
 			},
-			ExpErr: "",
-			ExpVals: sqtypes.RawVals{
-				{"Cornell", "Codilla", "Leeds", "Leeds", "GBR"},
-				{"Georgia", "Kuffa", "Leeds", "Leeds", "GBR"},
-				{"Sophie", "Schuh", "Leeds", "Leeds", "GBR"},
-				{"Jenna", "Merisier", "Leeds", "Leeds", "GBR"},
-				{"Ocie", "Capossela", "Hove", "Brighton and Hove", "GBR"},
-				{"Linda", "Calco", "Hove", "Brighton and Hove", "GBR"},
-				{"Svetlana", "Poirrier", "Sheffield", "Sheffield", "GBR"},
-				{"Rodrigo", "Higman", "Manchester", "Manchester", "GBR"},
-				{"Shelton", "Leggat", "Manchester", "Manchester", "GBR"},
-				{"Grisel", "Martindale", "Joliette", "Québec", "CAN"},
-				{"Elva", "Velten", "Joliette", "Québec", "CAN"},
-				{"Nedra", "Hanaway", "Joliette", "Québec", "CAN"},
-				{"Daron", "Whitcome", "Joliette", "Québec", "CAN"},
-				{"Yvone", "June", "Joliette", "Québec", "CAN"},
-				{"Tyrone", "Ringen", "Tofino", "British Columbia", "CAN"},
-				{"Eliana", "Peasel", "Tofino", "British Columbia", "CAN"},
-			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/multitablequery.txt",
 		},
 		{
 			TestName: "Nil Expression List",
@@ -194,109 +206,8 @@ func TestQueryGetRowData(t *testing.T) {
 					},
 				},
 			},
-			ExpErr: "",
-			ExpVals: sqtypes.RawVals{
-				{"Eliana", "Peasel", "Tofino", "British Columbia", "CAN"},
-				{"Tyrone", "Ringen", "Tofino", "British Columbia", "CAN"},
-				{"Nedra", "Hanaway", "Joliette", "Québec", "CAN"},
-				{"Yvone", "June", "Joliette", "Québec", "CAN"},
-				{"Grisel", "Martindale", "Joliette", "Québec", "CAN"},
-				{"Elva", "Velten", "Joliette", "Québec", "CAN"},
-				{"Daron", "Whitcome", "Joliette", "Québec", "CAN"},
-				{"Linda", "Calco", "Hove", "Brighton and Hove", "GBR"},
-				{"Ocie", "Capossela", "Hove", "Brighton and Hove", "GBR"},
-				{"Cornell", "Codilla", "Leeds", "Leeds", "GBR"},
-				{"Georgia", "Kuffa", "Leeds", "Leeds", "GBR"},
-				{"Jenna", "Merisier", "Leeds", "Leeds", "GBR"},
-				{"Sophie", "Schuh", "Leeds", "Leeds", "GBR"},
-				{"Rodrigo", "Higman", "Manchester", "Manchester", "GBR"},
-				{"Shelton", "Leggat", "Manchester", "Manchester", "GBR"},
-				{"Svetlana", "Poirrier", "Sheffield", "Sheffield", "GBR"},
-				{"Araceli", "Coss", "El Centro", "California", "USA"},
-				{"Jesenia", "Judson", "El Centro", "California", "USA"},
-				{"Tamie", "Kallmeyer", "Rosemead", "California", "USA"},
-				{"Thomasina", "Osen", "Rosemead", "California", "USA"},
-				{"Lenore", "Deputy", "Berthoud", "Colorado", "USA"},
-				{"Carmelo", "Jiron", "Berthoud", "Colorado", "USA"},
-				{"Marya", "Saine", "Berthoud", "Colorado", "USA"},
-				{"Terrie", "Sphon", "Danbury", "Connecticut", "USA"},
-				{"Dena", "Tollerud", "Danbury", "Connecticut", "USA"},
-				{"Joesph", "Keicher", "Largo", "Florida", "USA"},
-				{"Shila", "Lovings", "Largo", "Florida", "USA"},
-				{"Oralee", "Weitnauer", "Largo", "Florida", "USA"},
-				{"Eloisa", "Whiting", "Largo", "Florida", "USA"},
-				{"Gerry", "Fleischman", "Springfield", "Georgia", "USA"},
-				{"Genevive", "Kudla", "Benton", "Illinois", "USA"},
-				{"Toby", "Lumsden", "Benton", "Illinois", "USA"},
-				{"Belle", "Atchity", "Orland Park", "Illinois", "USA"},
-				{"Myong", "Matrey", "Westmont", "Illinois", "USA"},
-				{"Sherrell", "Macksoud", "Zionsville", "Indiana", "USA"},
-				{"Exie", "Osmond", "Zionsville", "Indiana", "USA"},
-				{"Beatrice", "Boseman", "Eldridge", "Iowa", "USA"},
-				{"Randee", "Lale", "Grinnell", "Iowa", "USA"},
-				{"Kiersten", "Gutman", "Marlborough", "Massachusetts", "USA"},
-				{"Lala", "Philipp", "Marlborough", "Massachusetts", "USA"},
-				{"Ileana", "Schuler", "Marlborough", "Massachusetts", "USA"},
-				{"Marcela", "Alvernaz", "Dearborn Heights", "Michigan", "USA"},
-				{"Carol", "Bussa", "Dearborn Heights", "Michigan", "USA"},
-				{"Jeremy", "Senk", "Dearborn Heights", "Michigan", "USA"},
-				{"Joleen", "Hillstrom", "Crystal", "Minnesota", "USA"},
-				{"Rashida", "Mierau", "Crystal", "Minnesota", "USA"},
-				{"Carla", "Wojtowich", "Crystal", "Minnesota", "USA"},
-				{"Aracely", "Gormley", "Sauk Rapids", "Minnesota", "USA"},
-				{"Exie", "Higginbotham", "Sauk Rapids", "Minnesota", "USA"},
-				{"Anjelica", "Salera", "Sauk Rapids", "Minnesota", "USA"},
-				{"Charmaine", "Amara", "Sidney", "Nebraska", "USA"},
-				{"Livia", "Ellinwood", "Sidney", "Nebraska", "USA"},
-				{"Kathrine", "Thee", "Sidney", "Nebraska", "USA"},
-				{"Moira", "Weaving", "Sidney", "Nebraska", "USA"},
-				{"Oren", "Zukerman", "Sidney", "Nebraska", "USA"},
-				{"Loren", "Babington", "Fallon", "Nevada", "USA"},
-				{"Kendrick", "Finkenbinder", "Fallon", "Nevada", "USA"},
-				{"Melissia", "Philben", "Fallon", "Nevada", "USA"},
-				{"Jamika", "Crumpler", "Ventnor City", "New Jersey", "USA"},
-				{"Davis", "Oberlin", "Ventnor City", "New Jersey", "USA"},
-				{"Missy", "Padol", "Ventnor City", "New Jersey", "USA"},
-				{"Holly", "Siske", "Ventnor City", "New Jersey", "USA"},
-				{"Donya", "Hieatt", "Batavia", "New York", "USA"},
-				{"Windy", "Iwami", "Batavia", "New York", "USA"},
-				{"Wes", "Haumesser", "Lumberton", "North Carolina", "USA"},
-				{"Winnie", "Oblinger", "Lumberton", "North Carolina", "USA"},
-				{"Tambra", "Hallam", "Lorain", "Ohio", "USA"},
-				{"Deangelo", "Stengel", "Lorain", "Ohio", "USA"},
-				{"Boris", "Aharon", "Washington Court House", "Ohio", "USA"},
-				{"Jacki", "Bierce", "Washington Court House", "Ohio", "USA"},
-				{"Sharolyn", "Steinkuehler", "Washington Court House", "Ohio", "USA"},
-				{"Bobette", "Pittinger", "Noble", "Oklahoma", "USA"},
-				{"Liberty", "Farrauto", "Ashland", "Pennsylvania", "USA"},
-				{"Apolonia", "Oyer", "Ashland", "Pennsylvania", "USA"},
-				{"Christine", "Bulliner", "California", "Pennsylvania", "USA"},
-				{"Avis", "Sagendorf", "California", "Pennsylvania", "USA"},
-				{"Tamala", "Schumpert", "California", "Pennsylvania", "USA"},
-				{"Ava", "Beilfuss", "Chester", "Pennsylvania", "USA"},
-				{"Van", "Hele", "Chester", "Pennsylvania", "USA"},
-				{"Kaila", "Magaw", "Chester", "Pennsylvania", "USA"},
-				{"Danyel", "Matthias", "Chester", "Pennsylvania", "USA"},
-				{"Evelin", "Kallen", "Hollidaysburg", "Pennsylvania", "USA"},
-				{"Robin", "Kluemper", "Cranston", "Rhode Island", "USA"},
-				{"Betty", "Mathie", "Cranston", "Rhode Island", "USA"},
-				{"Ha", "Vis", "Cranston", "Rhode Island", "USA"},
-				{"Tempie", "Abercrombie", "Greer", "South Carolina", "USA"},
-				{"Mitchell", "Almen", "Greer", "South Carolina", "USA"},
-				{"Lenora", "Mcdaries", "Greer", "South Carolina", "USA"},
-				{"Luna", "Swantak", "Belle Fourche", "South Dakota", "USA"},
-				{"Sally", "Petrosyan", "Lawrenceburg", "Tennessee", "USA"},
-				{"Cinthia", "Donaghue", "Red Oak", "Texas", "USA"},
-				{"Felica", "Freire", "Red Oak", "Texas", "USA"},
-				{"Shae", "Fuents", "Red Oak", "Texas", "USA"},
-				{"Candy", "Brando", "Hampton", "Virginia", "USA"},
-				{"Deandrea", "Hibbs", "Hampton", "Virginia", "USA"},
-				{"Jeanette", "Man", "Hampton", "Virginia", "USA"},
-				{"Omer", "Neithercutt", "Hampton", "Virginia", "USA"},
-				{"Alecia", "Splain", "Hampton", "Virginia", "USA"},
-				{"Aurea", "Ferguson", "Burien", "Washington", "USA"},
-				{"Elmo", "Harrell", "Burien", "Washington", "USA"},
-			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/multitablequerynowhereclause.txt",
 		},
 		{
 			TestName: "Multitable Query err in Where clause",
@@ -387,7 +298,7 @@ func TestQueryGetRowData(t *testing.T) {
 			},
 			ExpErr: "",
 			ExpVals: sqtypes.RawVals{
-				{12},
+				{16},
 			},
 		},
 
@@ -438,21 +349,8 @@ func TestQueryGetRowData(t *testing.T) {
 					},
 				},
 			},
-			ExpErr: "",
-			ExpVals: sqtypes.RawVals{
-				{"Ava", "Beilfuss", "Springfield", "United States", "Canada"},
-				{"Ava", "Beilfuss", "Springfield", "United States", "Canada"},
-				{"Ava", "Beilfuss", "Springfield", "United States", "United Kingdom"},
-				{"Ava", "Beilfuss", "Springfield", "United States", "United Kingdom"},
-				{"Ava", "Beilfuss", "Springfield", "United States", "United States"},
-				{"Ava", "Beilfuss", "Springfield", "United States", "United States"},
-				{"Luna", "Swantak", "Springfield", "United States", "Canada"},
-				{"Luna", "Swantak", "Springfield", "United States", "Canada"},
-				{"Luna", "Swantak", "Springfield", "United States", "United Kingdom"},
-				{"Luna", "Swantak", "Springfield", "United States", "United Kingdom"},
-				{"Luna", "Swantak", "Springfield", "United States", "United States"},
-				{"Luna", "Swantak", "Springfield", "United States", "United States"},
-			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/multitablequerycrossjoinwithcols.txt",
 		},
 
 		{
@@ -468,6 +366,7 @@ func TestQueryGetRowData(t *testing.T) {
 				{"GBR"},
 				{"USA"},
 				{"CAN"},
+				{"FRA"},
 			},
 		},
 		{
@@ -480,7 +379,7 @@ func TestQueryGetRowData(t *testing.T) {
 			},
 			ExpErr: "",
 			ExpVals: sqtypes.RawVals{
-				{3},
+				{4},
 			},
 		},
 		{
@@ -493,7 +392,7 @@ func TestQueryGetRowData(t *testing.T) {
 			},
 			ExpErr: "",
 			ExpVals: sqtypes.RawVals{
-				{54},
+				{55},
 			},
 		},
 		{
@@ -508,6 +407,7 @@ func TestQueryGetRowData(t *testing.T) {
 			ExpErr: "",
 			ExpVals: sqtypes.RawVals{
 				{"Canada", 2},
+				{"Switzerland", 1},
 				{"United Kingdom", 4},
 				{"United States", 48},
 			},
@@ -559,9 +459,114 @@ func TestQueryGetRowData(t *testing.T) {
 			},
 			ExpErr: "",
 			ExpVals: sqtypes.RawVals{
-				{"Ava", 6},
-				{"Luna", 6},
+				{"Ava", 8},
+				{"Luna", 8},
 			},
+		},
+
+		{
+			TestName: "Left Outer Join",
+			Query: sqtables.Query{
+				Tables: sqtables.NewTableList(profile, []sqtables.TableRef{*tCountry, *tCity}),
+				EList: sqtables.NewExprList(
+					sqtables.NewColExpr(column.Ref{ColName: "short", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+					sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+				),
+				WhereExpr: nil,
+				Joins: []sqtables.JoinInfo{
+					{
+						TableA:   *tCountry,
+						TableB:   *tCity,
+						JoinType: tokens.Left,
+						ONClause: sqtables.NewOpExpr(
+							sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+							tokens.Equal,
+							sqtables.NewColExpr(column.Ref{ColName: "country", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+						),
+					},
+				},
+			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/leftouterjoin.txt",
+		},
+		{
+			TestName: "Right Outer Join coverted to Left",
+			Query: sqtables.Query{
+				Tables: sqtables.NewTableList(profile, []sqtables.TableRef{*tCity, *tCountry}),
+				EList: sqtables.NewExprList(
+					sqtables.NewColExpr(column.Ref{ColName: "short", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+					sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+				),
+				WhereExpr: nil,
+				Joins: []sqtables.JoinInfo{
+					{
+						TableA:   *tCity,
+						TableB:   *tCountry,
+						JoinType: tokens.Right,
+						ONClause: sqtables.NewOpExpr(
+							sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+							tokens.Equal,
+							sqtables.NewColExpr(column.Ref{ColName: "country", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+						),
+					},
+				},
+			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/leftouterjoin.txt",
+		},
+		{
+			TestName: "Right Outer Join",
+			Query: sqtables.Query{
+				Tables: sqtables.NewTableList(profile, []sqtables.TableRef{*tCountry, *tCity}),
+				EList: sqtables.NewExprList(
+					sqtables.NewColExpr(column.Ref{ColName: "short", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+					sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+				),
+				WhereExpr: nil,
+				Joins: []sqtables.JoinInfo{
+					{
+						TableA:   *tCountry,
+						TableB:   *tCity,
+						JoinType: tokens.Right,
+						ONClause: sqtables.NewOpExpr(
+							sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+							tokens.Equal,
+							sqtables.NewColExpr(column.Ref{ColName: "country", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+						),
+					},
+				},
+			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/rightouterjoin.txt",
+		},
+		{
+			TestName: "Right Outer Join no country",
+			Query: sqtables.Query{
+				Tables: sqtables.NewTableList(profile, []sqtables.TableRef{*tCountry, *tCity}),
+				EList: sqtables.NewExprList(
+					sqtables.NewColExpr(column.Ref{ColName: "short", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+					sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+				),
+				WhereExpr: sqtables.NewOpExpr(
+					sqtables.NewColExpr(column.Ref{ColName: "short", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+					tokens.Equal,
+					sqtables.NewValueExpr(sqtypes.NewSQString("BAH")),
+				),
+				Joins: []sqtables.JoinInfo{
+					{
+						TableA:   *tCountry,
+						TableB:   *tCity,
+						JoinType: tokens.Right,
+						ONClause: sqtables.NewOpExpr(
+							sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+							tokens.Equal,
+							sqtables.NewColExpr(column.Ref{ColName: "country", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+						),
+					},
+				},
+			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/rightouterjoinnocountry.txt",
 		},
 	}
 
@@ -574,23 +579,34 @@ func TestQueryGetRowData(t *testing.T) {
 }
 
 type QueryGetRowData struct {
-	TestName string
-	Query    sqtables.Query
-	ExpErr   string
-	ExpVals  sqtypes.RawVals
+	TestName    string
+	Query       sqtables.Query
+	ExpErr      string
+	ExpVals     sqtypes.RawVals
+	ExpValsPath string
 }
 
 func testQueryGetRowDataFunc(d QueryGetRowData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
+		var expVals [][]sqtypes.Value
+
 		profile := sqprofile.CreateSQProfile()
 		data, err := d.Query.GetRowData(profile)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
+		if d.ExpValsPath != "" {
+			expRaw, err := sqtables.ReadRawFromFile(d.ExpValsPath)
+			if err != nil {
+				log.Panic(err)
+			}
+			expVals = sqtypes.CreateValuesFromRaw(expRaw)
+		} else {
+			expVals = sqtypes.CreateValuesFromRaw(d.ExpVals)
+		}
 
-		expVals := sqtypes.CreateValuesFromRaw(d.ExpVals)
 		msg := sqtypes.Compare2DValue(data.Vals, expVals, "Actual", "Expect", true)
 		if msg != "" {
 			t.Error(msg)
@@ -656,8 +672,8 @@ func testGroupByFunc(d GroupByData) func(*testing.T) {
 
 		}
 		if !reflect.DeepEqual(data.Vals, d.ExpVals) {
-			fmt.Println("  Actual Values:", data.Vals)
-			fmt.Println("Expected Values:", d.ExpVals)
+			//fmt.Println("  Actual Values:", data.Vals)
+			//fmt.Println("Expected Values:", d.ExpVals)
 			t.Error("The actual values after the Group By did not match expected values")
 			return
 		}

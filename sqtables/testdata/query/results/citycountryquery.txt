@@ -1,0 +1,6 @@
+"Leeds" "Leeds" "GBR"
+"Hove" "Brighton and Hove" "GBR"
+"Sheffield" "Sheffield" "GBR"
+"Manchester" "Manchester" "GBR"
+"Joliette" "Québec" "CAN"
+"Tofino" "British Columbia" "CAN"

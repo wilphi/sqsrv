@@ -1,0 +1,5 @@
+"name" "short"
+"United Kingdom" "GBR"
+"United States" "USA"
+"Canada" "CAN"
+"France" "FRA"

@@ -124,7 +124,7 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 	}
 
 	for _, tabInfo := range q.Tables.tables {
-		log.Infof("Filtering table %s", tabInfo.Name)
+		log.Debugf("Filtering table %s", tabInfo.Name)
 
 		// get the cols in the virtual Where
 		var cols []column.Ref
@@ -160,6 +160,7 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 		}
 		jt := JoinTable{TR: *tabInfo, Cols: cols, Rows: resultRows}
 		unJoined = append(unJoined, jt)
+		log.Debugf("Filtered %s %d rows", tabInfo.Name, len(resultRows))
 	}
 	// Sort tables from smallest to largest # rows returned
 	sort.Slice(unJoined, func(i, j int) bool {
@@ -186,7 +187,7 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 		if joinIdx == -1 || joinedIdx == -1 || unJoinedIdx == -1 {
 			return nil, sqerr.Newf("Could not find a valid join for %s", unJoined[0].TR.Name)
 		}
-		log.Infof("Joining tables %s, %s using Expr %s ", unusedJoins[joinIdx].TableA.Name,
+		log.Debugf("Joining tables %s, %s using Expr %s ", unusedJoins[joinIdx].TableA.Name,
 			unusedJoins[joinIdx].TableB.Name, unusedJoins[joinIdx].ONClause)
 
 		currentJoin := unusedJoins[joinIdx]
@@ -198,13 +199,19 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 			if err != nil {
 				return nil, err
 			}
-			log.Printf("Join resulted in %d rows", len(jresult))
+			log.Debugf("Join resulted in %d rows", len(jresult))
 		case tokens.Cross:
 			jresult, err = crossJoin(profile, currentJoin, joined[joinedIdx], unJoined[unJoinedIdx], joinedIdx, jresult, timeOut)
 			if err != nil {
 				return nil, err
 			}
-			log.Printf("Cross Join resulted in %d rows", len(jresult))
+			log.Debugf("Cross Join resulted in %d rows", len(jresult))
+		case tokens.Left, tokens.Right:
+			jresult, err = outerJoin(profile, joined, currentJoin, joined[joinedIdx], unJoined[unJoinedIdx], joinedIdx, jresult)
+			if err != nil {
+				return nil, err
+			}
+			log.Debugf("%s Outer Join resulted in %d rows", tokens.IDName(currentJoin.JoinType), len(jresult))
 		default:
 			return nil, sqerr.NewInternalf("Join Type %s is not currently implemented", tokens.IDName(currentJoin.JoinType))
 		}
@@ -220,11 +227,21 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 	for i, tuple := range jresult {
 		rows := make([]RowInterface, len(joined))
 		for j, tab := range joined {
-			row, ok := tab.TR.Table.rowm[tuple[j].GetPtr(profile)]
-			if !ok {
-				return nil, sqerr.Newf("Invalid pointer for table %s:%d", tab.TR.Name, tuple[j])
+			ptr := tuple[j].GetPtr(profile)
+			// The ptr will be 0 in the case of an outer join. That table's results will be nulls
+			if ptr != 0 {
+				row, ok := tab.TR.Table.rowm[ptr]
+				if !ok {
+					return nil, sqerr.Newf("Invalid pointer for table %s:%d", tab.TR.Name, tuple[j])
+				}
+				rows[j] = RowInterface(row)
+			} else {
+				row := JoinRow{Vals: make([]sqtypes.Value, len(tab.TR.Table.tableCols)), TableName: tab.TR.Name}
+				for x := range row.Vals {
+					row.Vals[x] = sqtypes.NewSQNull()
+				}
+				rows[j] = RowInterface(&row)
 			}
-			rows[j] = RowInterface(row)
 		}
 		finalResult.Vals[i], err = q.EList.Evaluate(profile, EvalPartial, rows...)
 		if err != nil {
@@ -275,7 +292,7 @@ func crossJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, table1, table
 	jresult [][]RowInterface, timeOut *int32) ([][]RowInterface, error) {
 	var intermresult [][]RowInterface
 	cnt := 0
-	log.Printf("Cross join with table %s: creates %d rows", table2.TR.Name, len(jresult)*len(table2.Rows))
+	log.Debugf("Cross join with table %s: creates %d rows", table2.TR.Name, len(jresult)*len(table2.Rows))
 	for _, tuple := range jresult {
 		for _, row := range table2.Rows {
 			cnt++
@@ -294,29 +311,36 @@ func crossJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, table1, table
 }
 
 //innerJoin
-func innerJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, table1, table2 JoinTable, joinedIdx int,
+func innerJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, joinedTab, unJoinedTab JoinTable, joinedIdx int,
 	jresult [][]RowInterface) ([][]RowInterface, error) {
 	var intermresult [][]RowInterface
 	// do inner join
 	if currentJoin.ONClause == nil {
 		return nil, sqerr.NewInternal("Missing ON Clause for inner join")
 	}
-	//table1 := joined[joinedIdx]
-	//table2 := unJoined[unJoinedIdx]
-	col1 := currentJoin.ONClause.ColRefsMoniker(table1.TR.Name)
-	col2 := currentJoin.ONClause.ColRefsMoniker(table2.TR.Name)
-	col1Idx := findCol(table1.Cols, col1[0])
-	col2Idx := findCol(table2.Cols, col2[0])
-	log.Printf("Joining cols %s.%s : %s.%s", table1.TR.Name, table1.Cols[col1Idx].ColName, table2.TR.Name, table2.Cols[col2Idx].ColName)
-	sort.Slice(table2.Rows, func(i, j int) bool { return table2.Rows[i].Vals[col2Idx].LessThan(table2.Rows[j].Vals[col2Idx]) })
+	col1 := currentJoin.ONClause.ColRefsMoniker(joinedTab.TR.Name)
+	col2 := currentJoin.ONClause.ColRefsMoniker(unJoinedTab.TR.Name)
+	col1Idx := findCol(joinedTab.Cols, col1[0])
+	col2Idx := findCol(unJoinedTab.Cols, col2[0])
+	log.Debugf("Joining cols %s.%s : %s.%s", joinedTab.TR.Name, joinedTab.Cols[col1Idx].ColName, unJoinedTab.TR.Name, unJoinedTab.Cols[col2Idx].ColName)
+	sort.Slice(unJoinedTab.Rows, func(i, j int) bool {
+		return unJoinedTab.Rows[i].Vals[col2Idx].LessThan(unJoinedTab.Rows[j].Vals[col2Idx])
+	})
+	if isdebug.Enabled {
+		s := ""
+		for _, rw := range unJoinedTab.Rows {
+			s += rw.Vals[col2Idx].String() + " "
+		}
+		log.Debugf("Sorted unJoinedTab Rows = %s", s)
+	}
 	for _, tuple := range jresult {
 		leftVal, err := tuple[joinedIdx].GetIdxVal(profile, col1Idx)
 		if err != nil {
 			return nil, err
 		}
-		rowIdx := sort.Search(len(table2.Rows), func(i int) bool { return !table2.Rows[i].Vals[col2Idx].LessThan(leftVal) })
-		for (rowIdx < len(table2.Rows)) && table2.Rows[rowIdx].Vals[col2Idx].Equal(leftVal) {
-			tmpRow := table2.Rows[rowIdx]
+		rowIdx := sort.Search(len(unJoinedTab.Rows), func(i int) bool { return !unJoinedTab.Rows[i].Vals[col2Idx].LessThan(leftVal) })
+		for (rowIdx < len(unJoinedTab.Rows)) && unJoinedTab.Rows[rowIdx].Vals[col2Idx].Equal(leftVal) {
+			tmpRow := unJoinedTab.Rows[rowIdx]
 			newTup := append(tuple, &tmpRow)
 			intermresult = append(intermresult, newTup)
 			rowIdx++
@@ -324,6 +348,94 @@ func innerJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, table1, table
 	}
 	return intermresult, nil
 
+}
+
+//outerJoin
+func outerJoin(profile *sqprofile.SQProfile, joined []JoinTable, currentJoin JoinInfo, joinedTab, unJoinedTab JoinTable, joinedIdx int,
+	jresult [][]RowInterface) ([][]RowInterface, error) {
+	var intermresult [][]RowInterface
+	var rightMatch []bool
+
+	// do outer join
+	if currentJoin.ONClause == nil {
+		return nil, sqerr.NewInternal("Missing ON Clause for outer join")
+	}
+	// Make sure the already joined tables are on the left
+	if !moniker.Equal(currentJoin.TableA.Name, joinedTab.TR.Name) {
+		currentJoin = swapOuterJoin(currentJoin)
+	}
+	isLeft := currentJoin.JoinType == tokens.Left
+	isRight := currentJoin.JoinType == tokens.Right
+
+	if !(isLeft || isRight) {
+		return nil, sqerr.Newf("Unknown Outer Join type: %s", tokens.IDName(currentJoin.JoinType))
+	}
+	col1 := currentJoin.ONClause.ColRefsMoniker(joinedTab.TR.Name)
+	col2 := currentJoin.ONClause.ColRefsMoniker(unJoinedTab.TR.Name)
+	col1Idx := findCol(joinedTab.Cols, col1[0])
+	col2Idx := findCol(unJoinedTab.Cols, col2[0])
+	log.Debugf("%s Outer Join on cols %s.%s : %s.%s", tokens.IDName(currentJoin.JoinType), joinedTab.TR.Name, joinedTab.Cols[col1Idx].ColName, unJoinedTab.TR.Name, unJoinedTab.Cols[col2Idx].ColName)
+
+	if isRight {
+		rightMatch = make([]bool, len(unJoinedTab.Rows))
+	}
+	for _, tuple := range jresult {
+		leftVal, err := tuple[joinedIdx].GetIdxVal(profile, col1Idx)
+		if err != nil {
+			return nil, err
+		}
+		match := false
+		for rowIdx := range unJoinedTab.Rows {
+			if unJoinedTab.Rows[rowIdx].Vals[col2Idx].Equal(leftVal) {
+				tmpRow := unJoinedTab.Rows[rowIdx]
+				newTup := append(tuple, &tmpRow)
+				intermresult = append(intermresult, newTup)
+				match = true
+				if isRight {
+					rightMatch[rowIdx] = true
+				}
+			}
+
+		}
+		if isLeft && !match {
+			tmpRow := NullRow{TableName: unJoinedTab.TR.Name}
+			newTuple := append(tuple, &tmpRow)
+			intermresult = append(intermresult, newTuple)
+		}
+	}
+	if isRight {
+		// If a right outer join then add the unmatched rows to the intermresult
+		for i, match := range rightMatch {
+			if !match {
+				newTuple := make([]RowInterface, len(joined))
+				for j, jtab := range joined {
+					//for each table already joined, add null results
+					newTuple[j] = &NullRow{TableName: jtab.TR.Name.Clone()}
+				}
+				newTuple = append(newTuple, &unJoinedTab.Rows[i])
+				intermresult = append(intermresult, newTuple)
+
+			}
+		}
+	}
+	return intermresult, nil
+
+}
+
+func swapOuterJoin(currentJoin JoinInfo) JoinInfo {
+	newJoin := JoinInfo{}
+	switch currentJoin.JoinType {
+	case tokens.Left:
+		newJoin.JoinType = tokens.Right
+		log.Debug("Swapping to Right Outer Join")
+	case tokens.Right:
+		newJoin.JoinType = tokens.Left
+		log.Debug("Swapping to Left Outer Join")
+	}
+	newJoin.TableA = currentJoin.TableB
+	newJoin.TableB = currentJoin.TableA
+	newJoin.ONClause = currentJoin.ONClause
+	return newJoin
 }
 
 //ValidateGroupBySemantics validates a query that it follows the group by rules

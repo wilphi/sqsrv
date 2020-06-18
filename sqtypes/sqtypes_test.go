@@ -800,6 +800,7 @@ type Compare2DData struct {
 	NameA, NameB string
 	DoSort       bool
 	ExpRet       string
+	SkipRawTest  bool
 }
 
 func TestCompare2DValues(t *testing.T) {
@@ -890,7 +891,7 @@ func TestCompare2DValues(t *testing.T) {
 			NameA:  "Actual",
 			NameB:  "Expected",
 			DoSort: false,
-			ExpRet: "Type Mismatch: Actual[1][2] = STRING Does not match Expected[1][2] = INT",
+			ExpRet: "Type Mismatch: Actual[1][2] = string Does not match Expected[1][2] = int",
 		},
 		{
 			TestName: "Sort Rows",
@@ -904,10 +905,11 @@ func TestCompare2DValues(t *testing.T) {
 				{1, 2, 3, 4},
 				{3, 4, 5, 6},
 			},
-			NameA:  "Actual",
-			NameB:  "Expected",
-			DoSort: true,
-			ExpRet: "",
+			NameA:       "Actual",
+			NameB:       "Expected",
+			DoSort:      true,
+			ExpRet:      "",
+			SkipRawTest: true,
 		}}
 
 	for i, row := range data {
@@ -929,5 +931,12 @@ func testCompare2DFunc(d Compare2DData) func(t *testing.T) {
 			t.Errorf("Actual value %q does not equal Expected value %q", ret, d.ExpRet)
 			return
 		}
+
+		ret = sqtypes.Compare2DRaw(d.A, d.B, d.NameA, d.NameB)
+		if ret != d.ExpRet && !d.SkipRawTest {
+			t.Errorf("Actual Raw %q does not equal Expected Raw %q", ret, d.ExpRet)
+			return
+		}
+
 	}
 }

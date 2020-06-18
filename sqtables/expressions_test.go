@@ -260,6 +260,12 @@ func TestStringExpr(t *testing.T) {
 			Alias:    "cAlias",
 		},
 		{
+			TestName: "ColExpr with same alias",
+			TestExpr: sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int}),
+			ExpVal:   "col1",
+			Alias:    "col1",
+		},
+		{
 			TestName: "OpExpr",
 			TestExpr: sqtables.NewOpExpr(
 				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int}),
@@ -1493,11 +1499,11 @@ func testProcHavingFunc(d ProcHavingData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		newExpr, flist, cnt := sqtables.ProcessHaving(d.HavingExpr, []sqtables.FuncExpr{}, 0)
+		newExpr, _, _ := sqtables.ProcessHaving(d.HavingExpr, []sqtables.FuncExpr{}, 0)
 
-		fmt.Println("New Expr ", newExpr)
-		fmt.Println(flist)
-		fmt.Println("Count: ", cnt)
+		//fmt.Println("New Expr ", newExpr)
+		//fmt.Println(flist)
+		//fmt.Println("Count: ", cnt)
 		if newExpr.String() != d.ExpExpr.String() {
 			t.Errorf("Actual Expression (%s) does not match expected (%s)", newExpr, d.ExpExpr)
 		}

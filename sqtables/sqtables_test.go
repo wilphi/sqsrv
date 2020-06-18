@@ -887,7 +887,7 @@ func testUpdateRowsFromPtrsFunc(d *UpdateRowsFromPtrsData) func(*testing.T) {
 			expVals := sqtypes.CreateValuesFromRaw(d.ExpData)
 			if !reflect.DeepEqual(v, expVals) {
 				t.Error("Expected data does not match actual data in table")
-				fmt.Printf("Actual: \n%v, \n\nExpected:\n%v", v, expVals)
+				//fmt.Printf("Actual: \n%v, \n\nExpected:\n%v", v, expVals)
 				return
 			}
 		}
