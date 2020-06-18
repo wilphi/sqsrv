@@ -568,6 +568,31 @@ func TestQueryGetRowData(t *testing.T) {
 			ExpErr:      "",
 			ExpValsPath: "./testdata/query/results/rightouterjoinnocountry.txt",
 		},
+		{
+			TestName: "Full Outer Join",
+			Query: sqtables.Query{
+				Tables: sqtables.NewTableList(profile, []sqtables.TableRef{*tCountry, *tCity}),
+				EList: sqtables.NewExprList(
+					sqtables.NewColExpr(column.Ref{ColName: "short", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+					sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+				),
+				WhereExpr: nil,
+				Joins: []sqtables.JoinInfo{
+					{
+						TableA:   *tCountry,
+						TableB:   *tCity,
+						JoinType: tokens.Full,
+						ONClause: sqtables.NewOpExpr(
+							sqtables.NewColExpr(column.Ref{ColName: "name", ColType: tokens.Int, TableName: moniker.New("country", "")}),
+							tokens.Equal,
+							sqtables.NewColExpr(column.Ref{ColName: "country", ColType: tokens.Int, TableName: moniker.New("city", "")}),
+						),
+					},
+				},
+			},
+			ExpErr:      "",
+			ExpValsPath: "./testdata/query/results/fullouterjoin.txt",
+		},
 	}
 
 	for i, row := range data {

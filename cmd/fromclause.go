@@ -158,7 +158,7 @@ func parseJoin(profile *sqprofile.SQProfile, tkns *tokens.TokenList, tables *sqt
 	var join sqtables.JoinInfo
 	var TableA, TableB sqtables.TableRef
 
-	if tkn = tkns.TestTkn(tokens.Inner, tokens.Left, tokens.Right, tokens.Join, tokens.Cross); tkn == nil {
+	if tkn = tkns.TestTkn(tokens.Inner, tokens.Left, tokens.Right, tokens.Full, tokens.Join, tokens.Cross); tkn == nil {
 		return nil, nil, nil
 	}
 	joinType = tkn.ID()
@@ -166,7 +166,7 @@ func parseJoin(profile *sqprofile.SQProfile, tkns *tokens.TokenList, tables *sqt
 
 	tkns.Remove()
 
-	if joinType == tokens.Left || joinType == tokens.Right {
+	if joinType == tokens.Left || joinType == tokens.Right || joinType == tokens.Full {
 		if !tkns.IsA(tokens.Outer) {
 			return nil, nil, sqerr.NewSyntaxf("Expecting OUTER keyword after join type %s", joinName)
 		}

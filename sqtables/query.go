@@ -206,7 +206,7 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 				return nil, err
 			}
 			log.Debugf("Cross Join resulted in %d rows", len(jresult))
-		case tokens.Left, tokens.Right:
+		case tokens.Left, tokens.Right, tokens.Full:
 			jresult, err = outerJoin(profile, joined, currentJoin, joined[joinedIdx], unJoined[unJoinedIdx], joinedIdx, jresult)
 			if err != nil {
 				return nil, err
@@ -364,8 +364,8 @@ func outerJoin(profile *sqprofile.SQProfile, joined []JoinTable, currentJoin Joi
 	if !moniker.Equal(currentJoin.TableA.Name, joinedTab.TR.Name) {
 		currentJoin = swapOuterJoin(currentJoin)
 	}
-	isLeft := currentJoin.JoinType == tokens.Left
-	isRight := currentJoin.JoinType == tokens.Right
+	isLeft := currentJoin.JoinType == tokens.Left || currentJoin.JoinType == tokens.Full
+	isRight := currentJoin.JoinType == tokens.Right || currentJoin.JoinType == tokens.Full
 
 	if !(isLeft || isRight) {
 		return nil, sqerr.Newf("Unknown Outer Join type: %s", tokens.IDName(currentJoin.JoinType))
