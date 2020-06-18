@@ -129,7 +129,7 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 		// get the cols in the virtual Where
 		var cols []column.Ref
 		if vWhere != nil {
-			cols = vWhere.ColRefsMoniker(tabInfo.Name)
+			cols = vWhere.ColRefs(tabInfo.Name)
 		}
 		if cols != nil {
 			sort.Slice(cols, func(i, j int) bool { return cols[i].Idx < cols[j].Idx })
@@ -318,8 +318,8 @@ func innerJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, joinedTab, un
 	if currentJoin.ONClause == nil {
 		return nil, sqerr.NewInternal("Missing ON Clause for inner join")
 	}
-	col1 := currentJoin.ONClause.ColRefsMoniker(joinedTab.TR.Name)
-	col2 := currentJoin.ONClause.ColRefsMoniker(unJoinedTab.TR.Name)
+	col1 := currentJoin.ONClause.ColRefs(joinedTab.TR.Name)
+	col2 := currentJoin.ONClause.ColRefs(unJoinedTab.TR.Name)
 	col1Idx := findCol(joinedTab.Cols, col1[0])
 	col2Idx := findCol(unJoinedTab.Cols, col2[0])
 	log.Debugf("Joining cols %s.%s : %s.%s", joinedTab.TR.Name, joinedTab.Cols[col1Idx].ColName, unJoinedTab.TR.Name, unJoinedTab.Cols[col2Idx].ColName)
@@ -370,8 +370,8 @@ func outerJoin(profile *sqprofile.SQProfile, joined []JoinTable, currentJoin Joi
 	if !(isLeft || isRight) {
 		return nil, sqerr.Newf("Unknown Outer Join type: %s", tokens.IDName(currentJoin.JoinType))
 	}
-	col1 := currentJoin.ONClause.ColRefsMoniker(joinedTab.TR.Name)
-	col2 := currentJoin.ONClause.ColRefsMoniker(unJoinedTab.TR.Name)
+	col1 := currentJoin.ONClause.ColRefs(joinedTab.TR.Name)
+	col2 := currentJoin.ONClause.ColRefs(unJoinedTab.TR.Name)
 	col1Idx := findCol(joinedTab.Cols, col1[0])
 	col2Idx := findCol(unJoinedTab.Cols, col2[0])
 	log.Debugf("%s Outer Join on cols %s.%s : %s.%s", tokens.IDName(currentJoin.JoinType), joinedTab.TR.Name, joinedTab.Cols[col1Idx].ColName, unJoinedTab.TR.Name, unJoinedTab.Cols[col2Idx].ColName)

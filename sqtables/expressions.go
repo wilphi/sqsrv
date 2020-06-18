@@ -46,8 +46,7 @@ type Expr interface {
 	Build(b *strings.Builder)
 	Name() string
 	ColRef() column.Ref
-	ColRefs(tables ...*TableDef) []column.Ref
-	ColRefsMoniker(names ...*moniker.Moniker) []column.Ref
+	ColRefs(names ...*moniker.Moniker) []column.Ref
 	Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error)
 	Reduce() (Expr, error)
 	ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error
@@ -118,12 +117,7 @@ func (e *ValueExpr) ColRef() column.Ref {
 }
 
 // ColRefs returns a list of all actual columns in the expression
-func (e *ValueExpr) ColRefs(tables ...*TableDef) []column.Ref {
-	return nil
-}
-
-// ColRefsMoniker returns a list of all actual columns in the expression
-func (e *ValueExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
+func (e *ValueExpr) ColRefs(names ...*moniker.Moniker) []column.Ref {
 	return nil
 }
 
@@ -244,21 +238,7 @@ func (e *ColExpr) ColRef() column.Ref {
 }
 
 // ColRefs returns a list of all actual columns in the expression, filtered by the given tables
-func (e *ColExpr) ColRefs(tables ...*TableDef) []column.Ref {
-	var ret []column.Ref
-	if tables == nil {
-		return []column.Ref{e.col}
-	}
-	for _, tab := range tables {
-		if e.col.TableName.Name() == tab.tableName {
-			ret = append(ret, e.col)
-		}
-	}
-	return ret
-}
-
-// ColRefsMoniker returns a list of all actual columns in the expression, filtered by the name (moniker)
-func (e *ColExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
+func (e *ColExpr) ColRefs(names ...*moniker.Moniker) []column.Ref {
 	var ret []column.Ref
 	if names == nil {
 		return []column.Ref{e.col}
@@ -425,23 +405,9 @@ func (e *OpExpr) ColRef() column.Ref {
 }
 
 // ColRefs returns a list of all actual columns in the expression
-func (e *OpExpr) ColRefs(tables ...*TableDef) []column.Ref {
-	colsL := e.exL.ColRefs(tables...)
-	colsR := e.exR.ColRefs(tables...)
-	if colsL == nil {
-		return colsR
-	}
-	if colsR == nil {
-		return colsL
-	}
-	ret := append(colsL, colsR...)
-	return ret
-}
-
-// ColRefsMoniker returns a list of all actual columns in the expression
-func (e *OpExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
-	colsL := e.exL.ColRefsMoniker(names...)
-	colsR := e.exR.ColRefsMoniker(names...)
+func (e *OpExpr) ColRefs(names ...*moniker.Moniker) []column.Ref {
+	colsL := e.exL.ColRefs(names...)
+	colsR := e.exR.ColRefs(names...)
 	if colsL == nil {
 		return colsR
 	}
@@ -641,14 +607,8 @@ func (e *NegateExpr) ColRef() column.Ref {
 }
 
 // ColRefs returns a list of all actual columns in the expression
-func (e *NegateExpr) ColRefs(tables ...*TableDef) []column.Ref {
-	colsL := e.exL.ColRefs(tables...)
-	return colsL
-}
-
-// ColRefsMoniker returns a list of all actual columns in the expression
-func (e *NegateExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
-	colsL := e.exL.ColRefsMoniker(names...)
+func (e *NegateExpr) ColRefs(names ...*moniker.Moniker) []column.Ref {
+	colsL := e.exL.ColRefs(names...)
 	return colsL
 }
 
@@ -809,18 +769,9 @@ func (e *FuncExpr) ColRef() column.Ref {
 }
 
 // ColRefs returns a list of all actual columns in the expression
-func (e *FuncExpr) ColRefs(tables ...*TableDef) []column.Ref {
+func (e *FuncExpr) ColRefs(names ...*moniker.Moniker) []column.Ref {
 	if e.exL != nil {
-		colsL := e.exL.ColRefs(tables...)
-		return colsL
-	}
-	return nil
-}
-
-// ColRefsMoniker returns a list of all actual columns in the expression
-func (e *FuncExpr) ColRefsMoniker(names ...*moniker.Moniker) []column.Ref {
-	if e.exL != nil {
-		colsL := e.exL.ColRefsMoniker(names...)
+		colsL := e.exL.ColRefs(names...)
 		return colsL
 	}
 	return nil
