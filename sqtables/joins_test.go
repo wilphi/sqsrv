@@ -99,24 +99,24 @@ func TestMiscJoinRow(t *testing.T) {
 		}
 	})
 
-	t.Run("GetColData idx=-1", func(t *testing.T) {
+	t.Run("ColVal idx=-1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Error: Invalid index (-1) for Column in row. Col len = 4"
 		col.Idx = -1
-		_, err := row.GetColData(profile, &col)
+		_, err := row.ColVal(profile, &col)
 
 		if err.Error() != errTxt {
 			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
 			return
 		}
 	})
-	t.Run("GetColData idx=4", func(t *testing.T) {
+	t.Run("ColVal idx=4", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Error: Invalid index (4) for Column in row. Col len = 4"
 		col.Idx = 4
-		_, err := row.GetColData(profile, &col)
+		_, err := row.ColVal(profile, &col)
 
 		if err != nil {
 			if err.Error() != errTxt {
@@ -126,13 +126,13 @@ func TestMiscJoinRow(t *testing.T) {
 			return
 		}
 	})
-	t.Run("GetColData idx=1", func(t *testing.T) {
+	t.Run("ColVal idx=1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := ""
 		expVal := sqtypes.NewSQString("test1")
 		col.Idx = 1
-		v, err := row.GetColData(profile, &col)
+		v, err := row.ColVal(profile, &col)
 
 		if err != nil && err.Error() != errTxt {
 			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
@@ -226,10 +226,10 @@ func TestMiscNullRow(t *testing.T) {
 		}
 	})
 
-	t.Run("GetColData idx=-1", func(t *testing.T) {
+	t.Run("ColVal idx=-1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		val, err := row.GetColData(profile, &col)
+		val, err := row.ColVal(profile, &col)
 
 		if !val.IsNull() {
 			t.Errorf("Value is not null")
@@ -240,10 +240,10 @@ func TestMiscNullRow(t *testing.T) {
 			return
 		}
 	})
-	t.Run("GetColData idx=4", func(t *testing.T) {
+	t.Run("ColVal idx=4", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		val, err := row.GetColData(profile, &col)
+		val, err := row.ColVal(profile, &col)
 
 		if !val.IsNull() {
 			t.Errorf("Value is not null")
@@ -254,10 +254,10 @@ func TestMiscNullRow(t *testing.T) {
 			return
 		}
 	})
-	t.Run("GetColData idx=1", func(t *testing.T) {
+	t.Run("ColVal idx=1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		val, err := row.GetColData(profile, &col)
+		val, err := row.ColVal(profile, &col)
 
 		if !val.IsNull() {
 			t.Errorf("Value is not null")

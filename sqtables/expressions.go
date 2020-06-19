@@ -273,7 +273,7 @@ func (e *ColExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...R
 		}
 		return nil, nil
 	}
-	rowValue, err := row.GetColData(profile, &e.col)
+	rowValue, err := row.ColVal(profile, &e.col)
 	if err != nil {
 		log.Error(err)
 		return nil, err

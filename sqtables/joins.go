@@ -33,8 +33,8 @@ func (r *JoinRow) GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr {
 	return r.Ptr
 }
 
-// GetColData -
-func (r *JoinRow) GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
+// ColVal -
+func (r *JoinRow) ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
 	if c.Idx < 0 || c.Idx >= len(r.Vals) {
 		return nil, sqerr.Newf("Invalid index (%d) for Column in row. Col len = %d", c.Idx, len(r.Vals))
 	}
@@ -66,8 +66,8 @@ func (r *NullRow) GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr {
 	return 0
 }
 
-// GetColData -
-func (r *NullRow) GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
+// ColVal -
+func (r *NullRow) ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
 	return sqtypes.NewSQNull(), nil
 }
 

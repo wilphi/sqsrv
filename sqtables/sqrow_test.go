@@ -337,12 +337,12 @@ type ColData struct {
 	ExpErr   string
 }
 
-func testGetColDataFunc(profile *sqprofile.SQProfile, r *ColData) func(*testing.T) {
+func testColValFunc(profile *sqprofile.SQProfile, r *ColData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		ExpVal := sqtypes.RawValue(r.ExpVal)
-		val, err := r.row.GetColData(profile, &r.col)
+		val, err := r.row.ColVal(profile, &r.col)
 		if sqtest.CheckErr(t, err, r.ExpErr) {
 			return
 		}
@@ -360,7 +360,7 @@ func testGetColDataFunc(profile *sqprofile.SQProfile, r *ColData) func(*testing.
 	}
 }
 
-func TestGetColData(t *testing.T) {
+func TestColVal(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	// Setup Data
 	tableName := "getcoldatatest"
@@ -404,7 +404,7 @@ func TestGetColData(t *testing.T) {
 	}
 
 	for _, rw := range testData {
-		t.Run(rw.testName, testGetColDataFunc(profile, &rw))
+		t.Run(rw.testName, testColValFunc(profile, &rw))
 	}
 }
 func TestSetStorage(t *testing.T) {

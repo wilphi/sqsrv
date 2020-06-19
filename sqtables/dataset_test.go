@@ -320,7 +320,7 @@ func testSortFunc(d SortData) func(*testing.T) {
 ///////////////////////////////////////////////////////////////////////////////////////////
 //
 
-func TestDSGetColData(t *testing.T) {
+func TestDSColVal(t *testing.T) {
 
 	DSRow1 := sqtables.DSRow{
 		Ptr:       sqptr.SQPtr(1),
@@ -328,7 +328,7 @@ func TestDSGetColData(t *testing.T) {
 		TableName: "Does not matter",
 	}
 
-	data := []DSGetColData{
+	data := []DSColVal{
 		{
 			TestName: "First Col",
 			Row:      DSRow1,
@@ -361,13 +361,13 @@ func TestDSGetColData(t *testing.T) {
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testDSGetColDataFunc(row))
+			testDSColValFunc(row))
 
 	}
 
 }
 
-type DSGetColData struct {
+type DSColVal struct {
 	TestName string
 	Row      sqtables.DSRow
 	Col      *column.Ref
@@ -375,7 +375,7 @@ type DSGetColData struct {
 	ExpVal   sqtypes.Raw
 }
 
-func testDSGetColDataFunc(d DSGetColData) func(*testing.T) {
+func testDSColValFunc(d DSColVal) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
@@ -388,7 +388,7 @@ func testDSGetColDataFunc(d DSGetColData) func(*testing.T) {
 			t.Errorf("GetPtr (%d) did not return expected value (%d)", d.Row.GetPtr(profile), d.Row.Ptr)
 		}
 
-		v, err := d.Row.GetColData(profile, d.Col)
+		v, err := d.Row.ColVal(profile, d.Col)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -396,7 +396,7 @@ func testDSGetColDataFunc(d DSGetColData) func(*testing.T) {
 		expVal := sqtypes.RawValue(d.ExpVal)
 
 		if !v.Equal(expVal) {
-			t.Errorf("GetColData (%s) does not match expected value (%s)", v.String(), expVal.String())
+			t.Errorf("ColVal (%s) does not match expected value (%s)", v.String(), expVal.String())
 			return
 		}
 	}
@@ -481,7 +481,7 @@ func testDSGetIdxValFunc(d DSGetIdxValData) func(*testing.T) {
 		expVal := sqtypes.RawValue(d.ExpVal)
 
 		if !v.Equal(expVal) {
-			t.Errorf("GetColData (%s) does not match expected value (%s)", v.String(), expVal.String())
+			t.Errorf("ColVal (%s) does not match expected value (%s)", v.String(), expVal.String())
 			return
 		}
 	}

@@ -24,7 +24,7 @@ type RowDef struct {
 
 //RowInterface allows multiple types of rows to be Evaluted by expressions
 type RowInterface interface {
-	GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error)
+	ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error)
 	GetTableName(profile *sqprofile.SQProfile) string
 	GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error)
 	GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr
@@ -129,8 +129,8 @@ func CreateRow(profile *sqprofile.SQProfile, rowPtr sqptr.SQPtr, table *TableDef
 	return &row, nil
 }
 
-// GetColData -
-func (r *RowDef) GetColData(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
+// ColVal -
+func (r *RowDef) ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error) {
 
 	if r.isDeleted {
 		return nil, sqerr.New("Referenced Row has been deleted")
