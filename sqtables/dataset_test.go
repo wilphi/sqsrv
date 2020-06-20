@@ -405,7 +405,7 @@ func testDSColValFunc(d DSColVal) func(*testing.T) {
 ///////////////////////////////////////////////////////////////////////////////////////////
 //
 
-func TestDSGetIdxVal(t *testing.T) {
+func TestDSIdxVal(t *testing.T) {
 
 	DSRow1 := sqtables.DSRow{
 		Ptr:       sqptr.SQPtr(1),
@@ -413,7 +413,7 @@ func TestDSGetIdxVal(t *testing.T) {
 		TableName: "Does not matter",
 	}
 
-	data := []DSGetIdxValData{
+	data := []DSIdxValData{
 		{
 			TestName: "First Col",
 			Row:      DSRow1,
@@ -446,13 +446,13 @@ func TestDSGetIdxVal(t *testing.T) {
 
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
-			testDSGetIdxValFunc(row))
+			testDSIdxValFunc(row))
 
 	}
 
 }
 
-type DSGetIdxValData struct {
+type DSIdxValData struct {
 	TestName string
 	Row      sqtables.DSRow
 	Col      int
@@ -460,7 +460,7 @@ type DSGetIdxValData struct {
 	ExpVal   sqtypes.Raw
 }
 
-func testDSGetIdxValFunc(d DSGetIdxValData) func(*testing.T) {
+func testDSIdxValFunc(d DSIdxValData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
@@ -473,7 +473,7 @@ func testDSGetIdxValFunc(d DSGetIdxValData) func(*testing.T) {
 			t.Errorf("GetPtr (%d) did not return expected value (%d)", d.Row.GetPtr(profile), d.Row.Ptr)
 		}
 
-		v, err := d.Row.GetIdxVal(profile, d.Col)
+		v, err := d.Row.IdxVal(profile, d.Col)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}

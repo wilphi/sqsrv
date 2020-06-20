@@ -334,7 +334,7 @@ func innerJoin(profile *sqprofile.SQProfile, currentJoin JoinInfo, joinedTab, un
 		log.Debugf("Sorted unJoinedTab Rows = %s", s)
 	}
 	for _, tuple := range jresult {
-		leftVal, err := tuple[joinedIdx].GetIdxVal(profile, col1Idx)
+		leftVal, err := tuple[joinedIdx].IdxVal(profile, col1Idx)
 		if err != nil {
 			return nil, err
 		}
@@ -380,7 +380,7 @@ func outerJoin(profile *sqprofile.SQProfile, joined []JoinTable, currentJoin Joi
 		rightMatch = make([]bool, len(unJoinedTab.Rows))
 	}
 	for _, tuple := range jresult {
-		leftVal, err := tuple[joinedIdx].GetIdxVal(profile, col1Idx)
+		leftVal, err := tuple[joinedIdx].IdxVal(profile, col1Idx)
 		if err != nil {
 			return nil, err
 		}

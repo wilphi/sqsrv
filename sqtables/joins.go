@@ -41,8 +41,8 @@ func (r *JoinRow) ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.V
 	return r.Vals[c.Idx], nil
 }
 
-// GetIdxVal gets the value of the col at the index idx
-func (r *JoinRow) GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
+// IdxVal gets the value of the col at the index idx
+func (r *JoinRow) IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
 	if idx < 0 || idx >= len(r.Vals) {
 		return nil, sqerr.Newf("Invalid index (%d) for row. Data len = %d", idx, len(r.Vals))
 	}
@@ -71,8 +71,8 @@ func (r *NullRow) ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.V
 	return sqtypes.NewSQNull(), nil
 }
 
-// GetIdxVal gets the value of the col at the index idx
-func (r *NullRow) GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
+// IdxVal gets the value of the col at the index idx
+func (r *NullRow) IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
 	return sqtypes.NewSQNull(), nil
 
 }

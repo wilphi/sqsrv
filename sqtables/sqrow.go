@@ -26,16 +26,16 @@ type RowDef struct {
 type RowInterface interface {
 	ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Value, error)
 	GetTableName(profile *sqprofile.SQProfile) string
-	GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error)
+	IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error)
 	GetPtr(profile *sqprofile.SQProfile) sqptr.SQPtr
 }
 
 // Methods
 
-// GetIdxVal gets the value of the col at the index idx
-func (r *RowDef) GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
+// IdxVal gets the value of the col at the index idx
+func (r *RowDef) IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
 	if r.isDeleted {
-		return nil, sqerr.NewInternalf("Deleted row can't return a value from GetIdxVal. Table: %s, ptr:%d", r.table.tableName, r.RowPtr)
+		return nil, sqerr.NewInternalf("Deleted row can't return a value from IdxVal. Table: %s, ptr:%d", r.table.tableName, r.RowPtr)
 	}
 	if idx < 0 || idx >= len(r.Data) {
 		return nil, sqerr.Newf("Invalid index (%d) for row. Data len = %d", idx, len(r.Data))

@@ -499,34 +499,34 @@ func TestMiscRowFunctions(t *testing.T) {
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=-1", func(t *testing.T) {
+	t.Run("IdxVal idx=-1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Error: Invalid index (-1) for row. Data len = 4"
-		_, err := row1.GetIdxVal(profile, -1)
+		_, err := row1.IdxVal(profile, -1)
 
 		if err.Error() != errTxt {
 			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=4", func(t *testing.T) {
+	t.Run("IdxVal idx=4", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Error: Invalid index (4) for row. Data len = 4"
-		_, err := row1.GetIdxVal(profile, 4)
+		_, err := row1.IdxVal(profile, 4)
 
 		if err.Error() != errTxt {
 			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=1", func(t *testing.T) {
+	t.Run("IdxVal idx=1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := ""
 		expVal := sqtypes.NewSQString("Test Data 0")
-		v, err := row1.GetIdxVal(profile, 1)
+		v, err := row1.IdxVal(profile, 1)
 
 		if err != nil && err.Error() != errTxt {
 			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
@@ -536,12 +536,12 @@ func TestMiscRowFunctions(t *testing.T) {
 			t.Errorf("Expected Value %s does not match actual value %s", expVal.String(), v.String())
 		}
 	})
-	t.Run("GetIdxVal deleted row", func(t *testing.T) {
+	t.Run("IdxVal deleted row", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		errTxt := "Internal Error: Deleted row can't return a value from GetIdxVal. Table: miscrowtest, ptr:0"
+		errTxt := "Internal Error: Deleted row can't return a value from IdxVal. Table: miscrowtest, ptr:0"
 		expVal := sqtypes.NewSQString("Test Data 0")
-		v, err := rowD.GetIdxVal(profile, 1)
+		v, err := rowD.IdxVal(profile, 1)
 
 		if err != nil {
 			if err.Error() != errTxt {

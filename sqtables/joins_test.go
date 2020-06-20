@@ -61,34 +61,34 @@ func TestMiscJoinRow(t *testing.T) {
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=-1", func(t *testing.T) {
+	t.Run("IdxVal idx=-1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Error: Invalid index (-1) for row. Data len = 4"
-		_, err := row.GetIdxVal(profile, -1)
+		_, err := row.IdxVal(profile, -1)
 
 		if err.Error() != errTxt {
 			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=4", func(t *testing.T) {
+	t.Run("IdxVal idx=4", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := "Error: Invalid index (4) for row. Data len = 4"
-		_, err := row.GetIdxVal(profile, 4)
+		_, err := row.IdxVal(profile, 4)
 
 		if err.Error() != errTxt {
 			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=1", func(t *testing.T) {
+	t.Run("IdxVal idx=1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
 		errTxt := ""
 		expVal := sqtypes.NewSQString("test1")
-		v, err := row.GetIdxVal(profile, 1)
+		v, err := row.IdxVal(profile, 1)
 
 		if err != nil && err.Error() != errTxt {
 			t.Errorf("Expected err %q did not match actual error %q", errTxt, err)
@@ -182,10 +182,10 @@ func TestMiscNullRow(t *testing.T) {
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=-1", func(t *testing.T) {
+	t.Run("IdxVal idx=-1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		val, err := row.GetIdxVal(profile, -1)
+		val, err := row.IdxVal(profile, -1)
 
 		if !val.IsNull() {
 			t.Errorf("Value is not null")
@@ -196,10 +196,10 @@ func TestMiscNullRow(t *testing.T) {
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=4", func(t *testing.T) {
+	t.Run("IdxVal idx=4", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		val, err := row.GetIdxVal(profile, 4)
+		val, err := row.IdxVal(profile, 4)
 
 		if !val.IsNull() {
 			t.Errorf("Value is not null")
@@ -210,10 +210,10 @@ func TestMiscNullRow(t *testing.T) {
 			return
 		}
 	})
-	t.Run("GetIdxVal idx=1", func(t *testing.T) {
+	t.Run("IdxVal idx=1", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		v, err := row.GetIdxVal(profile, 1)
+		v, err := row.IdxVal(profile, 1)
 
 		if err != nil {
 			t.Errorf("Unexpected err %q ", err)

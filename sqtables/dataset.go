@@ -200,8 +200,8 @@ func (r *DSRow) ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.Val
 	return r.Vals[c.Idx], nil
 }
 
-// GetIdxVal gets the value of the col at the index idx
-func (r *DSRow) GetIdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
+// IdxVal gets the value of the col at the index idx
+func (r *DSRow) IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
 	if idx < 0 || idx >= len(r.Vals) {
 		return nil, sqerr.Newf("Invalid index (%d) for row. Data len = %d", idx, len(r.Vals))
 	}
