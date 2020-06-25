@@ -439,7 +439,7 @@ func TestDelete(t *testing.T) {
 		{ColName: "col1", ColType: tokens.Int, Idx: 1, IsNotNull: false},
 		{ColName: "col2", ColType: tokens.String, Idx: 2, IsNotNull: false},
 	}
-	tab := sqtables.CreateTableDef("testDeleteRedo", cols...)
+	tab := sqtables.CreateTableDef("testDeleteRedo", cols)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)

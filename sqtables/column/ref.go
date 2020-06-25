@@ -15,6 +15,7 @@ type Ref struct {
 	IsNotNull        bool
 	TableName        *moniker.Moniker
 	DisplayTableName bool
+	SortType         tokens.TokenID
 }
 
 // NewRef creates a new column reference
@@ -86,6 +87,7 @@ func MergeRefDef(colA Ref, colB Def) (Ref, error) {
 
 	//Display table Name of original is preserved
 	result.DisplayTableName = colA.DisplayTableName
+	result.SortType = colA.SortType
 	return result, nil
 }
 
@@ -105,6 +107,7 @@ func (c *Ref) Encode(enc *sqbin.Codec) {
 	}
 
 	enc.WriteBool(c.DisplayTableName)
+	enc.WriteUint64(uint64(c.SortType))
 }
 
 //Decode a binary encoded version of a Ref from the codec
@@ -119,4 +122,5 @@ func (c *Ref) Decode(dec *sqbin.Codec) {
 		c.TableName = nil
 	}
 	c.DisplayTableName = dec.ReadBool()
+	c.SortType = tokens.TokenID(dec.ReadUint64())
 }

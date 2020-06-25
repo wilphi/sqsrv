@@ -116,7 +116,7 @@ func testCreateTableFunc(d CreateTableData) func(*testing.T) {
 			t.Error(err)
 			return
 		}
-		tab := sqtables.CreateTableDef(d.TableName, d.Cols...)
+		tab := sqtables.CreateTableDef(d.TableName, d.Cols)
 		err = sqtables.CreateTable(d.Profile, tab)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
@@ -146,10 +146,12 @@ func TestDropTable(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	tableName := "droptest1"
 	testT := sqtables.CreateTableDef(tableName,
-		column.NewDef("rownum", tokens.Int, false),
-		column.NewDef("col1", tokens.String, false),
-		column.NewDef("col2", tokens.Int, false),
-		column.NewDef("col3", tokens.Bool, false),
+		[]column.Def{
+			column.NewDef("rownum", tokens.Int, false),
+			column.NewDef("col1", tokens.String, false),
+			column.NewDef("col2", tokens.Int, false),
+			column.NewDef("col3", tokens.Bool, false),
+		},
 	)
 	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
@@ -234,30 +236,33 @@ func TestMiscTableList(t *testing.T) {
 		t.Error("Error setting up data for TestDropTable ", err)
 		return
 	}
-	tab := sqtables.CreateTableDef(
-		"tablea",
-		column.NewDef("col1", tokens.Int, false),
-		column.NewDef("col2", tokens.String, false),
+	tab := sqtables.CreateTableDef("tablea",
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, false),
+			column.NewDef("col2", tokens.String, false),
+		},
 	)
 	err = sqtables.CreateTable(profile, tab)
 	if err != nil {
 		t.Error("Error setting up data for TestDropTable ", err)
 		return
 	}
-	tab2 := sqtables.CreateTableDef(
-		"tableb",
-		column.NewDef("col1", tokens.Int, false),
-		column.NewDef("col2", tokens.String, false),
+	tab2 := sqtables.CreateTableDef("tableb",
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, false),
+			column.NewDef("col2", tokens.String, false),
+		},
 	)
 	err = sqtables.CreateTable(profile, tab2)
 	if err != nil {
 		t.Error("Error setting up data for TestDropTable ", err)
 		return
 	}
-	tabdrop := sqtables.CreateTableDef(
-		"tabledrop",
-		column.NewDef("col1", tokens.Int, false),
-		column.NewDef("col2", tokens.String, false),
+	tabdrop := sqtables.CreateTableDef("tabledrop",
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, false),
+			column.NewDef("col2", tokens.String, false),
+		},
 	)
 	err = sqtables.CreateTable(profile, tabdrop)
 	if err != nil {
@@ -313,7 +318,7 @@ func TestMiscTableList(t *testing.T) {
 	t.Run("underscore test", func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
-		tab := sqtables.CreateTableDef("", column.NewDef("col1", tokens.String, false))
+		tab := sqtables.CreateTableDef("", []column.Def{column.NewDef("col1", tokens.String, false)})
 		err := sqtables.CreateTable(profile, tab)
 		experr := "Error: Invalid Name: Table names can not be blank"
 		if err.Error() != experr {

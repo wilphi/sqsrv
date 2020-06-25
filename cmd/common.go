@@ -62,17 +62,22 @@ func GetIdentList(tkns *tokens.TokenList, terminatorID tokens.TokenID) ([]string
 
 //OrderByClause processing
 func OrderByClause(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
-	var sortCol string
-	var sortType tokens.TokenID
-	var orderBy []sqtables.OrderItem
 
 	if tkns.IsA(tokens.Order) {
 		tkns.Remove()
 	}
-	if !tkns.IsA(tokens.By) {
+	if !tkns.IsARemove(tokens.By) {
 		return nil, sqerr.NewSyntax("ORDER missing BY")
 	}
-	tkns.Remove()
+
+	return ParseColSortOrder(tkns)
+}
+
+// ParseColSortOrder processes a column list with sort order info (ASC, DESC) for each col
+func ParseColSortOrder(tkns *tokens.TokenList) ([]sqtables.OrderItem, error) {
+	var sortCol string
+	var sortType tokens.TokenID
+	var orderBy []sqtables.OrderItem
 	hangingComma := true
 	for {
 

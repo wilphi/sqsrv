@@ -803,14 +803,14 @@ func TestGetTableList(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	tableData := []struct {
 		Name string
-		Col  column.Def
+		Col  []column.Def
 	}{
-		{Name: "gettablelistTable1", Col: column.NewDef("col1", tokens.Int, false)},
-		{Name: "gettablelistTable2", Col: column.NewDef("col1", tokens.Int, false)},
-		{Name: "gettablelistTable3", Col: column.NewDef("col1", tokens.Int, false)},
-		{Name: "gettablelistcountry", Col: column.NewDef("col1", tokens.Int, false)},
-		{Name: "gettablelistcity", Col: column.NewDef("col1", tokens.Int, false)},
-		{Name: "gettablelistperson", Col: column.NewDef("col1", tokens.Int, false)},
+		{Name: "gettablelistTable1", Col: []column.Def{column.NewDef("col1", tokens.Int, false)}},
+		{Name: "gettablelistTable2", Col: []column.Def{column.NewDef("col1", tokens.Int, false)}},
+		{Name: "gettablelistTable3", Col: []column.Def{column.NewDef("col1", tokens.Int, false)}},
+		{Name: "gettablelistcountry", Col: []column.Def{column.NewDef("col1", tokens.Int, false)}},
+		{Name: "gettablelistcity", Col: []column.Def{column.NewDef("col1", tokens.Int, false)}},
+		{Name: "gettablelistperson", Col: []column.Def{column.NewDef("col1", tokens.Int, false)}},
 	}
 	for _, tabDat := range tableData {
 		tab := sqtables.CreateTableDef(tabDat.Name, tabDat.Col)

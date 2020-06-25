@@ -69,6 +69,11 @@ const (
 	Left
 	Right
 	Cross
+	Primary
+	Key
+	Unique
+	Foreign
+	Index
 )
 
 var wordNames = []string{"Invalid", "CREATE", "TABLE",
@@ -83,6 +88,7 @@ var wordNames = []string{"Invalid", "CREATE", "TABLE",
 	"<", ">", "-", "+", "/", "%",
 	"!=", "<=", ">=", "HAVING", "INNER", "JOIN", "ON",
 	"FULL", "OUTER", "LEFT", "RIGHT", "CROSS",
+	"PRIMARY", "KEY", "UNIQUE", "FOREIGN", "INDEX",
 }
 
 //wordTokens -
@@ -157,6 +163,11 @@ func init() {
 		Left:             newWordToken(Left, IsWord),
 		Right:            newWordToken(Right, IsWord),
 		Cross:            newWordToken(Cross, IsWord),
+		Primary:          newWordToken(Primary, IsWord),
+		Key:              newWordToken(Key, IsWord),
+		Unique:           newWordToken(Unique, IsWord),
+		Foreign:          newWordToken(Foreign, IsWord),
+		Index:            newWordToken(Index, IsWord),
 	}
 	// create the word map of reserved words and symbols
 	// making sure that all words are uppercase

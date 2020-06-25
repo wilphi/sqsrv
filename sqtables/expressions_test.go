@@ -425,9 +425,11 @@ func TestEvaluateExpr(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	tableName := "valueexprtest"
 	tab := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, false),
-		column.NewDef("col2", tokens.String, false),
-		column.NewDef("col3", tokens.Bool, false),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, false),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Bool, false),
+		},
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
@@ -1056,8 +1058,10 @@ func TestValidateCols(t *testing.T) {
 
 	tableName := "validatecolstest"
 	tab := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, false),
-		column.NewDef("col2", tokens.String, false),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, false),
+			column.NewDef("col2", tokens.String, false),
+		},
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {

@@ -50,9 +50,11 @@ func TestDataSet(t *testing.T) {
 
 	tableName := "dataset"
 	tab := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, false),
-		column.NewDef("col2", tokens.String, false),
-		column.NewDef("col3", tokens.Bool, false),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, false),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Bool, false),
+		},
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {

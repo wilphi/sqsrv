@@ -19,22 +19,25 @@ const DataSetTableName = " _dataset"
 // DataSetMoniker is the moniker for the DataSetTableName
 var DataSetMoniker = moniker.New(DataSetTableName, "")
 
-// DataSet - structure that contains a row/column set including column definitions
-type DataSet struct {
-	Vals       [][]sqtypes.Value
-	usePtrs    bool
-	Ptrs       sqptr.SQPtrs
-	tables     *TableList
-	order      []OrderItem
-	validOrder bool
-	eList      *ExprList
-}
+//SortOrder holds the list of cols for sorting a dataset
+type SortOrder []OrderItem
 
 // OrderItem stores information for ORDER BY clause
 type OrderItem struct {
 	ColName  string
 	SortType tokens.TokenID
 	idx      int
+}
+
+// DataSet - structure that contains a row/column set including column definitions
+type DataSet struct {
+	Vals       [][]sqtypes.Value
+	usePtrs    bool
+	Ptrs       sqptr.SQPtrs
+	tables     *TableList
+	order      SortOrder
+	validOrder bool
+	eList      *ExprList
 }
 
 // GetColNames - returns a string array of column names
@@ -78,7 +81,7 @@ func (d *DataSet) GetTables() *TableList {
 }
 
 // SetOrder -
-func (d *DataSet) SetOrder(order []OrderItem) error {
+func (d *DataSet) SetOrder(order SortOrder) error {
 	d.validOrder = false
 	d.order = order
 	for x, col := range d.order {
@@ -206,4 +209,32 @@ func (r *DSRow) IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, er
 		return nil, sqerr.Newf("Invalid index (%d) for row. Data len = %d", idx, len(r.Vals))
 	}
 	return r.Vals[idx], nil
+}
+
+////////////////////////////
+// SortOrder Methods
+
+//Names returns an array of strings containing the columns of the sort order
+func (so SortOrder) Names() (names []string) {
+	for _, item := range so {
+		names = append(names, item.ColName)
+	}
+	return
+}
+
+//String returns a string version of the SortOrder
+func (so SortOrder) String() string {
+	if len(so) == 0 {
+		return ""
+	}
+	s := "("
+	for _, col := range so {
+		s += col.ColName
+		if col.SortType == tokens.Desc {
+			s += " DESC"
+		}
+		s += ", "
+	}
+
+	return s[:len(s)-2] + ")"
 }

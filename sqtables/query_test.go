@@ -714,11 +714,13 @@ func TestGroupBy(t *testing.T) {
 	ageCD := column.NewDef("age", tokens.Int, false)
 
 	tab1 := sqtables.CreateTableDef("testgroupby",
-		firstnameCD,
-		lastnameCD,
-		ageCD,
-		column.NewDef("salary", tokens.Float, false),
-		column.NewDef("cityid", tokens.Int, false),
+		[]column.Def{
+			firstnameCD,
+			lastnameCD,
+			ageCD,
+			column.NewDef("salary", tokens.Float, false),
+			column.NewDef("cityid", tokens.Int, false),
+		},
 	)
 	err := sqtables.CreateTable(profile, tab1)
 	if err != nil {
@@ -726,9 +728,11 @@ func TestGroupBy(t *testing.T) {
 		return
 	}
 	tab2 := sqtables.CreateTableDef("testgroupbycity",
-		column.NewDef("cityid", tokens.Int, false),
-		column.NewDef("name", tokens.String, false),
-		column.NewDef("country", tokens.String, false),
+		[]column.Def{
+			column.NewDef("cityid", tokens.Int, false),
+			column.NewDef("name", tokens.String, false),
+			column.NewDef("country", tokens.String, false),
+		},
 	)
 	err = sqtables.CreateTable(profile, tab2)
 	if err != nil {

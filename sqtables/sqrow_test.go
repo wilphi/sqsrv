@@ -60,10 +60,12 @@ func TestUpdateRow(t *testing.T) {
 
 	tableName := "updaterowtest"
 	testT := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, true),
-		column.NewDef("col2", tokens.String, false),
-		column.NewDef("col3", tokens.Int, false),
-		column.NewDef("col4", tokens.String, true),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, true),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Int, false),
+			column.NewDef("col4", tokens.String, true),
+		},
 	)
 	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
@@ -220,10 +222,12 @@ func TestCreateRow(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	tableName := "createrowtest"
 	testT := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, true),
-		column.NewDef("col2", tokens.String, false),
-		column.NewDef("col3", tokens.Int, false),
-		column.NewDef("col4", tokens.String, true),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, true),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Int, false),
+			column.NewDef("col4", tokens.String, true),
+		},
 	)
 	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
@@ -365,10 +369,12 @@ func TestColVal(t *testing.T) {
 	// Setup Data
 	tableName := "getcoldatatest"
 	testT := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, true),
-		column.NewDef("col2", tokens.String, false),
-		column.NewDef("col3", tokens.Int, false),
-		column.NewDef("col4", tokens.Bool, true),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, true),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Int, false),
+			column.NewDef("col4", tokens.Bool, true),
+		},
 	)
 	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
@@ -415,10 +421,12 @@ func TestSetStorage(t *testing.T) {
 	// Setup Data
 	tableName := "setstorage"
 	testT := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, true),
-		column.NewDef("col2", tokens.String, false),
-		column.NewDef("col3", tokens.Int, false),
-		column.NewDef("col4", tokens.Bool, true),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, true),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Int, false),
+			column.NewDef("col4", tokens.Bool, true),
+		},
 	)
 	err := sqtables.CreateTable(profile, testT)
 	if err != nil {
@@ -439,10 +447,12 @@ func TestMiscRowFunctions(t *testing.T) {
 	// Setup Data
 	tableName := "miscrowtest"
 	testT := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, true),
-		column.NewDef("col2", tokens.String, false),
-		column.NewDef("col3", tokens.Int, false),
-		column.NewDef("col4", tokens.String, true),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, true),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Int, false),
+			column.NewDef("col4", tokens.String, true),
+		},
 	)
 	err := sqtables.CreateTable(profile, testT)
 	if err != nil {

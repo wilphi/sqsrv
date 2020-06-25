@@ -55,7 +55,7 @@ func CreateTableFromRaw(profile *sqprofile.SQProfile, tableName string, rawData 
 		}
 	}
 
-	tab := CreateTableDef(tableName, colDef...)
+	tab := CreateTableDef(tableName, colDef)
 	err := CreateTable(profile, tab)
 	if err != nil {
 		return nil, err

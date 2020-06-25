@@ -74,7 +74,7 @@ func TestParseFromClause(t *testing.T) {
 		{Name: "parsefromperson", Col: []column.Def{column.NewDef("col1", tokens.Int, false), column.NewDef("cityid", tokens.Int, false)}},
 	}
 	for _, tabDat := range tableData {
-		tab := sqtables.CreateTableDef(tabDat.Name, tabDat.Col...)
+		tab := sqtables.CreateTableDef(tabDat.Name, tabDat.Col)
 		err := sqtables.CreateTable(profile, tab)
 		if err != nil {
 			t.Errorf("Error setting up %s: %s", t.Name(), tabDat.Name)

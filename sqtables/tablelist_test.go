@@ -192,7 +192,7 @@ func TestAddTable(t *testing.T) {
 }
 func createTestTable(profile *sqprofile.SQProfile, tableName string, cols ...column.Def) (*sqtables.TableDef, error) {
 
-	tab := sqtables.CreateTableDef(tableName, cols...)
+	tab := sqtables.CreateTableDef(tableName, cols)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
 		return nil, err

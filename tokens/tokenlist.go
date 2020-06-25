@@ -91,6 +91,18 @@ func (tl *TokenList) IsA(tkn TokenID) bool {
 	return false
 }
 
+// IsARemove - tests a tokens to see if is a match. If so then removes it.
+func (tl *TokenList) IsARemove(tkn TokenID) bool {
+	if len(tl.tkns) > 0 {
+		if tl.tkns[0].ID() == tkn {
+			tl.Remove()
+			return true
+		}
+
+	}
+	return false
+}
+
 // IsReservedWord - checks to see if the first token in list is a reserved word token
 func (tl *TokenList) IsReservedWord() bool {
 	if len(tl.tkns) > 0 {

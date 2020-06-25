@@ -76,7 +76,7 @@ func (c *CreateDDL) Decode(dec *sqbin.Codec) {
 // Recreate - reprocess the recorded transaction log SQL statement to restore the database
 func (c *CreateDDL) Recreate(profile *sqprofile.SQProfile) error {
 
-	table := sqtables.CreateTableDef(c.TableName, c.Cols...)
+	table := sqtables.CreateTableDef(c.TableName, c.Cols)
 	err := sqtables.CreateTable(profile, table)
 
 	profile.VerifyNoLocks()

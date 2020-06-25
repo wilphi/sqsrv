@@ -433,7 +433,7 @@ func readDBTableInfo(profile *sqprofile.SQProfile, tName string) (*TableDef, err
 		log.Panic(err)
 	}
 
-	tabDef := CreateTableDef(tName, tab.Cols...)
+	tabDef := CreateTableDef(tName, tab.Cols)
 	nn := tab.NextRowPtr
 	tabDef.nextRowID = &nn
 	return tabDef, err

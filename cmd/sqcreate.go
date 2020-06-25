@@ -21,6 +21,8 @@ func CreateTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, 
 func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, error) {
 	var tableName string
 	var cols []column.Def
+	var constraints []sqtables.Constraint
+	var err error
 
 	log.Info("CREATE TABLE command")
 	if tkns.IsA(tokens.Create) {
@@ -102,13 +104,24 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 		return "", sqerr.NewSyntax("No columns defined for table")
 	}
 
+	if tkns.IsA(tokens.Comma) {
+		tkns.Remove()
+		constraints, err = constraintClauses(tkns)
+		if err != nil {
+			return "", err
+		}
+	}
 	if !tkns.IsEmpty() {
 		return "", sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
 	}
 
 	log.Debug("Creating table ", tableName)
-	table := sqtables.CreateTableDef(tableName, cols...)
-	err := sqtables.CreateTable(profile, table)
+	table := sqtables.CreateTableDef(tableName, cols)
+	err = table.AddConstraints(profile, constraints)
+	if err != nil {
+		return "", err
+	}
+	err = sqtables.CreateTable(profile, table)
 	if err != nil {
 		return "", err
 	}
@@ -117,4 +130,86 @@ func CreateTableFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList)
 
 	log.Trace(table)
 	return tableName, err
+}
+
+func constraintClauses(tkns *tokens.TokenList) ([]sqtables.Constraint, error) {
+	var cons []sqtables.Constraint
+	var name string
+
+	isHangingComma := true
+	// loop until no new clause is processed in a pass
+	for isHangingComma {
+		switch tkns.Peek().ID() {
+		case tokens.Primary:
+			//Process Primary Key constraint
+			tkns.Remove()
+			if !tkns.IsARemove(tokens.Key) {
+				return nil, sqerr.NewSyntaxf("Missing keyword KEY after")
+			}
+			if !tkns.IsARemove(tokens.OpenBracket) {
+				return nil, sqerr.NewSyntax("Expecting ( after PRIMARY KEY")
+			}
+			cols, err := GetIdentList(tkns, tokens.CloseBracket)
+			if err != nil {
+				return nil, err
+			}
+			cons = append(cons, sqtables.NewPrimaryKey(cols))
+		case tokens.Unique:
+			// Process Unique constraint
+			tkns.Remove()
+			tkn := tkns.TestTkn(tokens.Ident)
+			if tkn == nil {
+				return nil, sqerr.NewSyntax("Missing a name for the Unique constraint")
+			}
+			name = tkn.(*tokens.ValueToken).Value()
+			tkns.Remove()
+			if !tkns.IsARemove(tokens.OpenBracket) {
+				return nil, sqerr.NewSyntax("Expecting ( after name of constraint")
+			}
+			cols, err := GetIdentList(tkns, tokens.CloseBracket)
+			if err != nil {
+				return nil, err
+			}
+			cons = append(cons, sqtables.NewUnique(name, cols))
+		case tokens.Foreign:
+			// Process Foreign Key constraint
+			tkns.Remove()
+			if !tkns.IsARemove(tokens.Key) {
+				return nil, sqerr.NewSyntaxf("Missing keyword KEY after")
+			}
+			tkn := tkns.TestTkn(tokens.Ident)
+			if tkn == nil {
+				return nil, sqerr.NewSyntax("Missing a name for the Foreign Key constraint")
+			}
+			name = tkn.(*tokens.ValueToken).Value()
+
+			if !tkns.IsARemove(tokens.OpenBracket) {
+				return nil, sqerr.NewSyntax("Expecting ( after name of constraint")
+			}
+			cols, err := GetIdentList(tkns, tokens.CloseBracket)
+			if err != nil {
+				return nil, err
+			}
+			cons = append(cons, sqtables.NewForeignKey(name, cols))
+		case tokens.Index:
+			// Process Index
+			tkns.Remove()
+
+			// get index definition
+			return nil, sqerr.NewSyntax("Index Constraint not fully implemented")
+		default:
+			return nil, sqerr.NewSyntaxf("Unexpected tokens after comma - %s", tkns.String())
+		}
+		// check for optional comma
+		if tkns.IsA(tokens.Comma) {
+			isHangingComma = true
+			tkns.Remove()
+		} else {
+			isHangingComma = false
+		}
+	}
+	if isHangingComma {
+		return nil, sqerr.NewSyntax("Expecting a constraint clause (Primary Key, Foreign, Index, Unique) after comma")
+	}
+	return cons, nil
 }

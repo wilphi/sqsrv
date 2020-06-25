@@ -25,12 +25,13 @@ const (
 
 // TableDef -  table definition
 type TableDef struct {
-	tableName  string       // immutable
-	tableCols  []column.Def // immutable
-	rowm       map[sqptr.SQPtr]*RowDef
-	nextOffset int64
-	nextRowID  *uint64
-	isDropped  bool
+	tableName   string       // immutable
+	tableCols   []column.Def // immutable
+	rowm        map[sqptr.SQPtr]*RowDef
+	constraints []Constraint
+	nextOffset  int64
+	nextRowID   *uint64
+	isDropped   bool
 	*sqmutex.SQMtx
 }
 
@@ -48,7 +49,7 @@ type TableRef struct {
 var RowOrder = false
 
 // CreateTableDef -
-func CreateTableDef(name string, cols ...column.Def) *TableDef {
+func CreateTableDef(name string, cols []column.Def) *TableDef {
 	var tab TableDef
 
 	tab.tableName = strings.ToLower(name)
@@ -69,6 +70,31 @@ func CreateTableDef(name string, cols ...column.Def) *TableDef {
 	tab.nextOffset = 0
 	tab.nextRowID = new(uint64)
 	return &tab
+}
+
+// AddConstraints -
+func (t *TableDef) AddConstraints(profile *sqprofile.SQProfile, constraints []Constraint) error {
+	var err error
+	t.Lock(profile)
+	defer t.Unlock(profile)
+
+	if t.constraints == nil {
+		t.constraints = constraints
+	} else {
+		t.constraints = append(t.constraints, constraints...)
+	}
+
+	// Sort the constraints so that the order is PK, FK, Unique, Index
+	sort.SliceStable(t.constraints, func(i int, j int) bool { return t.constraints[i].Ordering() < t.constraints[j].Ordering() })
+
+	for i := range t.constraints {
+		err = t.constraints[i].Validate(profile, t)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
 
 // GetName - Name of the table
@@ -103,10 +129,18 @@ func (t *TableDef) TableRef(profile *sqprofile.SQProfile) *TableRef {
 
 // String -
 func (t *TableDef) String(profile *sqprofile.SQProfile) string {
-	cs := t.tableName + "\n--------------------------------------\n"
+	sLines := "--------------------------------------\n"
+	cs := t.tableName + "\n" + sLines
 
 	for _, col := range t.tableCols {
 		cs += fmt.Sprintf("\t%s\n", col.String())
+	}
+
+	if len(t.constraints) > 0 {
+		cs += sLines
+		for _, con := range t.constraints {
+			cs += fmt.Sprintf("\t%s\n", con.String())
+		}
 	}
 	return cs
 
@@ -129,6 +163,7 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 	}
 
 	err := t.Lock(profile)
+	defer t.Unlock(profile)
 	if err != nil {
 		return -1, err
 	}
@@ -136,7 +171,6 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 		t.rowm[r.RowPtr] = r
 		data.Ptrs[i] = r.RowPtr
 	}
-	t.Unlock(profile)
 
 	return len(newRows), nil
 }

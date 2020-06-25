@@ -64,9 +64,7 @@ func (ins *InsertStmt) Decode(profile *sqprofile.SQProfile) error {
 		return sqerr.NewSyntax("Expecting name of table for insert")
 	}
 
-	if ins.tkns.IsA(tokens.OpenBracket) {
-		ins.tkns.Remove()
-	} else {
+	if !ins.tkns.IsARemove(tokens.OpenBracket) {
 		return sqerr.NewSyntax("Expecting ( after name of table")
 	}
 

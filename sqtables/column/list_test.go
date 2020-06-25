@@ -62,10 +62,12 @@ func TestColListValidate(t *testing.T) {
 
 	tableName := "collistValidatetest"
 	tab := sqtables.CreateTableDef(tableName,
-		column.NewDef("col1", tokens.Int, false),
-		column.NewDef("col2", tokens.String, false),
-		column.NewDef("col3", tokens.Float, false),
-		column.NewDef("col4", tokens.Bool, false),
+		[]column.Def{
+			column.NewDef("col1", tokens.Int, false),
+			column.NewDef("col2", tokens.String, false),
+			column.NewDef("col3", tokens.Float, false),
+			column.NewDef("col4", tokens.Bool, false),
+		},
 	)
 	err := sqtables.CreateTable(profile, tab)
 	if err != nil {
