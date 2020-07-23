@@ -198,3 +198,88 @@ func testTListFunc(d TListData) func(t *testing.T) {
 		}
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func TestIsARemove(t *testing.T) {
+
+	data := []IsARemoveData{
+		{
+			TestName: "Empty List",
+			TestStr:  "",
+			ExpLen:   0,
+			ExpList:  "",
+			IsA:      tokens.Select,
+			IsAret:   false,
+		},
+		{
+			TestName: "Select Only",
+			TestStr:  "SELECT ",
+			ExpLen:   0,
+			ExpList:  "",
+			IsA:      tokens.Select,
+			IsAret:   true,
+		},
+		{
+			TestName: "Select at beginning of statement",
+			TestStr:  "SELECT * from test",
+			ExpLen:   3,
+			ExpList:  "* FROM [IDENT=test]",
+			IsA:      tokens.Select,
+			IsAret:   true,
+		},
+		{
+			TestName: "no Select",
+			TestStr:  "INSERT INTO test",
+			ExpLen:   3,
+			ExpList:  "INSERT INTO [IDENT=test]",
+			IsA:      tokens.Select,
+			IsAret:   false,
+		},
+		{
+			TestName: "INSERT ",
+			TestStr:  "INSERT INTO test",
+			ExpLen:   2,
+			ExpList:  "INTO [IDENT=test]",
+			IsA:      tokens.Insert,
+			IsAret:   true,
+		}}
+
+	for i, row := range data {
+		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
+			testIsARemoveFunc(row))
+
+	}
+
+}
+
+type IsARemoveData struct {
+	TestName string
+	TestStr  string
+	IsA      tokens.TokenID
+	IsAret   bool
+	ExpLen   int
+	ExpList  string
+}
+
+func testIsARemoveFunc(d IsARemoveData) func(t *testing.T) {
+	return func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		tkns := tokens.Tokenize(d.TestStr)
+
+		if tkns.IsARemove(d.IsA) != d.IsAret {
+			t.Errorf("IsA(%s) returned %t when it should not have", tokens.IDName(d.IsA), !d.IsAret)
+			return
+		}
+
+		if tkns.Len() != d.ExpLen {
+			t.Errorf("Actual Len %d does not match Expected %d", tkns.Len(), d.ExpLen)
+			return
+		}
+		if tkns.String() != d.ExpList {
+			t.Errorf("Token list %q does not match expected list %q", tkns.String(), d.ExpList)
+			return
+		}
+	}
+}

@@ -74,6 +74,9 @@ const (
 	Unique
 	Foreign
 	Index
+	Begin
+	Commit
+	Rollback
 )
 
 var wordNames = []string{"Invalid", "CREATE", "TABLE",
@@ -89,6 +92,7 @@ var wordNames = []string{"Invalid", "CREATE", "TABLE",
 	"!=", "<=", ">=", "HAVING", "INNER", "JOIN", "ON",
 	"FULL", "OUTER", "LEFT", "RIGHT", "CROSS",
 	"PRIMARY", "KEY", "UNIQUE", "FOREIGN", "INDEX",
+	"BEGIN", "COMMIT", "ROLLBACK",
 }
 
 //wordTokens -
@@ -168,6 +172,9 @@ func init() {
 		Unique:           newWordToken(Unique, IsWord),
 		Foreign:          newWordToken(Foreign, IsWord),
 		Index:            newWordToken(Index, IsWord),
+		Begin:            newWordToken(Begin, IsWord),
+		Commit:           newWordToken(Commit, IsWord),
+		Rollback:         newWordToken(Rollback, IsWord),
 	}
 	// create the word map of reserved words and symbols
 	// making sure that all words are uppercase
