@@ -151,7 +151,7 @@ func transProc() {
 			if time.Now().After(lastSync.Add(time.Duration(lazyWrite) * time.Millisecond)) {
 				if isDirty {
 					file.Sync()
-					log.Info("Timeout Sync")
+					log.Trace("Timeout Sync")
 					isDirty = false
 				}
 			}
