@@ -152,9 +152,16 @@ func (i *InsertRows) Recreate(profile *sqprofile.SQProfile) error {
 	}
 	dataSet.Vals = i.Data
 	dataSet.Ptrs = i.RowPtrs
-
-	_, err = tab.AddRows(profile, dataSet)
-
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = tab.AddRows(trans, dataSet)
+	if err != nil {
+		trans.Rollback()
+		return err
+	}
+	if err = trans.Commit(); err != nil {
+		trans.Rollback()
+		return err
+	}
 	profile.VerifyNoLocks()
 	return err
 }

@@ -108,12 +108,14 @@ func TestGetCmdFunction(t *testing.T) {
 
 	profile := sqprofile.CreateSQProfile()
 	tkns := tokens.Tokenize("create table getcmdtest (col1 int, col2 string)")
-	tableName, _, err := cmd.CreateTable(profile, tkns)
+	trans := sqtables.BeginTrans(profile, true)
+	tableName, _, err := cmd.CreateTable(trans, tkns)
 	if err != nil {
 		t.Errorf("%s: Unable to create table for test", t.Name())
 	}
+	trans = sqtables.BeginTrans(profile, true)
 	tkns = tokens.Tokenize("INSERT INTO " + tableName + " (col1, col2) VALUES (1,\"test\")")
-	_, _, err = cmd.InsertInto(profile, tkns)
+	_, _, err = cmd.InsertInto(trans, tkns)
 	if err != nil {
 		t.Errorf("%s: Unable to add data to table for test", t.Name())
 	}

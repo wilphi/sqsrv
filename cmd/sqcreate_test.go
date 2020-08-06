@@ -17,13 +17,15 @@ func init() {
 
 func testCreateTableFunc(profile *sqprofile.SQProfile, d CreateTableData) func(*testing.T) {
 	return func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, "")
+		defer sqtest.PanicTestRecovery(t, d.ExpPanic)
 
 		tkns := tokens.Tokenize(d.Command)
-		tname, data, err := cmd.CreateTable(profile, tkns)
+		trans := sqtables.BeginTrans(profile, !d.ManualTrans)
+		tname, data, err := cmd.CreateTable(trans, tkns)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
+
 		if data != nil {
 			t.Error("Create Table function should always return nil data")
 			return
@@ -50,6 +52,8 @@ type CreateTableData struct {
 	ExpErr       string
 	ExpTableName string
 	ExpStr       string
+	ExpPanic     string
+	ManualTrans  bool
 }
 
 func TestCreateTable(t *testing.T) {
@@ -104,6 +108,14 @@ func TestCreateTable(t *testing.T) {
 			ExpStr:       "createtest\n--------------------------------------\n\t{col1, INT}\n\t{col2, STRING}\n\t{col3, BOOL}\n",
 		},
 		{
+			TestName:     "CREATE TABLE manualTrans",
+			Command:      "CREATE TABLE mantrans (col1 int, col2 string, col3 bool)",
+			ExpErr:       "Error: DDL statements cannot be executed within a transaction",
+			ExpTableName: "mantrans",
+			ExpStr:       "mantrans\n--------------------------------------\n\t{col1, INT}\n\t{col2, STRING}\n\t{col3, BOOL}\n",
+			ManualTrans:  true,
+		},
+		{
 			TestName:     "CREATE TABLE success Duplicate",
 			Command:      "CREATE TABLE createtest (col1 int, col2 string, col3 bool)",
 			ExpErr:       "Error: Invalid Name: Table createtest already exists",
@@ -127,6 +139,41 @@ func TestCreateTable(t *testing.T) {
 			Command:      "CREATE TABLE createtest3 (col1 int, col2 string, col3 bool) extra stuff",
 			ExpErr:       "Syntax Error: Unexpected tokens after SQL command:[IDENT=extra] [IDENT=stuff]",
 			ExpTableName: "createtest",
+		},
+		{
+			TestName:     "CREATE TABLE with missing constraint",
+			Command:      "CREATE TABLE createpk (col1 int not null, col2 string not null, col3 bool), ",
+			ExpErr:       "Syntax Error: Expecting a constraint clause (Primary Key, Foreign, Index, Unique) after comma",
+			ExpTableName: "createpk",
+			ExpStr:       "",
+		},
+		{
+			TestName:     "CREATE TABLE with missing constraint with junk",
+			Command:      "CREATE TABLE createpk (col1 int not null, col2 string not null, col3 bool), names",
+			ExpErr:       "Syntax Error: Unexpected tokens after comma - [IDENT=names]",
+			ExpTableName: "createpk",
+			ExpStr:       "",
+		},
+		{
+			TestName:     "CREATE TABLE with PRIMARY missing KEY",
+			Command:      "CREATE TABLE createpk (col1 int not null, col2 string not null, col3 bool), PRIMARY (col1, col2)",
+			ExpErr:       "Syntax Error: Table constraint missing keyword KEY after PRIMARY",
+			ExpTableName: "createpk",
+			ExpStr:       "",
+		},
+		{
+			TestName:     "CREATE TABLE with PRIMARY KEY missing (",
+			Command:      "CREATE TABLE createpk (col1 int not null, col2 string not null, col3 bool), PRIMARY KEY col1, col2)",
+			ExpErr:       "Syntax Error: Expecting ( after PRIMARY KEY",
+			ExpTableName: "createpk",
+			ExpStr:       "",
+		},
+		{
+			TestName:     "CREATE TABLE with PRIMARY KEY missing cols",
+			Command:      "CREATE TABLE createpk (col1 int not null, col2 string not null, col3 bool), PRIMARY KEY ()",
+			ExpErr:       "Syntax Error: No columns defined for table",
+			ExpTableName: "createpk",
+			ExpStr:       "",
 		},
 		{
 			TestName:     "CREATE TABLE with PRIMARY KEY",
@@ -164,6 +211,18 @@ func TestCreateTable(t *testing.T) {
 			ExpTableName: "createunique",
 		},
 		{
+			TestName:     "CREATE TABLE with UNIQUE no (",
+			Command:      "CREATE TABLE createunique (col1 int not null, col2 string not null, col3 bool), UNIQUE col2 col2)",
+			ExpErr:       "Syntax Error: Expecting ( after name of constraint",
+			ExpTableName: "createunique",
+		},
+		{
+			TestName:     "CREATE TABLE with UNIQUE err in list",
+			Command:      "CREATE TABLE createunique (col1 int not null, col2 string not null, col3 bool), UNIQUE col2 (col2 col1)",
+			ExpErr:       "Syntax Error: Comma is required to separate columns",
+			ExpTableName: "createunique",
+		},
+		{
 			TestName: "CREATE TABLE with UNIQUE/PK",
 			Command: "CREATE TABLE createuniquepk (col1 int not null, col2 string not null, col3 int not null)," +
 				" UNIQUE unicon (col2, col3), PRIMARY KEY (col1, col2)",
@@ -186,6 +245,49 @@ func TestCreateTable(t *testing.T) {
 				" PRIMARY KEY (col1, colX)",
 			ExpErr:       "Error: Column colX not found in table createpkerr for Primary Key",
 			ExpTableName: "createpkerr",
+		},
+		{
+			TestName: "CREATE TABLE with FK no Key",
+			Command: "CREATE TABLE createfk (col1 int not null, col2 string not null, col3 int not null)," +
+				" FOREIGN (col1, colX)",
+			ExpErr:       "Syntax Error: Missing keyword KEY after FOREIGN",
+			ExpTableName: "createfk",
+		},
+		{
+			TestName: "CREATE TABLE with FK no (",
+			Command: "CREATE TABLE createfk (col1 int not null, col2 string not null, col3 int not null)," +
+				" FOREIGN KEY col1, colX)",
+			ExpErr:       "Syntax Error: Expecting ( after name of constraint",
+			ExpTableName: "createfk",
+		},
+		{
+			TestName: "CREATE TABLE with FK missing name",
+			Command: "CREATE TABLE createfk (col1 int not null, col2 string not null, col3 int not null)," +
+				" FOREIGN KEY (col1, colX)",
+			ExpErr:       "Syntax Error: Missing a name for the Foreign Key constraint",
+			ExpTableName: "createfk",
+		},
+		{
+			TestName: "CREATE TABLE with FK err in cols",
+			Command: "CREATE TABLE createfk (col1 int not null, col2 string not null, col3 int not null)," +
+				" FOREIGN KEY cfk (col1 col2)",
+			ExpErr:       "Syntax Error: Comma is required to separate columns",
+			ExpTableName: "createfk",
+		},
+		{
+			TestName: "CREATE TABLE with FK col not found",
+			Command: "CREATE TABLE createfk (col1 int not null, col2 string not null, col3 int not null)," +
+				" FOREIGN KEY cfk (col1, colX)",
+			ExpErr:       "Syntax Error: Missing a name for the Foreign Key constraint",
+			ExpTableName: "createfk",
+			ExpPanic:     "Incomplete",
+		},
+		{
+			TestName: "CREATE TABLE with Index",
+			Command: "CREATE TABLE createidx (col1 int not null, col2 string not null, col3 int not null)," +
+				" INDEX tabidx (col1, col2)",
+			ExpErr:       "Syntax Error: Index Constraint not fully implemented",
+			ExpTableName: "createidx",
 		},
 	}
 

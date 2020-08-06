@@ -85,7 +85,15 @@ func TestUpdateRow(t *testing.T) {
 		{3, "test three2", 23, "test three4"},
 		{4, "test four2", 24, "test four4"},
 	})
-	_, err = testT.AddRows(profile, dsData)
+
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = testT.AddRows(trans, dsData)
+	if err != nil {
+		trans.Rollback()
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -247,7 +255,14 @@ func TestCreateRow(t *testing.T) {
 		{3, "test three2", 23, "test three4"},
 		{4, "test four2", 24, "test four4"},
 	})
-	_, err = testT.AddRows(profile, dsData)
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = testT.AddRows(trans, dsData)
+	if err != nil {
+		trans.Rollback()
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -472,7 +487,14 @@ func TestMiscRowFunctions(t *testing.T) {
 		{3, "test three2", 23, "test three4"},
 		{4, "test four2", 24, "test four4"},
 	})
-	_, err = testT.AddRows(profile, dsData)
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = testT.AddRows(trans, dsData)
+	if err != nil {
+		trans.Rollback()
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return

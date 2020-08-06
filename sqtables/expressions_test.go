@@ -1075,7 +1075,15 @@ func TestValidateCols(t *testing.T) {
 		return
 	}
 	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1, "test1"}, {2, "test2"}})
-	_, err = tab.AddRows(profile, dsData)
+
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = tab.AddRows(trans, dsData)
+	if err != nil {
+		trans.Rollback()
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return

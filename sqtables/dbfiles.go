@@ -199,8 +199,8 @@ func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 	list, _ := td.GetRowPtrs(profile, nil, true)
 
 	for _, RowPtr := range list {
-		row := td.rowm[sqptr.SQPtr(RowPtr)]
-
+		rw := td.rowm[sqptr.SQPtr(RowPtr)]
+		row := rw.(*RowDef)
 		if !row.isModified {
 			continue
 		}
@@ -253,7 +253,8 @@ func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 
 	// reset the isModified flag
 	for _, rw := range td.rowm {
-		rw.isModified = false
+		row := rw.(*RowDef)
+		row.isModified = false
 	}
 
 	err = td.DeleteRowsFromPtrs(profile, deletePtrs, HardDelete)

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wilphi/converse/sqerr"
+	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables/column"
 	"github.com/wilphi/sqsrv/sqtypes"
@@ -67,7 +67,13 @@ func CreateTableFromRaw(profile *sqprofile.SQProfile, tableName string, rawData 
 
 	ds.Vals = data
 
-	_, err = tab.AddRows(profile, ds)
+	trans := BeginTrans(profile, true)
+	_, err = tab.AddRows(trans, ds)
+	if err != nil {
+		trans.Rollback()
+	} else {
+		err = trans.Commit()
+	}
 	return tab.TableRef(profile), err
 
 }

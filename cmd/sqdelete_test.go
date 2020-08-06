@@ -41,19 +41,34 @@ func testDeleteFunc(profile *sqprofile.SQProfile, d DeleteData) func(*testing.T)
 			ptrs, err := tab.GetRowPtrs(profile, nil, false)
 			if err != nil {
 				t.Errorf("Reset Data Error in test: %s", err.Error())
+				return
 			}
 			err = tab.DeleteRowsFromPtrs(profile, ptrs, sqtables.HardDelete)
 			if err != nil {
 				t.Errorf("Reset Data Error in test: %s", err.Error())
+				return
 			}
-			_, err = tab.AddRows(profile, d.Data)
+			trans := sqtables.BeginTrans(profile, true)
+			_, err = tab.AddRows(trans, d.Data)
 			if err != nil {
+				trans.Rollback()
 				t.Errorf("Reset Data Error in test: %s", err.Error())
+				return
+			}
+			if err = trans.AutoComplete(); err != nil {
+				t.Errorf("Reset Data Error in test: %s", err.Error())
+				return
 			}
 		}
 		tkns := tokens.Tokenize(d.Command)
-		_, data, err := cmd.Delete(profile, tkns)
+		trans := sqtables.BeginTrans(profile, true)
+		_, data, err := cmd.Delete(trans, tkns)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
+			trans.Rollback()
+			return
+		}
+		if err = trans.AutoComplete(); err != nil {
+			t.Errorf("AutoComplete Error in test: %s", err.Error())
 			return
 		}
 
@@ -91,7 +106,8 @@ func TestDelete(t *testing.T) {
 
 	//make sure table exists for testing
 	tkns := tokens.Tokenize("CREATE TABLE deltest (col1 int, col2 string, col3 bool)")
-	_, err := cmd.CreateTableFromTokens(profile, tkns)
+	trans := sqtables.BeginTrans(profile, true)
+	_, _, err := cmd.CreateTable(trans, tkns)
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 		return
@@ -99,7 +115,7 @@ func TestDelete(t *testing.T) {
 
 	// Test to see what happens with empty table
 	tkns = tokens.Tokenize("CREATE TABLE delEmpty (col1 int, col2 string, col3 bool)")
-	_, err = cmd.CreateTableFromTokens(profile, tkns)
+	_, _, err = cmd.CreateTable(trans, tkns)
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
 		return
@@ -114,7 +130,7 @@ func TestDelete(t *testing.T) {
 		fmt.Sprintf("(%d, %q, %t)", 654, "Seltest 6", true)
 
 	tkns = tokens.Tokenize(testData)
-	if _, _, err := cmd.InsertInto(profile, tkns); err != nil {
+	if _, _, err := cmd.InsertInto(trans, tkns); err != nil {
 		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
 	}
 
@@ -134,6 +150,14 @@ func TestDelete(t *testing.T) {
 	}
 
 	data := []DeleteData{
+		{
+			TestName:  "No Delete",
+			Command:   "FROM deltest",
+			TableName: "deltest",
+			ExpErr:    "Syntax Error: Expecting DELETE",
+			ExpVals:   sqtypes.RawVals{},
+			Data:      ds,
+		},
 		{
 			TestName:  "Delete only",
 			Command:   "Delete",
@@ -239,6 +263,19 @@ func TestDelete(t *testing.T) {
 			},
 			Data: ds,
 		},
+		{
+			TestName:  "Delete FROM table where invalid col ",
+			Command:   "Delete FROM deltest where colX = 456",
+			TableName: "deltest",
+			ExpErr:    "Error: Column \"colX\" not found in Table(s): deltest",
+			ExpVals: sqtypes.RawVals{
+				{123, "With Cols Test", true},
+				{789, "Seltest 3", false},
+				{987, "Seltest 5", false},
+				{654, "Seltest 6", true},
+			},
+			Data: ds,
+		},
 	}
 
 	for i, row := range data {
@@ -246,17 +283,4 @@ func TestDelete(t *testing.T) {
 			testDeleteFunc(profile, row))
 
 	}
-}
-
-func TestDeleteFromTable(t *testing.T) {
-	profile := sqprofile.CreateSQProfile()
-
-	t.Run("Invalid Table Name", func(t *testing.T) {
-		defer sqtest.PanicTestRecovery(t, "")
-
-		_, err := cmd.DeleteFromTable(profile, "NotATable", nil)
-		if err.Error() != "Error: Table NotATable does not exist for Delete statement" {
-			t.Error("Expected error not returned: ", err)
-		}
-	})
 }

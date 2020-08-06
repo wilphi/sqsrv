@@ -4,52 +4,63 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqerr"
-	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
+//UpdateStmt contains the info required to execute an UPDATE statement
+type UpdateStmt struct {
+	TableName string
+	Table     *sqtables.TableDef
+	SetCols   []string
+	SetExprs  sqtables.ExprList
+	WhereExpr sqtables.Expr
+}
+
 // Update implements the SQL command UPDATE
-func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func Update(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+	stmt, err := parseUpdate(trans, tkns)
+	if err != nil {
+		return "", nil, err
+	}
+	msg, err := executeUpdate(trans, stmt)
+	return msg, nil, err
+}
+
+func parseUpdate(trans *sqtables.Transaction, tkns *tokens.TokenList) (*UpdateStmt, error) {
 	var err error
-	var tableName string
-	var setCols []string
-	var setExprs sqtables.ExprList
-	var whereExpr sqtables.Expr
+	var stmt UpdateStmt
 
 	colCheck := make(map[string]bool)
 
-	log.Info("Update statement...")
+	log.Debug("Update statement...")
 
 	// Eat Update Token
-	if tkns.IsA(tokens.Update) {
-		tkns.Remove()
-	}
+	tkns.IsARemove(tokens.Update)
 
 	//expecting Ident (tablename)
 	tkn := tkns.TestTkn(tokens.Ident)
 	if tkn == nil {
-		return "", nil, sqerr.NewSyntax("Expecting table name in Update statement")
+		return nil, sqerr.NewSyntax("Expecting table name in Update statement")
 	}
-	tableName = tkn.(*tokens.ValueToken).Value()
+	stmt.TableName = tkn.(*tokens.ValueToken).Value()
 
 	tkns.Remove()
-	tab, err := sqtables.GetTable(profile, tableName)
+	stmt.Table, err = sqtables.GetTable(trans.Profile, stmt.TableName)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	if tab == nil {
-		return "", nil, sqerr.NewSyntaxf("Invalid table name: %s does not exist", tableName)
+	if stmt.Table == nil {
+		return nil, sqerr.NewSyntaxf("Invalid table name: %s does not exist", stmt.TableName)
 	}
 
 	// eat the SET
-	if !tkns.IsA(tokens.Set) {
+	if !tkns.IsARemove(tokens.Set) {
 		// no SET
-		return "", nil, sqerr.NewSyntax("Expecting SET")
+		return nil, sqerr.NewSyntax("Expecting SET")
 	}
-	tkns.Remove()
+
 	isValidSetExpression := false
 	// col = value
 	for {
@@ -60,31 +71,31 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 		// Identifier first
 		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 			colName := tkn.(*tokens.ValueToken).Value()
-			cd := tab.FindColDef(profile, colName)
+			cd := stmt.Table.FindColDef(trans.Profile, colName)
 			if cd == nil {
-				return "", nil, sqerr.NewSyntaxf("Invalid Column name: %s does not exist in Table %s", colName, tableName)
+				return nil, sqerr.NewSyntaxf("Invalid Column name: %s does not exist in Table %s", colName, stmt.TableName)
 			}
 			tkns.Remove()
 			// Then an EQUAL sign
 			if !tkns.IsA(tokens.Equal) {
-				return "", nil, sqerr.NewSyntaxf("Expecting = after column name %s in UPDATE SET", colName)
+				return nil, sqerr.NewSyntaxf("Expecting = after column name %s in UPDATE SET", colName)
 			}
 			tkns.Remove()
 
 			// Get a value/expression
 			ex, err := GetExpr(tkns, nil, 0, tokens.Where, tokens.Comma)
 			if err != nil {
-				return "", nil, err
+				return nil, err
 			}
 			if ex == nil {
-				return "", nil, sqerr.NewSyntaxf("Expecting an expression in SET clause after %s =", colName)
+				return nil, sqerr.NewSyntaxf("Expecting an expression in SET clause after %s =", colName)
 			}
 			if _, ok := colCheck[colName]; ok {
-				return "", nil, sqerr.NewSyntaxf("%s is set more than once", colName)
+				return nil, sqerr.NewSyntaxf("%s is set more than once", colName)
 			}
 			colCheck[colName] = true
-			setCols = append(setCols, colName)
-			setExprs.Add(ex)
+			stmt.SetCols = append(stmt.SetCols, colName)
+			stmt.SetExprs.Add(ex)
 			isValidSetExpression = true
 			if tkns.IsA(tokens.Comma) {
 				tkns.Remove()
@@ -95,47 +106,51 @@ func Update(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqta
 
 	}
 	if !isValidSetExpression {
-		return "", nil, sqerr.NewSyntax("Expecting valid SET expression")
+		return nil, sqerr.NewSyntax("Expecting valid SET expression")
 	}
 	// Optional Where Clause
 	if tkns.Len() > 0 && tkns.IsA(tokens.Where) {
 		tkns.Remove()
-		whereExpr, err = ParseWhereClause(tkns, false)
+		stmt.WhereExpr, err = ParseWhereClause(tkns, false)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
-		err = whereExpr.ValidateCols(profile, sqtables.NewTableListFromTableDef(profile, tab))
+		err = stmt.WhereExpr.ValidateCols(trans.Profile, sqtables.NewTableListFromTableDef(trans.Profile, stmt.Table))
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 	}
 
 	if !tkns.IsEmpty() {
-		return "", nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
+		return nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
 	}
 
-	err = setExprs.ValidateCols(profile, sqtables.NewTableListFromTableDef(profile, tab))
+	return &stmt, nil
+}
+
+func executeUpdate(trans *sqtables.Transaction, stmt *UpdateStmt) (string, error) {
+	err := stmt.SetExprs.ValidateCols(trans.Profile, sqtables.NewTableListFromTableDef(trans.Profile, stmt.Table))
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 	// get the data
-	err = tab.Lock(profile)
+	err = stmt.Table.Lock(trans.Profile)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
-	defer tab.Unlock(profile)
-	ptrs, err := tab.GetRowPtrs(profile, whereExpr, false)
+	defer stmt.Table.Unlock(trans.Profile)
+	ptrs, err := stmt.Table.GetRowPtrs(trans.Profile, stmt.WhereExpr, false)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	//Update the rows
-	err = tab.UpdateRowsFromPtrs(profile, ptrs, setCols, &setExprs)
+	err = stmt.Table.UpdateRowsFromPtrs(trans.Profile, ptrs, stmt.SetCols, &stmt.SetExprs)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
-	err = redo.Send(redo.NewUpdateRows(tableName, setCols, &setExprs, ptrs))
+	//err = redo.Send(redo.NewUpdateRows(tableName, setCols, &setExprs, ptrs))
 
-	return fmt.Sprintf("Updated %d rows from table", len(ptrs)), nil, err
+	return fmt.Sprintf("Updated %d rows from table", len(ptrs)), err
 }

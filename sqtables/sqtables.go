@@ -27,7 +27,7 @@ const (
 type TableDef struct {
 	tableName   string       // immutable
 	tableCols   []column.Def // immutable
-	rowm        map[sqptr.SQPtr]*RowDef
+	rowm        map[sqptr.SQPtr]RowInterface
 	constraints []Constraint
 	nextOffset  int64
 	nextRowID   *uint64
@@ -66,10 +66,32 @@ func CreateTableDef(name string, cols []column.Def) *TableDef {
 	}
 
 	log.Debugln("Cols: ", tab.tableCols)
-	tab.rowm = make(map[sqptr.SQPtr]*RowDef)
+	tab.rowm = make(map[sqptr.SQPtr]RowInterface)
 	tab.nextOffset = 0
 	tab.nextRowID = new(uint64)
 	return &tab
+}
+
+//CreateTmpTableDef - creates a temporary tabledef based on existing tabledef
+func CreateTmpTableDef(profile *sqprofile.SQProfile, tab *TableDef) *TableDef {
+	var newTab TableDef
+	var cols []column.Def
+	tab.RLock(profile)
+	defer tab.RUnlock(profile)
+
+	newTab.tableName = "tmp_" + tab.tableName
+	for _, col := range tab.tableCols {
+		nCol := col.Clone()
+		nCol.TableName = newTab.tableName
+		cols = append(cols, nCol)
+	}
+	newTab.tableCols = cols
+	newTab.SQMtx = sqmutex.NewSQMtx("Table: tmp_" + tab.tableName)
+	newTab.rowm = make(map[sqptr.SQPtr]RowInterface)
+	newTab.nextOffset = 0
+	newTab.nextRowID = tab.nextRowID
+
+	return &newTab
 }
 
 // AddConstraints -
@@ -113,7 +135,7 @@ func (t *TableDef) RowCount(profile *sqprofile.SQProfile) (int, error) {
 	if t.rowm != nil {
 
 		for rowid := range t.rowm {
-			if !t.rowm[rowid].isDeleted {
+			if !t.rowm[rowid].IsDeleted(profile) {
 				cnt++
 			}
 
@@ -147,7 +169,7 @@ func (t *TableDef) String(profile *sqprofile.SQProfile) string {
 }
 
 // AddRows - add one or more rows to table
-func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, error) {
+func (t *TableDef) AddRows(trans *Transaction, data *DataSet) (int, error) {
 
 	// Create all of the rows before locking and adding them to the table
 	newRows := make([]*RowDef, data.Len())
@@ -155,20 +177,20 @@ func (t *TableDef) AddRows(profile *sqprofile.SQProfile, data *DataSet) (int, er
 
 	for cnt, val := range data.Vals {
 		rowID := atomic.AddUint64(t.nextRowID, 1)
-		row, err := CreateRow(profile, sqptr.SQPtr(rowID), t, data.GetColNames(), val)
+		row, err := CreateRow(trans.Profile, sqptr.SQPtr(rowID), t, data.GetColNames(), val)
 		if err != nil {
 			return -1, err
 		}
 		newRows[cnt] = row
 	}
 
-	err := t.Lock(profile)
-	defer t.Unlock(profile)
+	err := trans.AddLock(t)
 	if err != nil {
 		return -1, err
 	}
 	for i, r := range newRows {
-		t.rowm[r.RowPtr] = r
+		trans.AddRow(t, r)
+		//trans.TData[t.tableName].rowm[r.RowPtr] = r
 		data.Ptrs[i] = r.RowPtr
 	}
 
@@ -203,7 +225,13 @@ func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
 		if soft == SoftDelete {
-			t.rowm[idx].Delete(profile)
+			rw := t.rowm[idx]
+			row, ok := rw.(*RowDef)
+			if !ok {
+				return sqerr.NewInternalf("Rows of type %T can not be soft deleted", rw)
+			}
+			row.Delete(profile)
+			t.rowm[idx] = row
 		} else {
 			delete(t.rowm, idx)
 		}
@@ -229,7 +257,8 @@ func (t *TableDef) GetRowDataFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 		if !ok {
 			return nil, sqerr.Newf("Row %d does not exist", idx)
 		}
-		ds.Vals[i] = append(row.Data[:0:0], row.Data...)
+		//ds.Vals[i] = append(row.Data[:0:0], row.Data...)
+		ds.Vals[i] = row.GetVals(profile)
 	}
 	return ds, nil
 }
@@ -292,7 +321,8 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted boo
 	defer t.RUnlock(profile)
 
 	for rowID, row := range t.rowm {
-		if row == nil || row.isDeleted {
+
+		if row == nil || row.IsDeleted(profile) {
 			continue
 		}
 		if exp != nil {
@@ -335,10 +365,11 @@ func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 	}
 	defer t.Unlock(profile)
 	for _, idx := range ptrs {
-		row, ok := t.rowm[idx]
-		if row == nil || !ok {
+		rw, ok := t.rowm[idx]
+		if rw == nil || !ok {
 			return sqerr.NewInternalf("Row %d does not exist for update", idx)
 		}
+		row := rw.(*RowDef)
 		vals, err := eList.Evaluate(profile, EvalFull, row)
 		if err != nil {
 			return err
@@ -353,9 +384,9 @@ func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.S
 }
 
 // GetRow -
-func (t *TableDef) GetRow(profile *sqprofile.SQProfile, RowPtr sqptr.SQPtr) *RowDef {
+func (t *TableDef) GetRow(profile *sqprofile.SQProfile, RowPtr sqptr.SQPtr) RowInterface {
 	row, ok := t.rowm[RowPtr]
-	if !ok || row == nil || row.isDeleted {
+	if !ok || row == nil || row.IsDeleted(profile) {
 		return nil
 	}
 	return row
@@ -391,7 +422,7 @@ func (tr *TableRef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, wh
 
 	for i, ptr := range ptrs {
 		// make sure the ptr points to the correct row
-		if tr.Table.rowm[ptr].RowPtr != ptr {
+		if tr.Table.rowm[ptr].GetPtr(profile) != ptr {
 			log.Panic("rowPtr does not match Map index")
 		}
 

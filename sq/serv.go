@@ -15,7 +15,7 @@ import (
 )
 
 var dispatcher = []struct {
-	Exec   func(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error)
+	Exec   func(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error)
 	First  tokens.TokenID
 	Second tokens.TokenID
 }{
@@ -126,7 +126,7 @@ func GetCmdFunc(tkns tokens.TokenList) func(profile *sqprofile.SQProfile, tkns *
 }
 
 // GetDispatchFunc -
-func GetDispatchFunc(tkns tokens.TokenList) func(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func GetDispatchFunc(tkns tokens.TokenList) func(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	if tkns.Len() <= 0 {
 		return nil
 	}

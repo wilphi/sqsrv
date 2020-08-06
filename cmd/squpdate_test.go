@@ -33,13 +33,14 @@ func TestUpdate(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 
 	tkns := tokens.Tokenize("CREATE TABLE testupdate (col1 int not null, col2 string)")
-	_, err := cmd.CreateTableFromTokens(profile, tkns)
+	trans := sqtables.BeginTrans(profile, true)
+	_, _, err := cmd.CreateTable(trans, tkns)
 	if err != nil {
 		t.Errorf("Error setting up table for TestUpdate: %s", err)
 		return
 	}
 
-	err = resetUpdateData()
+	err = resetUpdateData(profile)
 	if err != nil {
 		t.Errorf("Error setting up table for TestUpdate: %s", err)
 		return
@@ -200,17 +201,18 @@ func TestUpdate(t *testing.T) {
 func testUpdateFunc(d UpdateData) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
+		profile := sqprofile.CreateSQProfile()
 
 		if d.ResetData {
-			err := resetUpdateData()
+			err := resetUpdateData(profile)
 			if err != nil {
 				t.Errorf("Reset Update Data failed: %s", err)
 				return
 			}
 		}
-		profile := sqprofile.CreateSQProfile()
 		tkns := tokens.Tokenize(d.SQLStr)
-		_, data, err := cmd.Update(profile, tkns)
+		trans := sqtables.BeginTrans(profile, true)
+		_, data, err := cmd.Update(trans, tkns)
 		if data != nil {
 			t.Errorf("Update returned a non nil dataset")
 			return
@@ -247,13 +249,14 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 	}
 }
 
-func resetUpdateData() error {
-	profile := sqprofile.CreateSQProfile()
+func resetUpdateData(profile *sqprofile.SQProfile) error {
 
 	str := "delete from testupdate"
+	trans := sqtables.BeginTrans(profile, false)
 	tkns := tokens.Tokenize(str)
-	_, _, err := cmd.Delete(profile, tkns)
+	_, _, err := cmd.Delete(trans, tkns)
 	if err != nil {
+		trans.Rollback()
 		return err
 	}
 	str = "INSERT INTO testupdate (col1, col2) VALUES " +
@@ -264,6 +267,10 @@ func resetUpdateData() error {
 		"(5, \"test row 5\"), " +
 		"(6, \"test row 6\")"
 	tkns = tokens.Tokenize(str)
-	_, _, err = cmd.InsertInto(profile, tkns)
-	return err
+	_, _, err = cmd.InsertInto(trans, tkns)
+	if err != nil {
+		trans.Rollback()
+		return err
+	}
+	return trans.Commit()
 }

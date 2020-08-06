@@ -211,6 +211,16 @@ func (r *DSRow) IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, er
 	return r.Vals[idx], nil
 }
 
+// IsDeleted will always return false for DSRow
+func (r *DSRow) IsDeleted(profile *sqprofile.SQProfile) bool {
+	return false
+}
+
+// GetVals returns all values in row
+func (r *DSRow) GetVals(profile *sqprofile.SQProfile) []sqtypes.Value {
+	return r.Vals
+}
+
 ////////////////////////////
 // SortOrder Methods
 

@@ -6,103 +6,92 @@ import (
 	"github.com/wilphi/sqsrv/sqptr"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqerr"
-	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
 // Delete -
-func Delete(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
-	nRows, err := DeleteFromTokens(profile, tkns)
-
+func Delete(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+	tab, whereExpr, err := ParseDelete(trans, tkns)
+	if err != nil {
+		return "", nil, err
+	}
+	nRows, err := ExecuteDelete(trans, tab, whereExpr)
 	return fmt.Sprintf("Deleted %d rows from table", nRows), nil, err
 }
 
-// DeleteFromTokens - takes a list of tokens returns number of rows deleted from table, error
-func DeleteFromTokens(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (numRows int, err error) {
+// ParseDelete - takes a list of tokens returns number of rows deleted from table, error
+func ParseDelete(trans *sqtables.Transaction, tkns *tokens.TokenList) (*sqtables.TableDef, sqtables.Expr, error) {
 	var tableName string
-	var td *sqtables.TableDef
+	var tab *sqtables.TableDef
 	var whereExpr sqtables.Expr
 	var tkn tokens.Token
-	log.Info("Delete statement...")
+	var err error
 
-	numRows = -1
+	log.Debug("Delete statement...")
 
 	//eat Delete token
-	tkns.Remove()
+	if !tkns.IsARemove(tokens.Delete) {
+		return nil, nil, sqerr.NewSyntax("Expecting DELETE")
+	}
 
 	// eat the From
-	if !tkns.IsA(tokens.From) {
+	if !tkns.IsARemove(tokens.From) {
 		// no FROM
-		err = sqerr.NewSyntax("Expecting FROM")
-		return
+		return nil, nil, sqerr.NewSyntax("Expecting FROM")
 	}
-	tkns.Remove()
 
 	//expecting Ident (tablename)
 	if tkn = tkns.TestTkn(tokens.Ident); tkn == nil {
-		err = sqerr.NewSyntax("Expecting table name in Delete statement")
-		return
+		return nil, nil, sqerr.NewSyntax("Expecting table name in Delete statement")
 	}
 	tableName = tkn.(*tokens.ValueToken).Value()
 	tkns.Remove()
 
 	// get the TableDef
-	td, err = sqtables.GetTable(profile, tableName)
+	tab, err = sqtables.GetTable(trans.Profile, tableName)
 	if err != nil {
-		return -1, err
+		return nil, nil, err
 	}
-	if td == nil {
-		err = sqerr.New("Table " + tableName + " does not exist for delete statement")
-		return
+	if tab == nil {
+		return nil, nil, sqerr.New("Table " + tableName + " does not exist for delete statement")
 	}
 
 	// Optional Where clause processing goes here
-	if tkns.IsA(tokens.Where) {
-		tkns.Remove()
+	if tkns.IsARemove(tokens.Where) {
 		whereExpr, err = ParseWhereClause(tkns, false, tokens.Order)
 
 		if err != nil {
-			return
+			return nil, nil, err
 		}
-		err = whereExpr.ValidateCols(profile, sqtables.NewTableListFromTableDef(profile, td))
+		err = whereExpr.ValidateCols(trans.Profile, sqtables.NewTableListFromTableDef(trans.Profile, tab))
 		if err != nil {
-			return
+			return nil, nil, err
 		}
 
 	}
 	if !tkns.IsEmpty() {
-		err = sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
-		return
+		return nil, nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
 	}
 
-	numRows, err = DeleteFromTable(profile, tableName, whereExpr)
-	return
+	return tab, whereExpr, nil
 }
 
-// DeleteFromTable -
-func DeleteFromTable(profile *sqprofile.SQProfile, tableName string, whereExpr sqtables.Expr) (numRows int, err error) {
+// ExecuteDelete -
+func ExecuteDelete(trans *sqtables.Transaction, tab *sqtables.TableDef, whereExpr sqtables.Expr) (numRows int, err error) {
 	var rowsDeleted sqptr.SQPtrs
 	numRows = -1
 
-	tab, err := sqtables.GetTable(profile, tableName)
-	if err != nil {
-		return 0, err
-	}
-	if tab == nil {
-		err = sqerr.New("Table " + tableName + " does not exist for Delete statement")
-		return
-	}
-	rowsDeleted, err = tab.DeleteRows(profile, whereExpr)
+	rowsDeleted, err = tab.DeleteRows(trans.Profile, whereExpr)
 	if err != nil {
 		return
 	}
-	err = redo.Send(redo.NewDeleteRows(tableName, rowsDeleted))
-	if err != nil {
-		log.Panic("Unable to send delete command to redo")
-	}
-
+	/*
+		err = redo.Send(redo.NewDeleteRows(tableName, rowsDeleted))
+		if err != nil {
+			log.Panic("Unable to send delete command to redo")
+		}
+	*/
 	return len(rowsDeleted), nil
 }

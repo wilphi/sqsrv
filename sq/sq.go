@@ -213,16 +213,17 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 
 			}
 		} else {
+			trans := sqtables.BeginTrans(profile, true)
 			dispFunc := GetDispatchFunc(*tkList)
 			if dispFunc != nil {
 				vtkn, ok := tkList.Peek().(*tokens.ValueToken)
 				if ok && vtkn.Value() == "checkpoint" {
 					wg.Add(1)
-					resp.Msg, data, err = dispFunc(profile, tkList)
+					resp.Msg, data, err = dispFunc(trans, tkList)
 					time.Sleep(10 * time.Second)
 					wg.Done()
 				} else {
-					resp.Msg, data, err = dispFunc(profile, tkList)
+					resp.Msg, data, err = dispFunc(trans, tkList)
 				}
 				if err != nil {
 					log.Infoln(err)
@@ -240,6 +241,17 @@ func processConnectionFunc(profile *sqprofile.SQProfile, srv *sqprotocol.SvrConf
 				resp.IsErr = true
 				resp.Msg = err.Error()
 
+			}
+
+			if resp.IsErr {
+				trans.Rollback()
+			} else {
+				err = trans.Commit()
+				if err != nil {
+					trans.Rollback()
+					resp.IsErr = true
+					resp.Msg = "Error Committing transaction: " + err.Error()
+				}
 			}
 		}
 
@@ -281,12 +293,18 @@ func ProcessSQFile(name string) error {
 	scanner := bufio.NewScanner(file)
 	//_ = scanner.Text()
 	for scanner.Scan() {
-
+		trans := sqtables.BeginTrans(profile, true)
 		line := scanner.Text()
 		tkns := tokens.Tokenize(line)
 		sqfunc := GetDispatchFunc(*tkns)
-		_, _, err = sqfunc(profile, tkns)
+		_, _, err = sqfunc(trans, tkns)
 		if err != nil {
+			trans.Rollback()
+			return err
+		}
+		err = trans.Commit()
+		if err != nil {
+			trans.Rollback()
 			return err
 		}
 	}

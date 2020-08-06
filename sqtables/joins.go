@@ -49,6 +49,16 @@ func (r *JoinRow) IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, 
 	return r.Vals[idx], nil
 }
 
+// IsDeleted will always return false for JoinRow
+func (r *JoinRow) IsDeleted(profile *sqprofile.SQProfile) bool {
+	return false
+}
+
+// GetVals returns all values in row
+func (r *JoinRow) GetVals(profile *sqprofile.SQProfile) []sqtypes.Value {
+	return r.Vals
+}
+
 ////////////////////////////////////
 
 // NullRow defines a row that always has values of null. used for outer joins
@@ -75,4 +85,15 @@ func (r *NullRow) ColVal(profile *sqprofile.SQProfile, c *column.Ref) (sqtypes.V
 func (r *NullRow) IdxVal(profile *sqprofile.SQProfile, idx int) (sqtypes.Value, error) {
 	return sqtypes.NewSQNull(), nil
 
+}
+
+// IsDeleted will always return false for NullRow
+func (r *NullRow) IsDeleted(profile *sqprofile.SQProfile) bool {
+	return false
+}
+
+// GetVals returns all values in row
+func (r *NullRow) GetVals(profile *sqprofile.SQProfile) []sqtypes.Value {
+	var ret []sqtypes.Value
+	return ret
 }

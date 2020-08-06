@@ -42,7 +42,8 @@ func testInsertIntoFunc(profile *sqprofile.SQProfile, d InsertIntoData) func(*te
 
 		}
 		tkns := tokens.Tokenize(d.Command)
-		_, _, err = cmd.InsertInto(profile, tkns)
+		trans := sqtables.BeginTrans(profile, true)
+		_, _, err = cmd.InsertInto(trans, tkns)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -81,139 +82,140 @@ func TestInsertInto(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
 	//make sure table exists for testing
 	tkns := tokens.Tokenize("CREATE TABLE instest (col1 int, col2 string, col3 bool, col4 float)")
-	tableName, err := cmd.CreateTableFromTokens(profile, tkns)
+	trans := sqtables.BeginTrans(profile, true)
+	tableName, _, err := cmd.CreateTable(trans, tkns)
 	if err != nil {
 		t.Errorf("Error setting up table for TestInsertInto: %s", err)
 		return
 	}
 
 	data := []InsertIntoData{
-		{
-			TestName: "Missing Insert",
-			Command:  "FROM",
-			ExpErr:   "Error: Expecting INSERT INTO to start the statement",
-		},
-		{
-			TestName: "INSERT ONLY",
-			Command:  "INSERT",
-			ExpErr:   "Error: Expecting INSERT INTO to start the statement",
-		},
-		{
-			TestName: "INSERT Missing tableName",
-			Command:  "INSERT INTO",
-			ExpErr:   "Syntax Error: Expecting name of table for insert",
-		},
-		{
-			TestName: "INSERT missing (",
-			Command:  "INSERT INTO instest",
-			ExpErr:   "Syntax Error: Expecting ( after name of table",
-		},
-		{
-			TestName: "INSERT missing column",
-			Command:  "INSERT INTO instest (",
-			ExpErr:   "Syntax Error: Expecting name of column",
-		},
-		{
-			TestName: "INSERT missing comma after col",
-			Command:  "INSERT INTO instest (col1",
-			ExpErr:   "Syntax Error: Comma is required to separate columns",
-		},
-		{
-			TestName: "INSERT missing second column",
-			Command:  "INSERT INTO instest (col1,",
-			ExpErr:   "Syntax Error: Expecting name of column",
-		},
-		{
-			TestName: "INSERT missing VALUES",
-			Command:  "INSERT INTO instest (col1,col2,col3)",
-			ExpErr:   "Syntax Error: Expecting keyword VALUES",
-		},
-		{
-			TestName: "INSERT missing ) before values",
-			Command:  "INSERT INTO instest (col1,col2,col3 VALUES",
-			ExpErr:   "Syntax Error: Comma is required to separate columns",
-		}, {
-			TestName: "INSERT missing ( after values",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES",
-			ExpErr:   "Syntax Error: Expecting ( after keyword VALUES",
-		},
-		{
-			TestName: "INSERT missing value for col1",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (",
-			ExpErr:   "Syntax Error: No values defined",
-		},
-		{
-			TestName: "INSERT missing comma after first value",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123",
-			ExpErr:   "Syntax Error: Comma is required to separate values",
-		},
-		{
-			TestName: "INSERT missing value for col2",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, ",
-			ExpErr:   "Syntax Error: Expecting a value",
-		},
-		{
-			TestName: "INSERT missing value for col3",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", ",
-			ExpErr:   "Syntax Error: Expecting a value",
-		},
-		{
-			TestName: "INSERT missing final )",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true",
-			ExpErr:   "Syntax Error: Comma is required to separate values",
-		},
-		{
-			TestName: "INSERT invalid after values section",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true) (",
-			ExpErr:   "Syntax Error: Unexpected tokens after the values section: (",
-		},
-		{
-			TestName: "INSERT missing ( for start of next value",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true), test",
-			ExpErr:   "Syntax Error: Expecting ( to start next row of VALUES",
-		},
-		{
-			TestName:  "INSERT three values",
-			Command:   "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true)",
-			ExpErr:    "",
-			ExpVals:   sqtypes.RawVals{{123, "With Cols Test", true, nil}},
-			TableName: tableName,
-		},
-		{
-			TestName: "Extra comma in Column list",
-			Command:  "INSERT INTO instest (col1,col2,col3,) VALUES (123, \"With Cols Test\", true)",
-			ExpErr:   "Syntax Error: Unexpected \",\" before \")\"",
-		},
-		{
-			TestName: "No Cols in Column list",
-			Command:  "INSERT INTO instest () VALUES (123, \"With Cols Test\", true)",
-			ExpErr:   "Syntax Error: No columns defined for table",
-		},
-		{
-			TestName: "Extra comma in value list",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true,)",
-			ExpErr:   "Syntax Error: Unexpected \",\" before \")\"",
-		},
-		{
-			TestName: "No Vals in Value list",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES ()",
-			ExpErr:   "Syntax Error: No values defined",
-		},
-		{
-			TestName: "Cols do not match Values",
-			Command:  "INSERT INTO instest (col1,col2) VALUES (123, \"With Cols Test\", true)",
-			ExpErr:   "Error: The Number of Columns (2) does not match the number of Values (3)",
-		},
-		{
-			TestName: "Values do not match Cols",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\")",
-			ExpErr:   "Error: The Number of Columns (3) does not match the number of Values (2)",
-		},
-		{
-			TestName: "Value Type does not match Col Type",
-			Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", 1234)",
-			ExpErr:   "Error: Type Mismatch: Column col3 in Table instest has a type of BOOL, Unable to set value of type INT",
-		},
+		/*		{
+					TestName: "Missing Insert",
+					Command:  "FROM",
+					ExpErr:   "Error: Expecting INSERT INTO to start the statement",
+				},
+				{
+					TestName: "INSERT ONLY",
+					Command:  "INSERT",
+					ExpErr:   "Error: Expecting INSERT INTO to start the statement",
+				},
+				{
+					TestName: "INSERT Missing tableName",
+					Command:  "INSERT INTO",
+					ExpErr:   "Syntax Error: Expecting name of table for insert",
+				},
+				{
+					TestName: "INSERT missing (",
+					Command:  "INSERT INTO instest",
+					ExpErr:   "Syntax Error: Expecting ( after name of table",
+				},
+				{
+					TestName: "INSERT missing column",
+					Command:  "INSERT INTO instest (",
+					ExpErr:   "Syntax Error: Expecting name of column",
+				},
+				{
+					TestName: "INSERT missing comma after col",
+					Command:  "INSERT INTO instest (col1",
+					ExpErr:   "Syntax Error: Comma is required to separate columns",
+				},
+				{
+					TestName: "INSERT missing second column",
+					Command:  "INSERT INTO instest (col1,",
+					ExpErr:   "Syntax Error: Expecting name of column",
+				},
+				{
+					TestName: "INSERT missing VALUES",
+					Command:  "INSERT INTO instest (col1,col2,col3)",
+					ExpErr:   "Syntax Error: Expecting keyword VALUES",
+				},
+				{
+					TestName: "INSERT missing ) before values",
+					Command:  "INSERT INTO instest (col1,col2,col3 VALUES",
+					ExpErr:   "Syntax Error: Comma is required to separate columns",
+				}, {
+					TestName: "INSERT missing ( after values",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES",
+					ExpErr:   "Syntax Error: Expecting ( after keyword VALUES",
+				},
+				{
+					TestName: "INSERT missing value for col1",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (",
+					ExpErr:   "Syntax Error: No values defined",
+				},
+				{
+					TestName: "INSERT missing comma after first value",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123",
+					ExpErr:   "Syntax Error: Comma is required to separate values",
+				},
+				{
+					TestName: "INSERT missing value for col2",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, ",
+					ExpErr:   "Syntax Error: Expecting a value",
+				},
+				{
+					TestName: "INSERT missing value for col3",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", ",
+					ExpErr:   "Syntax Error: Expecting a value",
+				},
+				{
+					TestName: "INSERT missing final )",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true",
+					ExpErr:   "Syntax Error: Comma is required to separate values",
+				},
+				{
+					TestName: "INSERT invalid after values section",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true) (",
+					ExpErr:   "Syntax Error: Unexpected tokens after the values section: (",
+				},
+				{
+					TestName: "INSERT missing ( for start of next value",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true), test",
+					ExpErr:   "Syntax Error: Expecting ( to start next row of VALUES",
+				},
+				{
+					TestName:  "INSERT three values",
+					Command:   "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true)",
+					ExpErr:    "",
+					ExpVals:   sqtypes.RawVals{{123, "With Cols Test", true, nil}},
+					TableName: tableName,
+				},
+				{
+					TestName: "Extra comma in Column list",
+					Command:  "INSERT INTO instest (col1,col2,col3,) VALUES (123, \"With Cols Test\", true)",
+					ExpErr:   "Syntax Error: Unexpected \",\" before \")\"",
+				},
+				{
+					TestName: "No Cols in Column list",
+					Command:  "INSERT INTO instest () VALUES (123, \"With Cols Test\", true)",
+					ExpErr:   "Syntax Error: No columns defined for table",
+				},
+				{
+					TestName: "Extra comma in value list",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", true,)",
+					ExpErr:   "Syntax Error: Unexpected \",\" before \")\"",
+				},
+				{
+					TestName: "No Vals in Value list",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES ()",
+					ExpErr:   "Syntax Error: No values defined",
+				},
+				{
+					TestName: "Cols do not match Values",
+					Command:  "INSERT INTO instest (col1,col2) VALUES (123, \"With Cols Test\", true)",
+					ExpErr:   "Error: The Number of Columns (2) does not match the number of Values (3)",
+				},
+				{
+					TestName: "Values do not match Cols",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\")",
+					ExpErr:   "Error: The Number of Columns (3) does not match the number of Values (2)",
+				},
+				{
+					TestName: "Value Type does not match Col Type",
+					Command:  "INSERT INTO instest (col1,col2,col3) VALUES (123, \"With Cols Test\", 1234)",
+					ExpErr:   "Error: Type Mismatch: Column col3 in Table instest has a type of BOOL, Unable to set value of type INT",
+				},*/
 		{
 			TestName: "Insert target table does not exist",
 			Command:  "INSERT INTO NotATable (col1,col2,col3) VALUES (123, \"With Cols Test\", true)",

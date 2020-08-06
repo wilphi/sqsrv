@@ -128,7 +128,8 @@ type InsertData struct {
 
 func TestInsert(t *testing.T) {
 	profile := sqprofile.CreateSQProfile()
-	_, err := cmd.CreateTableFromTokens(profile, tokens.Tokenize("Create table testInsertRedo (col1 int, col2 string)"))
+	trans := sqtables.BeginTrans(profile, true)
+	_, _, err := cmd.CreateTable(trans, tokens.Tokenize("Create table testInsertRedo (col1 int, col2 string)"))
 	if err != nil {
 		t.Errorf("Error setting up table for TestInsert: %s", err)
 	}
@@ -324,7 +325,8 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 
 		// Create table & data
 		profile := sqprofile.CreateSQProfile()
-		_, err := cmd.CreateTableFromTokens(profile, tokens.Tokenize("Create table testUpdateRedo (col1 int not null, col2 string)"))
+		trans := sqtables.BeginTrans(profile, true)
+		_, _, err := cmd.CreateTable(trans, tokens.Tokenize("Create table testUpdateRedo (col1 int not null, col2 string)"))
 		if err != nil {
 			t.Errorf("Error setting up table for TestUpdate: %s", err)
 			return
@@ -337,7 +339,9 @@ func testUpdateFunc(d UpdateData) func(*testing.T) {
 			"(4, \"test row 4\"), " +
 			"(5, \"test row 5\"), " +
 			"(6, \"test row 6\")"
-		_, _, err = cmd.InsertInto(profile, tokens.Tokenize(ins))
+
+		trans = sqtables.BeginTrans(profile, true)
+		_, _, err = cmd.InsertInto(trans, tokens.Tokenize(ins))
 		if err != nil {
 			t.Errorf("Error setting up table for TestUpdate: %s", err)
 			return
@@ -456,9 +460,16 @@ func TestDelete(t *testing.T) {
 		ds.Vals[i][0] = sqtypes.NewSQInt(i + 1)
 		ds.Vals[i][1] = sqtypes.NewSQString(fmt.Sprintf("Delete Test %d", i+1))
 	}
-	_, err = tab.AddRows(profile, ds)
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = tab.AddRows(trans, ds)
 	if err != nil {
 		t.Errorf("Error setting up table for TestDelete: %s", err)
+		trans.Rollback()
+		return
+	}
+	if err = trans.AutoComplete(); err != nil {
+		t.Errorf("Error setting up table for TestDelete: %s", err)
+		return
 	}
 
 	// Test Cases

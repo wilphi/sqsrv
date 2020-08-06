@@ -4,28 +4,26 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqerr"
-	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/tokens"
 )
 
 // DropTable drops a table from the database. All rows in the table are lost.
 //	  This function will always return a nil dataset
-func DropTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func DropTable(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	var tableName string
+
+	if !trans.Auto() {
+		return "", nil, sqerr.New("DDL statements cannot be executed within a transaction")
+	}
 
 	log.Debug("DROP TABLE command")
 
 	// Eat the DROP TABLE tokens if they are there
-	if tkns.IsA(tokens.Drop) {
-		tkns.Remove()
-	}
+	tkns.IsARemove(tokens.Drop)
 
-	if tkns.IsA(tokens.Table) {
-		tkns.Remove()
-	}
+	tkns.IsARemove(tokens.Table)
 
 	// make sure the next token is an Ident
 	if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
@@ -40,11 +38,11 @@ func DropTable(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (string, *s
 		return "", nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
 	}
 
-	err := sqtables.DropTable(profile, tableName)
+	err := sqtables.DropTable(trans.Profile, tableName)
 	if err != nil {
 		return "", nil, err
 	}
-	err = redo.Send(redo.NewDropDDL(tableName))
+	//	err = redo.Send(redo.NewDropDDL(tableName))
 
 	return tableName, nil, err
 }

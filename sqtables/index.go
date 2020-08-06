@@ -133,7 +133,7 @@ func NewSQIndex(profile *sqprofile.SQProfile, name string, tab *TableDef, cols *
 	defer tab.Unlock(profile)
 	// Get the initial data
 	for _, row := range tab.rowm {
-		if !row.isDeleted {
+		if !row.IsDeleted(profile) {
 			vals := []sqtypes.Value{}
 			for j, col := range idx.cols {
 				vals[j], err = row.ColVal(profile, &col)

@@ -33,7 +33,8 @@ func testSelectFunc(profile *sqprofile.SQProfile, d SelectData) func(*testing.T)
 		defer sqtest.PanicTestRecovery(t, "")
 
 		tkns := tokens.Tokenize(d.Command)
-		_, data, err := cmd.Select(profile, tkns)
+		trans := sqtables.BeginTrans(profile, true)
+		_, data, err := cmd.Select(trans, tkns)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}

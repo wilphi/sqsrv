@@ -87,12 +87,18 @@ func TestGetRowData(t *testing.T) {
 		{2, 7, "f test string", 100, false},
 		{3, 17, "zz test string", 700, true},
 	})
-	_, err = testT.AddRows(profile, dsData)
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = testT.AddRows(trans, dsData)
+	if err != nil {
+		t.Error("Error setting up table: ", err)
+		trans.Rollback()
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
 	}
-
 	// Delete a row to make sure that soft deleted rows do not cause a problem
 	where := sqtables.NewOpExpr(
 		sqtables.NewColExpr(
@@ -306,12 +312,19 @@ func TestGetRowPtrs(t *testing.T) {
 		{6, "Top", false},
 		{7, "ZZZ", false},
 	})
-	_, err = testT.AddRows(profile, dsData)
+	trans := sqtables.BeginTrans(profile, true)
+
+	_, err = testT.AddRows(trans, dsData)
+	if err != nil {
+		trans.Rollback()
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
 	}
-
 	// Delete a row to make sure that soft deleted rows do not cause a problem
 	where := sqtables.NewOpExpr(
 		sqtables.NewColExpr(
@@ -492,12 +505,18 @@ func TestMisc(t *testing.T) {
 		{6, "Top", false},
 		{7, "ZZZ", false},
 	})
-	_, err = tab.AddRows(profile, dsData)
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = tab.AddRows(trans, dsData)
+	if err != nil {
+		trans.Rollback()
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
 	}
-
 	// Delete a row to make sure that soft deleted rows do not cause a problem
 	where := sqtables.NewOpExpr(
 		sqtables.NewColExpr(
@@ -596,12 +615,18 @@ func testDeleteRowsFunc(tableName string, d *DeleteRowsData) func(*testing.T) {
 			{2, 7, "f test string", 100, false},
 			{3, 17, "A test string", 500, false},
 		})
-		_, err = tab.AddRows(profile, dsData)
+		trans := sqtables.BeginTrans(profile, true)
+		_, err = tab.AddRows(trans, dsData)
+		if err != nil {
+			trans.Rollback()
+			t.Error("Error setting up table: ", err)
+			return
+		}
+		err = trans.Commit()
 		if err != nil {
 			t.Error("Error setting up table: ", err)
 			return
 		}
-
 		// Delete a row to make sure that soft deleted rows do not cause a problem
 		where := sqtables.NewOpExpr(
 			sqtables.NewColExpr(
@@ -812,12 +837,18 @@ func TestGetRowDataFromPtrs(t *testing.T) {
 		{5, 5, "c test string", 10, true},
 		{6, 7, "e test string", 100, false},
 	})
-	_, err = tab.AddRows(profile, dsData)
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = tab.AddRows(trans, dsData)
+	if err != nil {
+		trans.Rollback()
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
 	}
-
 	//	col1Def := sqtables.NewColExpr(*testT.FindColDef(profile, "col1"))
 	testData := []GetRowDataFromPtrsData{
 		{
@@ -940,7 +971,14 @@ func TestUpdateRowsFromPtrs(t *testing.T) {
 		{5, 5, "c test string", 10, true},
 		{6, 7, "e test string", 100, false},
 	})
-	_, err = tab.AddRows(profile, dsData)
+	trans := sqtables.BeginTrans(profile, true)
+	_, err = tab.AddRows(trans, dsData)
+	if err != nil {
+		trans.Rollback()
+		t.Error("Error setting up table: ", err)
+		return
+	}
+	err = trans.Commit()
 	if err != nil {
 		t.Error("Error setting up table: ", err)
 		return
@@ -1036,7 +1074,9 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 			t.Errorf("Unexpected Error setting up DataSet for test %s: %s", t.Name(), err)
 		}
 		data.Vals = sqtypes.CreateValuesFromRaw(d.ExpData)
-		n, err := d.Tab.AddRows(profile, data)
+		trans := sqtables.BeginTrans(profile, true)
+		defer trans.Rollback()
+		n, err := d.Tab.AddRows(trans, data)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
 			return
 		}
@@ -1046,13 +1086,10 @@ func testAddRowsFunc(d *AddRowsData) func(*testing.T) {
 		}
 
 		if d.ExpData != nil {
-			q := sqtables.Query{
-				Tables: sqtables.NewTableListFromTableDef(profile, d.Tab),
-				EList:  sqtables.ColsToExpr(d.Tab.GetCols(profile)),
-			}
-			ds, err := q.GetRowData(profile)
+			tbl := trans.TData[d.Tab.GetName(profile)]
+			ds, err := tbl.TableRef(profile).GetRowData(profile, sqtables.ColsToExpr(tbl.GetCols(profile)), nil)
 			if err != nil {
-				t.Errorf("Error getting data for comparison: %s", err)
+				t.Errorf("Unexpected error retrieving transaction data - %s", err)
 				return
 			}
 			v := ds.Vals
