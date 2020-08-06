@@ -20,6 +20,18 @@ func NewDef(colName string, colType tokens.TokenID, isNotNull bool) Def {
 	return Def{ColName: colName, ColType: colType, Idx: -1, IsNotNull: isNotNull}
 }
 
+// Clone makes a deep copy of Def
+func (c *Def) Clone() Def {
+	var nDef Def
+
+	nDef.ColName = c.ColName
+	nDef.ColType = c.ColType
+	nDef.Idx = c.Idx
+	nDef.IsNotNull = c.IsNotNull
+	nDef.TableName = c.TableName
+	return nDef
+}
+
 // String returns a string representation of the Def
 func (c *Def) String() string {
 	var ntype string

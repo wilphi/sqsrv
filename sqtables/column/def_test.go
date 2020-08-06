@@ -125,5 +125,10 @@ func testDefFunc(d DefData) func(*testing.T) {
 			t.Error("column.Def encoded/decoded does not match original")
 		}
 
+		nextCd := cd.Clone()
+		if !reflect.DeepEqual(cd, nextCd) {
+			t.Error("column.Def.Clone() does not match original")
+		}
+
 	}
 }
