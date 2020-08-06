@@ -67,7 +67,7 @@ func (p *SQProfile) VerifyNoLocks() {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 	// sort the key list
-	keylist := make([]string, len(p.locks))
+	keylist := make([]string, 0, len(p.locks))
 	for k := range p.locks {
 		keylist = append(keylist, k)
 	}
