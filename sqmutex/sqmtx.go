@@ -20,6 +20,9 @@ type mtxmsg struct {
 	Type string
 }
 
+// DefaultTimeout sets the global timeout duration for locks
+var DefaultTimeout = 2 * time.Minute
+
 type mtxchan chan mtxmsg
 
 // SQMtx is a read/write mutex with timeout for the SQSRV database
@@ -211,6 +214,6 @@ func (m *SQMtx) SetTimeout(tOut time.Duration) {
 func NewSQMtx(name string) *SQMtx {
 	c := make(mtxchan, 1)
 	num := new(int64)
-	mtx := SQMtx{name: name, wName: name + "-WRITE", rName: name + "-READ", rlockNum: num, lockchan: c, timeout: 2 * time.Minute}
+	mtx := SQMtx{name: name, wName: name + "-WRITE", rName: name + "-READ", rlockNum: num, lockchan: c, timeout: DefaultTimeout}
 	return &mtx
 }
