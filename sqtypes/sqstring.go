@@ -139,3 +139,8 @@ func (s SQString) Convert(newtype tokens.TokenID) (retVal Value, err error) {
 func NewSQString(s string) Value {
 	return SQString{s}
 }
+
+// Clone creates a deep copy of the Value
+func (s SQString) Clone() Value {
+	return NewSQString(s.Val)
+}

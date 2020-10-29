@@ -139,3 +139,8 @@ func NewSQBool(b bool) Value {
 func (b SQBool) Bool() bool {
 	return b.Val
 }
+
+// Clone creates a deep copy of the Value
+func (b SQBool) Clone() Value {
+	return NewSQBool(b.Val)
+}

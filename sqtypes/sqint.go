@@ -139,3 +139,8 @@ func NewSQInt(i int) Value {
 func (i SQInt) Negate() Value {
 	return NewSQInt(-i.Val)
 }
+
+// Clone creates a deep copy of the Value
+func (i SQInt) Clone() Value {
+	return NewSQInt(i.Val)
+}

@@ -73,3 +73,8 @@ func NewSQNull() Value {
 func (n SQNull) Negate() Value {
 	return NewSQNull()
 }
+
+// Clone creates a deep copy of the Value
+func (n SQNull) Clone() Value {
+	return NewSQNull()
+}

@@ -138,3 +138,8 @@ func NewSQFloat(fp float64) Value {
 func (fp SQFloat) Negate() Value {
 	return NewSQFloat(-fp.Val)
 }
+
+// Clone creates a deep copy of the Value
+func (fp SQFloat) Clone() Value {
+	return NewSQFloat(fp.Val)
+}

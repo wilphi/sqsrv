@@ -102,6 +102,20 @@ func testEqual(a, b sqtypes.Value, expect bool) func(*testing.T) {
 	}
 }
 
+func testClone(a sqtypes.Value) func(*testing.T) {
+	return func(t *testing.T) {
+		defer sqtest.PanicTestRecovery(t, "")
+
+		b := a.Clone()
+		if a.IsNull() && b.IsNull() {
+			return
+		}
+		if !a.Equal(b) {
+			t.Errorf("The Clone values: %s, %s were expected to be equal but are not", a.String(), b.String())
+		}
+	}
+}
+
 func testLessThan(a, b sqtypes.Value, expect bool) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
@@ -241,6 +255,8 @@ func TestSQInt(t *testing.T) {
 	t.Run("Write/Read", testWriteRead(a))
 	t.Run("Negate", testNegate(a, negA, ""))
 	t.Run("-Negate", testNegate(negA, a, ""))
+	t.Run("Clone Test", testClone(a))
+
 	data := []OperationData{
 		{name: "int+int", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQInt(1268), ExpErr: ""},
 		{name: "int-int", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: ""},
@@ -292,6 +308,7 @@ func TestSQString(t *testing.T) {
 	t.Run("IsNull", testisNull(a, false))
 	t.Run("Write/Read", testWriteRead(a))
 	t.Run("Negate", testNegate(a, a, "sqtypes.SQString is not Negatable"))
+	t.Run("Clone Test", testClone(a))
 	data := []OperationData{
 		{name: "str+str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Plus, ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: ""},
 		{name: "str-str", a: a, b: sqtypes.NewSQString(" !!!"), op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid String Operator -"},
@@ -346,6 +363,7 @@ func TestSQBool(t *testing.T) {
 	t.Run("Val=true", testBoolVal(a, true))
 	t.Run("Val=false", testBoolVal(b, false))
 	t.Run("Negate", testNegate(a, a, "sqtypes.SQBool is not Negatable"))
+	t.Run("Clone Test", testClone(a))
 	data := []OperationData{
 		{name: "bool+bool", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQString("new test string !!!"), ExpErr: "Syntax Error: Invalid Bool Operator +"},
 		{name: "bool-bool", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQInt(1200), ExpErr: "Syntax Error: Invalid Bool Operator -"},
@@ -394,6 +412,7 @@ func TestSQNull(t *testing.T) {
 	t.Run("Write/Read", testWriteRead(a))
 	t.Run("Operation", testOperation(OperationData{name: "Operation", a: a, b: notEqualA, op: tokens.Plus, ExpVal: v, ExpErr: ""}))
 	t.Run("Negate", testNegate(a, a, ""))
+	t.Run("Clone Test", testClone(a))
 
 }
 
@@ -422,6 +441,7 @@ func TestSQFloat(t *testing.T) {
 	t.Run("Write/Read", testWriteRead(a))
 	t.Run("Negate", testNegate(a, negA, ""))
 	t.Run("-Negate", testNegate(negA, a, ""))
+	t.Run("Clone Test", testClone(a))
 	data := []OperationData{
 		{name: "float+float", a: a, b: b, op: tokens.Plus, ExpVal: sqtypes.NewSQFloat(1240.8876), ExpErr: ""},
 		{name: "float-float", a: a, b: b, op: tokens.Minus, ExpVal: sqtypes.NewSQFloat(1229.0875999999998), ExpErr: ""},
@@ -777,17 +797,18 @@ func testRawValue(d RawValueData) func(*testing.T) {
 func TestCreateValuesFromRaw(t *testing.T) {
 	defer sqtest.PanicTestRecovery(t, "")
 
-	vals := sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+	vals := sqtypes.RawVals{
 		{1, "test1", false, 1.01},
 		{2, "test2", true, 2.02},
 		{3, "test3", false, 3.03},
-	})
+	}.ValueMatrix()
 
-	expVals := [][]sqtypes.Value{
+	expVals := sqtypes.ValueMatrix{
 		{sqtypes.NewSQInt(1), sqtypes.NewSQString("test1"), sqtypes.NewSQBool(false), sqtypes.NewSQFloat(1.01)},
 		{sqtypes.NewSQInt(2), sqtypes.NewSQString("test2"), sqtypes.NewSQBool(true), sqtypes.NewSQFloat(2.02)},
 		{sqtypes.NewSQInt(3), sqtypes.NewSQString("test3"), sqtypes.NewSQBool(false), sqtypes.NewSQFloat(3.03)},
 	}
+
 	if !reflect.DeepEqual(vals, expVals) {
 		t.Error("Actual Values do not match expected values")
 		return
@@ -801,6 +822,7 @@ type Compare2DData struct {
 	DoSort       bool
 	ExpRet       string
 	SkipRawTest  bool
+	CloneA       bool
 }
 
 func TestCompare2DValues(t *testing.T) {
@@ -823,6 +845,19 @@ func TestCompare2DValues(t *testing.T) {
 			NameB:  "Expected",
 			DoSort: false,
 			ExpRet: "",
+		},
+		{
+			TestName: "Clone arrays",
+			A: sqtypes.RawVals{
+				{1, 2, 3, 4},
+				{2, 3, 4, 5},
+				{3, 4, 5, 6},
+			},
+			NameA:  "Actual",
+			NameB:  "Clone",
+			DoSort: false,
+			ExpRet: "",
+			CloneA: true,
 		},
 		{
 			TestName: "Extra Row",
@@ -922,9 +957,13 @@ func TestCompare2DValues(t *testing.T) {
 func testCompare2DFunc(d Compare2DData) func(t *testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
-
-		a := sqtypes.CreateValuesFromRaw(d.A)
-		b := sqtypes.CreateValuesFromRaw(d.B)
+		var b sqtypes.ValueMatrix
+		a := d.A.ValueMatrix()
+		if d.CloneA {
+			b = a.Clone()
+		} else {
+			b = d.B.ValueMatrix()
+		}
 		ret := sqtypes.Compare2DValue(a, b, d.NameA, d.NameB, d.DoSort)
 
 		if ret != d.ExpRet {
@@ -932,10 +971,12 @@ func testCompare2DFunc(d Compare2DData) func(t *testing.T) {
 			return
 		}
 
-		ret = sqtypes.Compare2DRaw(d.A, d.B, d.NameA, d.NameB)
-		if ret != d.ExpRet && !d.SkipRawTest {
-			t.Errorf("Actual Raw %q does not equal Expected Raw %q", ret, d.ExpRet)
-			return
+		if !d.CloneA {
+			ret = sqtypes.Compare2DRaw(d.A, d.B, d.NameA, d.NameB)
+			if ret != d.ExpRet && !d.SkipRawTest {
+				t.Errorf("Actual Raw %q does not equal Expected Raw %q", ret, d.ExpRet)
+				return
+			}
 		}
 
 	}
