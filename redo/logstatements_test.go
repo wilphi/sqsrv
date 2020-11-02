@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/wilphi/sqsrv/assertions"
 	"github.com/wilphi/sqsrv/cmd"
 	"github.com/wilphi/sqsrv/redo"
 	"github.com/wilphi/sqsrv/sqprofile"
@@ -460,17 +461,9 @@ func TestDelete(t *testing.T) {
 		ds.Vals[i][0] = sqtypes.NewSQInt(i + 1)
 		ds.Vals[i][1] = sqtypes.NewSQString(fmt.Sprintf("Delete Test %d", i+1))
 	}
-	trans := sqtables.BeginTrans(profile, true)
-	_, err = tab.AddRows(trans, ds)
-	if err != nil {
-		t.Errorf("Error setting up table for TestDelete: %s", err)
-		trans.Rollback()
-		return
-	}
-	if err = trans.AutoComplete(); err != nil {
-		t.Errorf("Error setting up table for TestDelete: %s", err)
-		return
-	}
+
+	_, err = tab.AddRows(sqtables.BeginTrans(profile, true), ds)
+	assertions.AssertNoErr(err, "Error setting up table for TestDelete")
 
 	// Test Cases
 	data := []DeleteData{

@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/wilphi/sqsrv/assertions"
 	"github.com/wilphi/sqsrv/cmd"
+	"github.com/wilphi/sqsrv/sqmutex"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqtables"
 	"github.com/wilphi/sqsrv/sqtest"
@@ -14,6 +17,7 @@ import (
 )
 
 func init() {
+	sqmutex.DefaultTimeout = time.Second
 	sqtest.TestInit("cmd_test.log")
 }
 
@@ -33,42 +37,20 @@ func testDeleteFunc(profile *sqprofile.SQProfile, d DeleteData) func(*testing.T)
 		//Reset Data
 		if d.Data != nil {
 			tab, err := sqtables.GetTable(profile, d.TableName)
-			if err != nil {
-				t.Error(err)
-				return
-			}
+			assertions.AssertNoErr(err, "Unable to get table")
 
 			ptrs, err := tab.GetRowPtrs(profile, nil, false)
-			if err != nil {
-				t.Errorf("Reset Data Error in test: %s", err.Error())
-				return
-			}
-			err = tab.DeleteRowsFromPtrs(profile, ptrs, sqtables.HardDelete)
-			if err != nil {
-				t.Errorf("Reset Data Error in test: %s", err.Error())
-				return
-			}
-			trans := sqtables.BeginTrans(profile, true)
-			_, err = tab.AddRows(trans, d.Data)
-			if err != nil {
-				trans.Rollback()
-				t.Errorf("Reset Data Error in test: %s", err.Error())
-				return
-			}
-			if err = trans.AutoComplete(); err != nil {
-				t.Errorf("Reset Data Error in test: %s", err.Error())
-				return
-			}
+			assertions.AssertNoErr(err, "Reset Data Error in test")
+
+			err = tab.HardDeleteRowsFromPtrs(profile, ptrs)
+			assertions.AssertNoErr(err, "Reset Data Error in test")
+
+			_, err = tab.AddRows(sqtables.BeginTrans(profile, true), d.Data)
+			assertions.AssertNoErr(err, "Reset Data Error in test")
 		}
 		tkns := tokens.Tokenize(d.Command)
-		trans := sqtables.BeginTrans(profile, true)
-		_, data, err := cmd.Delete(trans, tkns)
+		_, data, err := cmd.Delete(sqtables.BeginTrans(profile, true), tkns)
 		if sqtest.CheckErr(t, err, d.ExpErr) {
-			trans.Rollback()
-			return
-		}
-		if err = trans.AutoComplete(); err != nil {
-			t.Errorf("AutoComplete Error in test: %s", err.Error())
 			return
 		}
 
@@ -106,20 +88,14 @@ func TestDelete(t *testing.T) {
 
 	//make sure table exists for testing
 	tkns := tokens.Tokenize("CREATE TABLE deltest (col1 int, col2 string, col3 bool)")
-	trans := sqtables.BeginTrans(profile, true)
-	_, _, err := cmd.CreateTable(trans, tkns)
-	if err != nil {
-		t.Errorf("Error setting up table for TestDelete: %s", err)
-		return
-	}
+
+	_, _, err := cmd.CreateTable(sqtables.BeginTrans(profile, true), tkns)
+	assertions.AssertNoErr(err, "Error setting up table for TestDelete")
 
 	// Test to see what happens with empty table
 	tkns = tokens.Tokenize("CREATE TABLE delEmpty (col1 int, col2 string, col3 bool)")
-	_, _, err = cmd.CreateTable(trans, tkns)
-	if err != nil {
-		t.Errorf("Error setting up table for TestDelete: %s", err)
-		return
-	}
+	_, _, err = cmd.CreateTable(sqtables.BeginTrans(profile, true), tkns)
+	assertions.AssertNoErr(err, "Error setting up table for TestDelete")
 
 	testData := "INSERT INTO deltest (col1, col2, col3) VALUES " +
 		fmt.Sprintf("(%d, %q, %t),", 123, "With Cols Test", true) +
@@ -130,24 +106,18 @@ func TestDelete(t *testing.T) {
 		fmt.Sprintf("(%d, %q, %t)", 654, "Seltest 6", true)
 
 	tkns = tokens.Tokenize(testData)
-	if _, _, err := cmd.InsertInto(trans, tkns); err != nil {
-		t.Fatalf("Unexpected Error setting up test: %s", err.Error())
-	}
+	_, _, err = cmd.InsertInto(sqtables.BeginTrans(profile, true), tkns)
+	assertions.AssertNoErr(err, "Unexpected Error setting up test")
 
 	tab, err := sqtables.GetTable(profile, "deltest")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assertions.AssertNoErr(err, "Unable to find table")
+
 	q := sqtables.Query{
 		Tables: sqtables.NewTableListFromTableDef(profile, tab),
 		EList:  sqtables.ColsToExpr(tab.GetCols(profile)),
 	}
 	ds, err := q.GetRowData(profile)
-	if err != nil {
-		t.Errorf("Error setting up table for TestDelete: %s", err)
-		return
-	}
+	assertions.AssertNoErr(err, "Error setting up table for TestDelete: %s")
 
 	data := []DeleteData{
 		{

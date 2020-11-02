@@ -1,6 +1,7 @@
 package sqtables
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
@@ -9,14 +10,29 @@ import (
 //TableMap is a map of tabledef
 type TableMap map[string]*TableDef
 
-//Transaction holds all of the information about the current transaction
-type Transaction struct {
-	Profile *sqprofile.SQProfile
-	//Data    map[string]TransData
-	TData  TableMap
-	auto   bool
-	WLocks TableMap
-	RLocks TableMap
+//STransaction holds all of the information about the current transaction
+type STransaction struct {
+	profile  *sqprofile.SQProfile
+	TData    TableMap
+	auto     bool
+	WLocks   TableMap
+	RLocks   TableMap
+	complete bool
+}
+
+// Transaction is the interface for transactions
+type Transaction interface {
+	Auto() bool
+	Commit() error
+	TestCommit() error
+	Rollback()
+	CommitIfAuto() error
+	RollbackIfAuto()
+	AddRow(tab *TableDef, row RowInterface) error
+	Delete(tab *TableDef, row RowInterface) error
+	UpdateRow(tab *TableDef, row RowInterface) error
+	AddLock(tab *TableDef) error
+	Profile() *sqprofile.SQProfile
 }
 
 //TransData stores rows that have changed durring a transaction
@@ -25,29 +41,40 @@ type TransData map[sqptr.SQPtr]RowInterface
 ////////////////////////////////////
 
 // BeginTrans starts a transaction
-func BeginTrans(profile *sqprofile.SQProfile, auto bool) *Transaction {
-	//trans := Transaction{Profile: profile, Data: make(map[string]TransData), WLocks: make(TableMap), RLocks: make(TableMap)}
-	trans := Transaction{Profile: profile, TData: make(TableMap), WLocks: make(TableMap), RLocks: make(TableMap), auto: auto}
+func BeginTrans(profile *sqprofile.SQProfile, auto bool) Transaction {
+	trans := STransaction{profile: profile, TData: make(TableMap), WLocks: make(TableMap), RLocks: make(TableMap), auto: auto}
+
 	return &trans
 }
 
+// Profile returns the profile in use for the transaction
+func (t *STransaction) Profile() *sqprofile.SQProfile {
+	return t.profile
+}
+
 // Auto returns true if this is an automatic transaction (ie not started by a BEGIN statment)
-func (t *Transaction) Auto() bool {
+func (t *STransaction) Auto() bool {
 	return t.auto
 }
 
 // Commit Transaction
-func (t *Transaction) Commit() error {
+func (t *STransaction) Commit() error {
+	if t.complete {
+		if !t.auto {
+			return sqerr.NewInternal("Transaction is already complete")
+		}
+		return nil
+	}
 	for tname, transTab := range t.TData {
-		tab, err := GetTable(t.Profile, tname)
+		tab, err := GetTable(t.profile, tname)
 		if err != nil {
 			return err
 		}
 		// commit rows
 		for ptr, row := range transTab.rowm {
-			if _, ok := tab.rowm[ptr]; ok {
-				return sqerr.NewInternalf("Duplicate row on commit in table %s - ptr: %d", tab.GetName(t.Profile), int(ptr))
-			}
+			//			if _, ok := tab.rowm[ptr]; ok {
+			//				return sqerr.NewInternalf("Duplicate row on commit in table %s - ptr: %d", tab.GetName(t.profile), int(ptr))
+			//			}
 			rw := row.(*RowDef)
 			rw.Table = tab
 			tab.rowm[ptr] = rw
@@ -55,56 +82,115 @@ func (t *Transaction) Commit() error {
 	}
 	t.TData = nil
 	t.releaseAllLocks()
+	t.complete = true
 	return nil
 }
 
 // TestCommit Transaction
-func (t *Transaction) TestCommit() error {
+func (t *STransaction) TestCommit() error {
 
 	return sqerr.New("TestCommit not implemented")
 }
 
 // Rollback Transaction
-func (t *Transaction) Rollback() {
+func (t *STransaction) Rollback() {
+	if t.complete {
+		if !t.auto {
+			log.Panic("Double Rollback")
+		}
+		return
+	}
 	// Dump Data
 	t.TData = nil
 
 	// Release Locks
 	t.releaseAllLocks()
+	t.complete = true
 }
 
-// AutoComplete transaction
-func (t *Transaction) AutoComplete() error {
-	if !t.auto {
-		return nil
-	}
-
-	err := t.Commit()
-	if err != nil {
-		t.Rollback()
-		return err
+// CommitIfAuto will commit the transaction if it is an automatic transaction
+func (t *STransaction) CommitIfAuto() error {
+	if t.Auto() {
+		return t.Commit()
 	}
 	return nil
 }
 
+// RollbackIfAuto will rollback the transaction if it is an automatic transaction
+func (t *STransaction) RollbackIfAuto() {
+	if t.Auto() {
+		t.Rollback()
+	}
+}
+
 // AddRow to transaction
-func (t *Transaction) AddRow(tab *TableDef, row RowInterface) error {
-	tableName := tab.GetName(t.Profile)
+func (t *STransaction) AddRow(tab *TableDef, row RowInterface) error {
+	if t.complete {
+		return sqerr.NewInternal("Transaction is already complete")
+	}
+
+	tableName := tab.GetName(t.profile)
 	transTab, ok := t.TData[tableName]
 	if !ok {
-		//t.Data[tableName] = make(map[sqptr.SQPtr]RowInterface)
-		transTab = CreateTmpTableDef(t.Profile, tab)
+		transTab = CreateTmpTableDef(t.profile, tab)
 		t.TData[tableName] = transTab
 	}
 	rw := row.(*RowDef)
 	rw.Table = transTab
-	t.TData[tableName].rowm[row.GetPtr(t.Profile)] = rw
+	t.TData[tableName].rowm[row.GetPtr(t.profile)] = rw
+	return nil
+}
+
+// Delete soft deletes a row from the given table in a transaction
+func (t *STransaction) Delete(tab *TableDef, row RowInterface) error {
+	if t.complete {
+		return sqerr.NewInternal("Transaction is already complete")
+	}
+
+	tableName := tab.GetName(t.profile)
+	transTab, ok := t.TData[tableName]
+	if !ok {
+		//t.Data[tableName] = make(map[sqptr.SQPtr]RowInterface)
+		transTab = CreateTmpTableDef(t.profile, tab)
+		t.TData[tableName] = transTab
+	}
+	ptr := row.GetPtr(t.profile)
+	rw, ok := transTab.rowm[ptr]
+	if !ok {
+		rw = row
+	}
+	rowD := rw.(*RowDef)
+	rowD.Table = transTab
+	rowD.Delete(t.profile)
+	t.TData[tableName].rowm[ptr] = rowD
+	return nil
+}
+
+// UpdateRow to transaction
+func (t *STransaction) UpdateRow(tab *TableDef, row RowInterface) error {
+	if t.complete {
+		return sqerr.NewInternal("Transaction is already complete")
+	}
+
+	tableName := tab.GetName(t.profile)
+	transTab, ok := t.TData[tableName]
+	if !ok {
+		transTab = CreateTmpTableDef(t.profile, tab)
+		t.TData[tableName] = transTab
+	}
+	rw := row.(*RowDef)
+	rw.Table = transTab
+	t.TData[tableName].rowm[row.GetPtr(t.profile)] = rw
 	return nil
 }
 
 // AddLock adds a Write lock to the given table
-func (t *Transaction) AddLock(tab *TableDef) error {
-	err := tab.Lock(t.Profile)
+func (t *STransaction) AddLock(tab *TableDef) error {
+	if t.complete {
+		return sqerr.NewInternal("Transaction is already complete")
+	}
+
+	err := tab.Lock(t.profile)
 	if err != nil {
 		return err
 	}
@@ -114,8 +200,8 @@ func (t *Transaction) AddLock(tab *TableDef) error {
 
 /*
 // AddRLock adds a Read lock to the given table
-func (t *Transaction) AddRLock(tab *TableDef) error {
-	err := tab.RLock(t.Profile)
+func (t *STransaction) AddRLock(tab *TableDef) error {
+	err := tab.RLock(t.profile)
 	if err != nil {
 		return err
 	}
@@ -125,24 +211,24 @@ func (t *Transaction) AddRLock(tab *TableDef) error {
 */
 
 // releaseAllLocks unlocks all locks for the transaction
-func (t *Transaction) releaseAllLocks() {
+func (t *STransaction) releaseAllLocks() {
 
 	/*
 		for tableName, tab := range t.RLocks {
-			n := t.Profile.CheckLock("Table: " + tableName + "-READ")
+			n := t.profile.CheckLock("Table: " + tableName + "-READ")
 			for i := 0; i < n; i++ {
-				tab.RUnlock(t.Profile)
+				tab.RUnlock(t.profile)
 			}
 
 		}
 	*/
 
 	for tableName, tab := range t.WLocks {
-		n := t.Profile.CheckLock("Table: " + tableName + "-WRITE")
+		n := t.profile.CheckLock("Table: " + tableName + "-WRITE")
 		for i := 0; i < n; i++ {
-			tab.Unlock(t.Profile)
+			tab.Unlock(t.profile)
 		}
 
 	}
-	t.Profile.VerifyNoLocks()
+	t.profile.VerifyNoLocks()
 }

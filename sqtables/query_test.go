@@ -2,7 +2,6 @@ package sqtables_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -627,9 +626,9 @@ func testQueryGetRowDataFunc(d QueryGetRowData) func(*testing.T) {
 			if err != nil {
 				log.Panic(err)
 			}
-			expVals = sqtypes.CreateValuesFromRaw(expRaw)
+			expVals = expRaw.ValueMatrix()
 		} else {
-			expVals = sqtypes.CreateValuesFromRaw(d.ExpVals)
+			expVals = d.ExpVals.ValueMatrix()
 		}
 
 		msg := sqtypes.Compare2DValue(data.Vals, expVals, "Actual", "Expect", true)
@@ -646,9 +645,9 @@ func testQueryGetRowDataFunc(d QueryGetRowData) func(*testing.T) {
 type GroupByData struct {
 	TestName      string
 	Query         *sqtables.Query
-	InitVals      [][]sqtypes.Value
+	InitVals      sqtypes.RawVals
 	Order         []sqtables.OrderItem
-	ExpVals       [][]sqtypes.Value
+	ExpVals       sqtypes.RawVals
 	NewDataSetErr string
 	ExpErr        string
 	SortOrderErr  string
@@ -673,7 +672,7 @@ func testGroupByFunc(d GroupByData) func(*testing.T) {
 			return
 		}
 
-		data.Vals = d.InitVals
+		data.Vals = d.InitVals.ValueMatrix()
 
 		if d.Query.GroupBy != nil || d.Query.EList.HasAggregateFunc() {
 			err = d.Query.ProcessGroupBy(profile, data)
@@ -696,10 +695,10 @@ func testGroupByFunc(d GroupByData) func(*testing.T) {
 			}
 
 		}
-		if !reflect.DeepEqual(data.Vals, d.ExpVals) {
+		if str := sqtypes.CompareValueMatrix(data.Vals, d.ExpVals.ValueMatrix(), "Actual", "Expected", false); str != "" {
 			//fmt.Println("  Actual Values:", data.Vals)
 			//fmt.Println("Expected Values:", d.ExpVals)
-			t.Error("The actual values after the Group By did not match expected values")
+			t.Error(str)
 			return
 		}
 
@@ -760,7 +759,7 @@ func TestGroupBy(t *testing.T) {
 				Tables: tables,
 				EList:  sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
 				{"betty", nil},
@@ -771,14 +770,14 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil},
 				{"betty", nil},
 				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", 2},
 				{"betty", 2},
 				{"fred", 3},
 				{"whilma", 1},
 				{nil, 2},
-			}),
+			},
 			NewDataSetErr: "Syntax Error: Select Statements with Aggregate functions (count, sum, min, max, avg) must not have other expressions",
 		},
 		{
@@ -788,7 +787,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 				GroupBy: sqtables.ColsToExpr(column.NewListRefs([]column.Ref{firstnameCD.Ref()})),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
 				{"betty", nil},
@@ -799,14 +798,14 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil},
 				{"betty", nil},
 				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", 2},
 				{"betty", 2},
 				{"fred", 3},
 				{"whilma", 1},
 				{nil, 2},
-			}),
+			},
 			ExpErr: "",
 		},
 		{
@@ -816,7 +815,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 				GroupBy: sqtables.NewExprList(firstNameExp, lastNameExp),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", "flintstone", nil},
 				{nil, nil, nil},
 				{"betty", "rubble", nil},
@@ -827,15 +826,15 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil, nil},
 				{"betty", "rubble", nil},
 				{"fred", "mercury", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", "rubble", 2},
 				{"betty", "rubble", 2},
 				{"fred", "flintstone", 2},
 				{"fred", "mercury", 1},
 				{"whilma", "flintstone", 1},
 				{nil, nil, 2},
-			}),
+			},
 			ExpErr: "",
 		},
 		{
@@ -845,7 +844,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 				GroupBy: sqtables.NewExprList(firstNameExp),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
 				{"betty", nil},
@@ -856,14 +855,14 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil},
 				{"betty", nil},
 				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", 2},
 				{"betty", 2},
 				{"fred", 3},
 				{"whilma", 1},
 				{nil, 2},
-			}),
+			},
 			NewDataSetErr: "Syntax Error: lastname is not in the group by clause: firstname",
 		},
 		{
@@ -873,7 +872,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(firstNameExp, lastNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 				GroupBy: sqtables.NewExprList(firstNameExp),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
 				{"betty", nil},
@@ -884,14 +883,14 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil},
 				{"betty", nil},
 				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", 2},
 				{"betty", 2},
 				{"fred", 3},
 				{"whilma", 1},
 				{nil, 2},
-			}),
+			},
 			NewDataSetErr: "Syntax Error: lastname is not in the group by clause: firstname",
 		},
 		{
@@ -901,7 +900,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Int, lastNameExp), sqtables.NewFuncExpr(tokens.Count, nil)),
 				GroupBy: nil,
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
 				{"betty", nil},
@@ -912,7 +911,7 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil},
 				{"betty", nil},
 				{"fred", nil},
-			}),
+			},
 			NewDataSetErr: "Syntax Error: INT(lastname) is not an aggregate function",
 		},
 		{
@@ -922,7 +921,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(sqtables.NewFuncExpr(tokens.Count, nil)),
 				GroupBy: nil,
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred"},
 				{nil},
 				{"betty"},
@@ -933,10 +932,10 @@ func TestGroupBy(t *testing.T) {
 				{nil},
 				{"betty"},
 				{"fred"},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{10},
-			}),
+			},
 			NewDataSetErr: "",
 		},
 		{
@@ -960,7 +959,7 @@ func TestGroupBy(t *testing.T) {
 				),
 				GroupBy: nil,
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", 10, 10, 10, 10},
 				{nil, nil, nil, nil, nil},
 				{"betty", 20, 20, 20, 20},
@@ -971,10 +970,10 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil, nil, nil, nil},
 				{"betty", 21, 21, 21, 21},
 				{"fred", 75, 75, 75, 75},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{10, 178, 5, 75, 22.25},
-			}),
+			},
 			NewDataSetErr: "",
 		},
 		{
@@ -999,19 +998,19 @@ func TestGroupBy(t *testing.T) {
 				),
 				GroupBy: sqtables.NewExprList(cityNameExp),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"Toronto", nil, 25, 25, 25, 25},
 				{"Ottawa", nil, 75, 75, 75, 75},
 				{"Barrie", nil, 16, 16, 16, 16},
 				{"Toronto", nil, 3, 3, 3, 3},
 				{"Ottawa", nil, 28, 28, 28, 28},
 				{"Toronto", nil, 31, 31, 31, 31},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"Barrie", 1, 16, 16, 16, 16.0},
 				{"Ottawa", 2, 103, 28, 75, 51.5},
 				{"Toronto", 3, 59, 3, 31, 19.666666666666668},
-			}),
+			},
 			NewDataSetErr: "",
 		},
 		{
@@ -1021,7 +1020,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 				GroupBy: sqtables.ColsToExpr(column.NewListRefs([]column.Ref{cityNameCD})),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
 				{"betty", nil},
@@ -1032,14 +1031,14 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil},
 				{"betty", nil},
 				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", 2},
 				{"betty", 2},
 				{"fred", 3},
 				{"whilma", 1},
 				{nil, 2},
-			}),
+			},
 			NewDataSetErr: "Error: Table testgroupbycity not found in table list",
 		},
 		{
@@ -1049,7 +1048,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.Count, nil)),
 				GroupBy: sqtables.ColsToExpr(column.NewListDefs([]column.Def{firstnameCD, lastnameCD})),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
 				{"betty", nil},
@@ -1060,14 +1059,14 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil},
 				{"betty", nil},
 				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", 2},
 				{"betty", 2},
 				{"fred", 3},
 				{"whilma", 1},
 				{nil, 2},
-			}),
+			},
 			NewDataSetErr: "Syntax Error: lastname is not in the expression list: firstname,COUNT()",
 		},
 		{
@@ -1077,7 +1076,7 @@ func TestGroupBy(t *testing.T) {
 				EList:   sqtables.NewExprList(firstNameExp, sqtables.NewFuncExpr(tokens.String, ageExp)),
 				GroupBy: sqtables.ColsToExpr(column.NewListDefs([]column.Def{firstnameCD})),
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", nil},
 				{nil, nil},
 				{"betty", nil},
@@ -1088,14 +1087,14 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil},
 				{"betty", nil},
 				{"fred", nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", 2},
 				{"betty", 2},
 				{"fred", 3},
 				{"whilma", 1},
 				{nil, 2},
-			}),
+			},
 			NewDataSetErr: "Syntax Error: STRING(age) is not an aggregate function",
 		},
 		{
@@ -1106,7 +1105,7 @@ func TestGroupBy(t *testing.T) {
 				GroupBy:    sqtables.NewExprList(firstNameExp, lastNameExp),
 				HavingExpr: &having1,
 			},
-			InitVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			InitVals: sqtypes.RawVals{
 				{"fred", "flintstone", nil, nil},
 				{nil, nil, nil, nil},
 				{"betty", "rubble", nil, nil},
@@ -1117,13 +1116,13 @@ func TestGroupBy(t *testing.T) {
 				{nil, nil, nil, nil},
 				{"betty", "rubble", nil, nil},
 				{"fred", "mercury", nil, nil},
-			}),
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			},
+			ExpVals: sqtypes.RawVals{
 				{"barney", "rubble", 2},
 				{"betty", "rubble", 2},
 				{"fred", "flintstone", 2},
 				{nil, nil, 2},
-			}),
+			},
 			ExpErr: "",
 		},
 	}

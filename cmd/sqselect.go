@@ -13,15 +13,14 @@ import (
 )
 
 // Select command with function prototype as required for dispatching
-func Select(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func Select(trans sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 
-	profile := trans.Profile
-	q, err := SelectParse(profile, tkns)
+	q, err := SelectParse(trans.Profile(), tkns)
 	if err != nil {
 		return "", nil, err
 	}
 
-	data, err := SelectExecute(profile, q)
+	data, err := SelectExecute(trans.Profile(), q)
 	if err != nil {
 		return "", nil, err
 	}

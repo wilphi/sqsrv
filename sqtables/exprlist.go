@@ -121,7 +121,7 @@ func (el *ExprList) FindName(name string) int {
 }
 
 // ValidateCols takes a column list and checks all potential columns against that list
-func (el *ExprList) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+func (el *ExprList) ValidateCols(profile *sqprofile.SQProfile, tables TableList) error {
 	// If the Expression list is already valid then dont validate again
 	if el.isValid {
 		return nil

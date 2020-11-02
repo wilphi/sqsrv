@@ -19,7 +19,7 @@ type UpdateStmt struct {
 }
 
 // Update implements the SQL command UPDATE
-func Update(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func Update(trans sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	stmt, err := parseUpdate(trans, tkns)
 	if err != nil {
 		return "", nil, err
@@ -28,7 +28,7 @@ func Update(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtab
 	return msg, nil, err
 }
 
-func parseUpdate(trans *sqtables.Transaction, tkns *tokens.TokenList) (*UpdateStmt, error) {
+func parseUpdate(trans sqtables.Transaction, tkns *tokens.TokenList) (*UpdateStmt, error) {
 	var err error
 	var stmt UpdateStmt
 
@@ -47,7 +47,7 @@ func parseUpdate(trans *sqtables.Transaction, tkns *tokens.TokenList) (*UpdateSt
 	stmt.TableName = tkn.(*tokens.ValueToken).Value()
 
 	tkns.Remove()
-	stmt.Table, err = sqtables.GetTable(trans.Profile, stmt.TableName)
+	stmt.Table, err = sqtables.GetTable(trans.Profile(), stmt.TableName)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func parseUpdate(trans *sqtables.Transaction, tkns *tokens.TokenList) (*UpdateSt
 		// Identifier first
 		if tkn := tkns.TestTkn(tokens.Ident); tkn != nil {
 			colName := tkn.(*tokens.ValueToken).Value()
-			cd := stmt.Table.FindColDef(trans.Profile, colName)
+			cd := stmt.Table.FindColDef(trans.Profile(), colName)
 			if cd == nil {
 				return nil, sqerr.NewSyntaxf("Invalid Column name: %s does not exist in Table %s", colName, stmt.TableName)
 			}
@@ -115,7 +115,7 @@ func parseUpdate(trans *sqtables.Transaction, tkns *tokens.TokenList) (*UpdateSt
 		if err != nil {
 			return nil, err
 		}
-		err = stmt.WhereExpr.ValidateCols(trans.Profile, sqtables.NewTableListFromTableDef(trans.Profile, stmt.Table))
+		err = stmt.WhereExpr.ValidateCols(trans.Profile(), sqtables.NewTableListFromTableDef(trans.Profile(), stmt.Table))
 		if err != nil {
 			return nil, err
 		}
@@ -128,29 +128,13 @@ func parseUpdate(trans *sqtables.Transaction, tkns *tokens.TokenList) (*UpdateSt
 	return &stmt, nil
 }
 
-func executeUpdate(trans *sqtables.Transaction, stmt *UpdateStmt) (string, error) {
-	err := stmt.SetExprs.ValidateCols(trans.Profile, sqtables.NewTableListFromTableDef(trans.Profile, stmt.Table))
+func executeUpdate(trans sqtables.Transaction, stmt *UpdateStmt) (string, error) {
+	err := stmt.SetExprs.ValidateCols(trans.Profile(), sqtables.NewTableListFromTableDef(trans.Profile(), stmt.Table))
 	if err != nil {
 		return "", err
 	}
-	// get the data
-	err = stmt.Table.Lock(trans.Profile)
-	if err != nil {
-		return "", err
-	}
-
-	defer stmt.Table.Unlock(trans.Profile)
-	ptrs, err := stmt.Table.GetRowPtrs(trans.Profile, stmt.WhereExpr, false)
-	if err != nil {
-		return "", err
-	}
-
-	//Update the rows
-	err = stmt.Table.UpdateRowsFromPtrs(trans.Profile, ptrs, stmt.SetCols, &stmt.SetExprs)
-	if err != nil {
-		return "", err
-	}
+	l, err := stmt.Table.UpdateRows(trans, stmt.WhereExpr, stmt.SetCols, &stmt.SetExprs)
 	//err = redo.Send(redo.NewUpdateRows(tableName, setCols, &setExprs, ptrs))
 
-	return fmt.Sprintf("Updated %d rows from table", len(ptrs)), err
+	return fmt.Sprintf("Updated %d rows from table", l), err
 }

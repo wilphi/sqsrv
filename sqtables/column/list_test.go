@@ -54,7 +54,7 @@ type ColListValidateData struct {
 	ColNames []string
 	ExpErr   string
 	profile  *sqprofile.SQProfile
-	tables   *sqtables.TableList
+	tables   sqtables.TableList
 }
 
 func TestColListValidate(t *testing.T) {

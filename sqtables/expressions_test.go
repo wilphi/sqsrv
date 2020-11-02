@@ -413,7 +413,7 @@ type EvalData struct {
 	e          sqtables.Expr
 	Partial    bool
 	profile    *sqprofile.SQProfile
-	Tables     *sqtables.TableList
+	Tables     sqtables.TableList
 	rows       []sqtables.RowInterface
 	ExpVal     sqtypes.Value
 	ExpErr     string
@@ -616,6 +616,21 @@ func TestEvaluateExpr(t *testing.T) {
 			ExpVal:     nil,
 			ExpErr:     "",
 			Partial:    true,
+			NoValidate: true,
+		},
+		{
+			TestName: "OpExpr col1+col2 Not partial",
+			e: sqtables.NewOpExpr(
+				sqtables.NewColExpr(column.Ref{ColName: "col1", ColType: tokens.Int, Idx: 0, TableName: moniker.New("valueexprtest", "")}),
+				tokens.Plus,
+				sqtables.NewFuncExpr(tokens.Count, nil),
+			),
+			profile:    profile,
+			Tables:     tables,
+			rows:       rows,
+			ExpVal:     sqtypes.NewSQNull(),
+			ExpErr:     "",
+			Partial:    false,
 			NoValidate: true,
 		},
 		{
@@ -843,6 +858,24 @@ func TestEvaluateExpr(t *testing.T) {
 			ExpVal:   sqtypes.NewSQNull(),
 			ExpErr:   "",
 		},
+		{
+			TestName: "Sum no arg Expr",
+			e:        sqtables.NewFuncExpr(tokens.Sum, nil),
+			profile:  profile,
+			Tables:   tables,
+			rows:     rows,
+			ExpVal:   sqtypes.NewSQNull(),
+			ExpErr:   "Error: SUM does not have an argument to evaluate",
+		},
+		{
+			TestName: "Sum  Expr",
+			e:        sqtables.NewFuncExpr(tokens.Sum, sqtables.NewValueExpr(sqtypes.NewSQInt(1))),
+			profile:  profile,
+			Tables:   tables,
+			rows:     rows,
+			ExpVal:   sqtypes.NewSQInt(1),
+			ExpErr:   "",
+		},
 	}
 	for i, row := range data {
 		t.Run(fmt.Sprintf("%d: %s", i, row.TestName),
@@ -1049,7 +1082,7 @@ type ValidateData struct {
 	TestName string
 	e        sqtables.Expr
 	profile  *sqprofile.SQProfile
-	Tables   *sqtables.TableList
+	Tables   sqtables.TableList
 	ExpErr   string
 }
 
@@ -1074,7 +1107,7 @@ func TestValidateCols(t *testing.T) {
 		t.Error("Error setting up table: ", err)
 		return
 	}
-	dsData.Vals = sqtypes.CreateValuesFromRaw(sqtypes.RawVals{{1, "test1"}, {2, "test2"}})
+	dsData.Vals = sqtypes.RawVals{{1, "test1"}, {2, "test2"}}.ValueMatrix()
 
 	trans := sqtables.BeginTrans(profile, true)
 	_, err = tab.AddRows(trans, dsData)
@@ -1088,6 +1121,8 @@ func TestValidateCols(t *testing.T) {
 		t.Error("Error setting up table: ", err)
 		return
 	}
+	colDS := column.NewRef("colds", tokens.Int, false)
+	colDS.TableName = sqtables.DataSetMoniker
 
 	data := []ValidateData{
 		{
@@ -1107,6 +1142,13 @@ func TestValidateCols(t *testing.T) {
 		{
 			TestName: "Col Expr",
 			e:        sqtables.NewColExpr(column.NewRef("col1", tokens.NilToken, false)),
+			profile:  profile,
+			Tables:   tables,
+			ExpErr:   "",
+		},
+		{
+			TestName: "Col Expr DataSet",
+			e:        sqtables.NewColExpr(colDS),
 			profile:  profile,
 			Tables:   tables,
 			ExpErr:   "",

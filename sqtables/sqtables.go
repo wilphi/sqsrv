@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/wilphi/sqsrv/assertions"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqmutex"
 	"github.com/wilphi/sqsrv/sqprofile"
@@ -124,7 +125,7 @@ func (t *TableDef) GetName(profile *sqprofile.SQProfile) string {
 	return t.tableName
 }
 
-// RowCount -
+// RowCount - returns the number of rows - softdeleted rows
 func (t *TableDef) RowCount(profile *sqprofile.SQProfile) (int, error) {
 	cnt := 0
 	err := t.RLock(profile)
@@ -142,6 +143,16 @@ func (t *TableDef) RowCount(profile *sqprofile.SQProfile) (int, error) {
 		}
 	}
 	return cnt, nil
+}
+
+//RawCount - returns the total number of rows including the soft deleted rows
+func (t *TableDef) RawCount(profile *sqprofile.SQProfile) (int, error) {
+	err := t.RLock(profile)
+	if err != nil {
+		return -1, err
+	}
+	defer t.RUnlock(profile)
+	return len(t.rowm), nil
 }
 
 // TableRef returns a table reference to the table def
@@ -169,7 +180,7 @@ func (t *TableDef) String(profile *sqprofile.SQProfile) string {
 }
 
 // AddRows - add one or more rows to table
-func (t *TableDef) AddRows(trans *Transaction, data *DataSet) (int, error) {
+func (t *TableDef) AddRows(trans Transaction, data *DataSet) (int, error) {
 
 	// Create all of the rows before locking and adding them to the table
 	newRows := make([]*RowDef, data.Len())
@@ -177,8 +188,9 @@ func (t *TableDef) AddRows(trans *Transaction, data *DataSet) (int, error) {
 
 	for cnt, val := range data.Vals {
 		rowID := atomic.AddUint64(t.nextRowID, 1)
-		row, err := CreateRow(trans.Profile, sqptr.SQPtr(rowID), t, data.GetColNames(), val)
+		row, err := CreateRow(trans.Profile(), sqptr.SQPtr(rowID), t, data.GetColNames(), val)
 		if err != nil {
+			trans.RollbackIfAuto()
 			return -1, err
 		}
 		newRows[cnt] = row
@@ -186,6 +198,7 @@ func (t *TableDef) AddRows(trans *Transaction, data *DataSet) (int, error) {
 
 	err := trans.AddLock(t)
 	if err != nil {
+		trans.RollbackIfAuto()
 		return -1, err
 	}
 	for i, r := range newRows {
@@ -194,47 +207,65 @@ func (t *TableDef) AddRows(trans *Transaction, data *DataSet) (int, error) {
 		data.Ptrs[i] = r.RowPtr
 	}
 
-	return len(newRows), nil
+	return len(newRows), trans.CommitIfAuto()
 }
 
 // DeleteRows - Delete rows based on where expression
-func (t *TableDef) DeleteRows(profile *sqprofile.SQProfile, whereExpr Expr) (ptrs sqptr.SQPtrs, err error) {
+func (t *TableDef) DeleteRows(trans Transaction, whereExpr Expr) (ptrs sqptr.SQPtrs, err error) {
 
-	err = t.Lock(profile)
+	err = trans.AddLock(t)
 	if err != nil {
 		return
 	}
-	defer t.Unlock(profile)
 
-	ptrs, err = t.GetRowPtrs(profile, whereExpr, false)
+	ptrs, err = t.GetRowPtrs(trans.Profile(), whereExpr, false)
 
 	// If no errors then delete
 	if err != nil {
+		trans.RollbackIfAuto()
 		return
 	}
 
-	return ptrs, t.DeleteRowsFromPtrs(profile, ptrs, SoftDelete)
+	return ptrs, t.DeleteRowsFromPtrs(trans, ptrs)
 }
 
 //DeleteRowsFromPtrs deletes rows from a table based on the given list of pointers
-func (t *TableDef) DeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs, soft bool) error {
+func (t *TableDef) DeleteRowsFromPtrs(trans Transaction, ptrs sqptr.SQPtrs) error {
+	err := trans.AddLock(t)
+	if err != nil {
+		trans.RollbackIfAuto()
+		return err
+	}
+	//defer t.Unlock(profile)
+	for _, idx := range ptrs {
+		rw, ok := t.rowm[idx]
+		if !ok {
+			trans.RollbackIfAuto()
+			return sqerr.NewInternalf("Row Ptr %d does not exist", idx)
+		}
+		err = trans.Delete(t, rw)
+		if err != nil {
+			trans.RollbackIfAuto()
+			return err
+		}
+	}
+	return trans.CommitIfAuto()
+}
+
+//HardDeleteRowsFromPtrs deletes rows from a table based on the given list of pointers
+func (t *TableDef) HardDeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs) error {
 	err := t.Lock(profile)
 	if err != nil {
 		return err
 	}
 	defer t.Unlock(profile)
+
 	for _, idx := range ptrs {
-		if soft == SoftDelete {
-			rw := t.rowm[idx]
-			row, ok := rw.(*RowDef)
-			if !ok {
-				return sqerr.NewInternalf("Rows of type %T can not be soft deleted", rw)
-			}
-			row.Delete(profile)
-			t.rowm[idx] = row
-		} else {
-			delete(t.rowm, idx)
+		_, ok := t.rowm[idx]
+		if !ok {
+			return sqerr.NewInternalf("Row Ptr %d does not exist", idx)
 		}
+		delete(t.rowm, idx)
 	}
 	return nil
 }
@@ -352,35 +383,63 @@ func (t *TableDef) GetRowPtrs(profile *sqprofile.SQProfile, exp Expr, sorted boo
 	return ptrs, nil
 }
 
+//UpdateRows updates rows in the table based on the given expression, columns to be changed and values to be set
+func (t *TableDef) UpdateRows(trans Transaction, exp Expr, cols []string, eList *ExprList) (int, error) {
+	// get the data
+	err := trans.AddLock(t)
+	if err != nil {
+		return -1, err
+	}
+
+	ptrs, err := t.GetRowPtrs(trans.Profile(), exp, false)
+	if err != nil {
+		trans.RollbackIfAuto()
+		return 1, err
+	}
+
+	//Update the rows
+	err = t.UpdateRowsFromPtrs(trans, ptrs, cols, eList)
+	if err != nil {
+		trans.RollbackIfAuto()
+		return -1, err
+	}
+	return len(ptrs), nil
+}
+
 //UpdateRowsFromPtrs updates rows in the table based on the given list of pointers, columns to be changed and values to be set
-func (t *TableDef) UpdateRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqptr.SQPtrs, cols []string, eList *ExprList) error {
-	err := eList.ValidateCols(profile, NewTableListFromTableDef(profile, t))
+func (t *TableDef) UpdateRowsFromPtrs(trans Transaction, ptrs sqptr.SQPtrs, cols []string, eList *ExprList) error {
+	err := eList.ValidateCols(trans.Profile(), NewTableListFromTableDef(trans.Profile(), t))
 	if err != nil {
 		return err
 	}
 
-	err = t.Lock(profile)
+	err = trans.AddLock(t)
 	if err != nil {
 		return err
 	}
-	defer t.Unlock(profile)
+
 	for _, idx := range ptrs {
 		rw, ok := t.rowm[idx]
 		if rw == nil || !ok {
+			trans.RollbackIfAuto()
 			return sqerr.NewInternalf("Row %d does not exist for update", idx)
 		}
 		row := rw.(*RowDef)
-		vals, err := eList.Evaluate(profile, EvalFull, row)
+		row = row.Clone()
+		vals, err := eList.Evaluate(trans.Profile(), EvalFull, row)
 		if err != nil {
+			trans.RollbackIfAuto()
 			return err
 		}
-		err = row.UpdateRow(profile, cols, vals)
+		err = row.UpdateRow(trans.Profile(), cols, vals)
 		if err != nil {
+			trans.RollbackIfAuto()
 			return err
 		}
+		err = trans.UpdateRow(t, row)
 
 	}
-	return nil
+	return trans.CommitIfAuto()
 }
 
 // GetRow -
@@ -422,14 +481,13 @@ func (tr *TableRef) GetRowData(profile *sqprofile.SQProfile, eList *ExprList, wh
 
 	for i, ptr := range ptrs {
 		// make sure the ptr points to the correct row
-		if tr.Table.rowm[ptr].GetPtr(profile) != ptr {
-			log.Panic("rowPtr does not match Map index")
-		}
+		assertions.Assert(tr.Table.rowm[ptr].GetPtr(profile) == ptr, "rowPtr does not match Map index")
 
 		ret.Vals[i], err = eList.Evaluate(profile, EvalFull, tr.Table.rowm[ptr])
 		if err != nil {
 			return nil, err
 		}
+
 	}
 	return ret, nil
 

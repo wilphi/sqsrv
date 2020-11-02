@@ -12,7 +12,7 @@ import (
 )
 
 // Delete -
-func Delete(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func Delete(trans sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	tab, whereExpr, err := ParseDelete(trans, tkns)
 	if err != nil {
 		return "", nil, err
@@ -22,7 +22,7 @@ func Delete(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtab
 }
 
 // ParseDelete - takes a list of tokens returns number of rows deleted from table, error
-func ParseDelete(trans *sqtables.Transaction, tkns *tokens.TokenList) (*sqtables.TableDef, sqtables.Expr, error) {
+func ParseDelete(trans sqtables.Transaction, tkns *tokens.TokenList) (*sqtables.TableDef, sqtables.Expr, error) {
 	var tableName string
 	var tab *sqtables.TableDef
 	var whereExpr sqtables.Expr
@@ -50,7 +50,7 @@ func ParseDelete(trans *sqtables.Transaction, tkns *tokens.TokenList) (*sqtables
 	tkns.Remove()
 
 	// get the TableDef
-	tab, err = sqtables.GetTable(trans.Profile, tableName)
+	tab, err = sqtables.GetTable(trans.Profile(), tableName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -65,7 +65,7 @@ func ParseDelete(trans *sqtables.Transaction, tkns *tokens.TokenList) (*sqtables
 		if err != nil {
 			return nil, nil, err
 		}
-		err = whereExpr.ValidateCols(trans.Profile, sqtables.NewTableListFromTableDef(trans.Profile, tab))
+		err = whereExpr.ValidateCols(trans.Profile(), sqtables.NewTableListFromTableDef(trans.Profile(), tab))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -79,11 +79,11 @@ func ParseDelete(trans *sqtables.Transaction, tkns *tokens.TokenList) (*sqtables
 }
 
 // ExecuteDelete -
-func ExecuteDelete(trans *sqtables.Transaction, tab *sqtables.TableDef, whereExpr sqtables.Expr) (numRows int, err error) {
+func ExecuteDelete(trans sqtables.Transaction, tab *sqtables.TableDef, whereExpr sqtables.Expr) (numRows int, err error) {
 	var rowsDeleted sqptr.SQPtrs
 	numRows = -1
 
-	rowsDeleted, err = tab.DeleteRows(trans.Profile, whereExpr)
+	rowsDeleted, err = tab.DeleteRows(trans, whereExpr)
 	if err != nil {
 		return
 	}

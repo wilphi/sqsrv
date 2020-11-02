@@ -18,7 +18,7 @@ import (
 
 // Query has all of the information required for a query
 type Query struct {
-	Tables     *TableList
+	Tables     TableList
 	EList      *ExprList
 	IsDistinct bool
 	WhereExpr  Expr
@@ -123,7 +123,7 @@ func (q *Query) GetRowData(profile *sqprofile.SQProfile) (*DataSet, error) {
 		}
 	}
 
-	for _, tabInfo := range q.Tables.tables {
+	for _, tabInfo := range q.Tables {
 		log.Debugf("Filtering table %s", tabInfo.Name)
 
 		// get the cols in the virtual Where

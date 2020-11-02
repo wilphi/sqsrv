@@ -20,7 +20,7 @@ func init() {
 
 type AddTableData struct {
 	TestName  string
-	TL        *sqtables.TableList
+	TL        sqtables.TableList
 	TableName string
 	Alias     string
 	Table     *sqtables.TableDef
@@ -312,7 +312,7 @@ func TestFindColDef(t *testing.T) {
 
 type FindColDefData struct {
 	TestName   string
-	TL         *sqtables.TableList
+	TL         sqtables.TableList
 	ColName    string
 	TableAlias string
 	ExpCol     *column.Def

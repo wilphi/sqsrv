@@ -11,7 +11,7 @@ import (
 
 // DropTable drops a table from the database. All rows in the table are lost.
 //	  This function will always return a nil dataset
-func DropTable(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func DropTable(trans sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 	var tableName string
 
 	if !trans.Auto() {
@@ -38,7 +38,7 @@ func DropTable(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sq
 		return "", nil, sqerr.NewSyntax("Unexpected tokens after SQL command:" + tkns.String())
 	}
 
-	err := sqtables.DropTable(trans.Profile, tableName)
+	err := sqtables.DropTable(trans.Profile(), tableName)
 	if err != nil {
 		return "", nil, err
 	}

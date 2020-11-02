@@ -19,7 +19,7 @@ func init() {
 }
 
 func testNewDataSetFunc(
-	tables *sqtables.TableList,
+	tables sqtables.TableList,
 	eList *sqtables.ExprList, groupBy *column.List, ExpErr string,
 ) func(*testing.T) {
 	return func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestDataSet(t *testing.T) {
 		return
 	}
 
-	vals := sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+	vals := sqtypes.RawVals{
 		{"ttt", 1},
 		{"ttt", 9},
 		{"aaa", 6},
@@ -75,8 +75,8 @@ func TestDataSet(t *testing.T) {
 		{"qab", 2},
 		{"qxc", 8},
 		{"nnn", 1},
-	})
-	valsWithNull := sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+	}.ValueMatrix()
+	valsWithNull := sqtypes.RawVals{
 		{nil, 11},
 		{"ttt", 1},
 		{"ttt", 9},
@@ -88,12 +88,12 @@ func TestDataSet(t *testing.T) {
 		{"qxc", 8},
 		{"nnn", 1},
 		{nil, 10},
-	})
-	allNullVals := sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+	}.ValueMatrix()
+	allNullVals := sqtypes.RawVals{
 		{nil, nil},
 		{nil, nil},
 		{nil, 10},
-	})
+	}.ValueMatrix()
 	//colStr := []string{"col2", "col1"}
 	colStrErr := []string{"col2", "col1", "colX"}
 
@@ -140,7 +140,7 @@ func TestDataSet(t *testing.T) {
 			return
 		}
 
-		if tables != data.GetTables() {
+		if !tables.Equal(data.GetTables()) {
 			t.Error("Tables do not match")
 		}
 	})
@@ -184,7 +184,7 @@ func TestDataSet(t *testing.T) {
 			DataCols:     exprCols,
 			InitVals:     vals,
 			Order:        sqtables.SortOrder{{ColName: "colX", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
-			ExpVals:      [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
+			ExpVals:      sqtypes.ValueMatrix{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
 			SortOrderErr: "Error: Column colX not found in dataset",
 		},
 		{
@@ -193,7 +193,7 @@ func TestDataSet(t *testing.T) {
 			DataCols:     exprCols,
 			InitVals:     vals,
 			Order:        sqtables.SortOrder{{ColName: "colX", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
-			ExpVals:      [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
+			ExpVals:      sqtypes.ValueMatrix{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
 			SortOrderErr: "Error: Column colX not found in dataset",
 		},
 		{
@@ -204,17 +204,17 @@ func TestDataSet(t *testing.T) {
 			Order:    sqtables.SortOrder{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
 			SONames:  []string{"col2", "col1"},
 			SOString: "(col2, col1)",
-			ExpVals:  [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
+			ExpVals:  sqtypes.ValueMatrix{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7},
 		},
 		{
 			TestName: "Sort Empty Dataset",
 			Tables:   tables,
 			DataCols: exprCols,
-			InitVals: [][]sqtypes.Value{},
+			InitVals: sqtypes.ValueMatrix{},
 			Order:    sqtables.SortOrder{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
 			SONames:  []string{"col2", "col1"},
 			SOString: "(col2, col1)",
-			ExpVals:  [][]sqtypes.Value{},
+			ExpVals:  sqtypes.ValueMatrix{},
 		},
 		{
 			TestName: "Sort Dataset desc",
@@ -224,7 +224,7 @@ func TestDataSet(t *testing.T) {
 			Order:    sqtables.SortOrder{{ColName: "col2", SortType: tokens.Desc}, {ColName: "col1", SortType: tokens.Desc}},
 			SONames:  []string{"col2", "col1"},
 			SOString: "(col2 DESC, col1 DESC)",
-			ExpVals:  [][]sqtypes.Value{rw7, rw6, rw5, rw4, rw3, rw2, rw1, rw1},
+			ExpVals:  sqtypes.ValueMatrix{rw7, rw6, rw5, rw4, rw3, rw2, rw1, rw1},
 		},
 		{
 			TestName: "Sort Dataset desc/asc",
@@ -234,7 +234,7 @@ func TestDataSet(t *testing.T) {
 			Order:    sqtables.SortOrder{{ColName: "col2", SortType: tokens.Desc}, {ColName: "col1", SortType: tokens.Asc}},
 			SONames:  []string{"col2", "col1"},
 			SOString: "(col2 DESC, col1)",
-			ExpVals:  [][]sqtypes.Value{rw6, rw7, rw5, rw4, rw3, rw2, rw1, rw1},
+			ExpVals:  sqtypes.ValueMatrix{rw6, rw7, rw5, rw4, rw3, rw2, rw1, rw1},
 		},
 		{
 			TestName: "Sort Dataset no order",
@@ -242,7 +242,7 @@ func TestDataSet(t *testing.T) {
 			DataCols: exprCols,
 			InitVals: vals,
 			Order:    nil,
-			ExpVals:  [][]sqtypes.Value{rw6, rw7, rw5, rw4, rw3, rw2, rw1, rw1},
+			ExpVals:  sqtypes.ValueMatrix{rw6, rw7, rw5, rw4, rw3, rw2, rw1, rw1},
 			SortErr:  "Error: Sort Order has not been set for DataSet",
 		},
 		{
@@ -251,7 +251,7 @@ func TestDataSet(t *testing.T) {
 			DataCols: exprCols,
 			InitVals: vals,
 			Order:    nil,
-			ExpVals:  [][]sqtypes.Value{rw1, rw2, rw3, rw4, rw5, rw6, rw7},
+			ExpVals:  sqtypes.ValueMatrix{rw1, rw2, rw3, rw4, rw5, rw6, rw7},
 			Distinct: true,
 		},
 		{
@@ -262,7 +262,7 @@ func TestDataSet(t *testing.T) {
 			SONames:  []string{"col2", "col1"},
 			Order:    sqtables.SortOrder{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
 			SOString: "(col2, col1)",
-			ExpVals:  [][]sqtypes.Value{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7, rwNil10, rwNil11, rwNil12},
+			ExpVals:  sqtypes.ValueMatrix{rw1, rw1, rw2, rw3, rw4, rw5, rw6, rw7, rwNil10, rwNil11, rwNil12},
 		},
 		{
 			TestName: "Sort Dataset with all nulls",
@@ -272,7 +272,7 @@ func TestDataSet(t *testing.T) {
 			SONames:  []string{"col2", "col1"},
 			Order:    sqtables.SortOrder{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Asc}},
 			SOString: "(col2, col1)",
-			ExpVals:  [][]sqtypes.Value{rwNil10, rwANill, rwANill},
+			ExpVals:  sqtypes.ValueMatrix{rwNil10, rwANill, rwANill},
 		},
 		{
 			TestName: "Sort Dataset with nulls DESC",
@@ -282,9 +282,18 @@ func TestDataSet(t *testing.T) {
 			Order:    sqtables.SortOrder{{ColName: "col2", SortType: tokens.Asc}, {ColName: "col1", SortType: tokens.Desc}},
 			SONames:  []string{"col2", "col1"},
 			SOString: "(col2, col1 DESC)",
-			ExpVals: sqtypes.CreateValuesFromRaw(sqtypes.RawVals{
+			ExpVals: sqtypes.RawVals{
 				{"aaa", 6}, {"aaa", 6}, {"nnn", 1}, {"qab", 2}, {"qqq", 4}, {"qxc", 8}, {"ttt", 9}, {"ttt", 1}, {nil, 12}, {nil, 11}, {nil, 10},
-			}),
+			}.ValueMatrix(),
+		},
+		{
+			TestName: "Sort Dataset with Distinct & Nulls",
+			Tables:   tables,
+			DataCols: exprCols,
+			InitVals: valsWithNull,
+			Order:    nil,
+			ExpVals:  sqtypes.ValueMatrix{rw1, rw2, rw3, rw4, rw5, rw6, rw7, rwNil10, rwNil11, rwNil12},
+			Distinct: true,
 		},
 	}
 
@@ -298,13 +307,13 @@ func TestDataSet(t *testing.T) {
 
 type SortData struct {
 	TestName     string
-	Tables       *sqtables.TableList
+	Tables       sqtables.TableList
 	DataCols     *sqtables.ExprList
-	InitVals     [][]sqtypes.Value
+	InitVals     sqtypes.ValueMatrix
 	Order        sqtables.SortOrder
 	SONames      []string
 	SOString     string
-	ExpVals      [][]sqtypes.Value
+	ExpVals      sqtypes.ValueMatrix
 	SortOrderErr string
 	SortErr      string
 	Distinct     bool
@@ -321,7 +330,7 @@ func testSortFunc(d SortData) func(*testing.T) {
 			return
 		}
 
-		data.Vals = d.InitVals
+		data.Vals = d.InitVals.Clone()
 
 		if d.Distinct {
 			data.Distinct()
@@ -343,19 +352,19 @@ func testSortFunc(d SortData) func(*testing.T) {
 			msg := sqtypes.Compare2DValue(data.Vals, d.ExpVals, "Actual", "Expect", false)
 			if msg != "" {
 				t.Error(msg)
-				//fmt.Println(data.Vals)
-				//fmt.Println(d.ExpVals)
+				fmt.Println(data.Vals)
+				fmt.Println(d.ExpVals)
 				return
 			}
 		}
 
+		if d.Order.String() != d.SOString {
+			t.Errorf("SortOrder.String does not match expected: %s", d.Order.String())
+			return
+		}
 		if d.Order != nil {
 			if !reflect.DeepEqual(d.Order.Names(), d.SONames) {
 				t.Errorf("SortOrder names dont match expected for Names() %s:", d.Order.Names())
-				return
-			}
-			if d.Order.String() != d.SOString {
-				t.Errorf("SortOrder.String does not match expected: %s", d.Order.String())
 				return
 			}
 		}

@@ -232,7 +232,7 @@ func (u *UpdateRows) Recreate(profile *sqprofile.SQProfile) error {
 		return sqerr.New("Table " + u.TableName + " does not exist")
 	}
 
-	return tab.UpdateRowsFromPtrs(profile, u.RowPtrs, u.Cols, u.EList)
+	return tab.UpdateRowsFromPtrs(sqtables.BeginTrans(profile, true), u.RowPtrs, u.Cols, u.EList)
 }
 
 // Identify - returns a short string to identify the transaction log statement
@@ -289,7 +289,8 @@ func (d *DeleteRows) Recreate(profile *sqprofile.SQProfile) error {
 	if tab == nil {
 		return sqerr.New("Table " + d.TableName + " does not exist")
 	}
-	err = tab.DeleteRowsFromPtrs(profile, d.RowPtrs, sqtables.SoftDelete)
+	trans := sqtables.BeginTrans(profile, true)
+	err = tab.DeleteRowsFromPtrs(trans, d.RowPtrs)
 	profile.VerifyNoLocks()
 
 	return err

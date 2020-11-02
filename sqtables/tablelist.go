@@ -11,13 +11,11 @@ import (
 )
 
 //TableList holds a unique list of tables listed in From Clause of query
-type TableList struct {
-	tables map[string]*TableRef
-}
+type TableList map[string]*TableRef
 
 // FindTableDef - Find a table def given the table name/alias
-func (tl *TableList) FindTableDef(profile *sqprofile.SQProfile, name string) *TableDef {
-	ft, ok := tl.tables[strings.ToLower(name)]
+func (tl TableList) FindTableDef(profile *sqprofile.SQProfile, name string) *TableDef {
+	ft, ok := tl[strings.ToLower(name)]
 	if !ok {
 		return nil
 	}
@@ -25,7 +23,7 @@ func (tl *TableList) FindTableDef(profile *sqprofile.SQProfile, name string) *Ta
 }
 
 // String - generates a string containing the names of the tables in the list
-func (tl *TableList) String(profile *sqprofile.SQProfile) string {
+func (tl TableList) String(profile *sqprofile.SQProfile) string {
 	names := ""
 	for _, n := range tl.TableNames() {
 		names += n.Show() + ", "
@@ -38,11 +36,11 @@ func (tl *TableList) String(profile *sqprofile.SQProfile) string {
 
 //FindDef - Finds a column.Def based on colName and tableAlias. If the tableAlias is empty, it will look in all
 //   tables in the list for the column. An error will occur if the col is found in multiple tables
-func (tl *TableList) FindDef(profile *sqprofile.SQProfile, colName, tableAlias string) (col *column.Def, err error) {
+func (tl TableList) FindDef(profile *sqprofile.SQProfile, colName, tableAlias string) (col *column.Def, err error) {
 
 	if tableAlias == "" {
 		found := false
-		for _, ft := range tl.tables {
+		for _, ft := range tl {
 			if ft.Table == nil {
 				return nil, sqerr.NewInternalf("Table %s does not have a TableDef assigned", ft.Name.Show())
 			}
@@ -60,7 +58,7 @@ func (tl *TableList) FindDef(profile *sqprofile.SQProfile, colName, tableAlias s
 			return nil, sqerr.Newf("Column %q not found in Table(s): %s", colName, tl.String(profile))
 		}
 	} else {
-		tabF, ok := tl.tables[strings.ToLower(tableAlias)]
+		tabF, ok := tl[strings.ToLower(tableAlias)]
 		if !ok {
 			return nil, sqerr.Newf("Table %s not found in table list", tableAlias)
 		}
@@ -77,13 +75,13 @@ func (tl *TableList) FindDef(profile *sqprofile.SQProfile, colName, tableAlias s
 }
 
 // Len returns number of tables in list
-func (tl *TableList) Len() int {
-	return len(tl.tables)
+func (tl TableList) Len() int {
+	return len(tl)
 }
 
 // Add  a new table to the list. Will return an error if a duplicate
 // tableName/Alias pair is added. If the TableDef is not provided it will be found
-func (tl *TableList) Add(profile *sqprofile.SQProfile, ft TableRef) error {
+func (tl TableList) Add(profile *sqprofile.SQProfile, ft TableRef) error {
 	var err error
 
 	err = ft.Validate(profile)
@@ -95,22 +93,22 @@ func (tl *TableList) Add(profile *sqprofile.SQProfile, ft TableRef) error {
 	key := strings.ToLower(ft.Name.Show())
 
 	//See if key has already been used
-	_, ok := tl.tables[key]
+	_, ok := tl[key]
 	if ok {
 		return sqerr.Newf("Duplicate table name/alias %q", key)
 	}
-	tl.tables[key] = &ft
+	tl[key] = &ft
 
 	return nil
 }
 
 // AllCols returns an array of all cols in the tables of the tablelist as ColDefs
-func (tl *TableList) AllCols(profile *sqprofile.SQProfile) []column.Ref {
+func (tl TableList) AllCols(profile *sqprofile.SQProfile) []column.Ref {
 
 	var cols []column.Ref
 	displayTName := tl.Len() > 1
 	colm := make(map[column.Ref]bool)
-	for _, tab := range tl.tables {
+	for _, tab := range tl {
 		tc := tab.Table.GetCols(profile)
 		//alias := tab.Name.Alias
 		for _, cd := range tc.GetRefs() {
@@ -127,11 +125,11 @@ func (tl *TableList) AllCols(profile *sqprofile.SQProfile) []column.Ref {
 }
 
 // RLock read locks all tables in the list
-func (tl *TableList) RLock(profile *sqprofile.SQProfile) error {
+func (tl TableList) RLock(profile *sqprofile.SQProfile) error {
 	var err error
 	var locklist []*TableDef
 
-	for _, tab := range tl.tables {
+	for _, tab := range tl {
 		err = tab.Table.RLock(profile)
 		if err != nil {
 			for _, tDef := range locklist {
@@ -145,17 +143,17 @@ func (tl *TableList) RLock(profile *sqprofile.SQProfile) error {
 }
 
 // RUnlock unloack read lock from all tables in list
-func (tl *TableList) RUnlock(profile *sqprofile.SQProfile) {
-	for _, tab := range tl.tables {
+func (tl TableList) RUnlock(profile *sqprofile.SQProfile) {
+	for _, tab := range tl {
 		tab.Table.RUnlock(profile)
 	}
 }
 
 // TableNames returns the tablenames of the TableList
-func (tl *TableList) TableNames() []*moniker.Moniker {
-	names := make([]*moniker.Moniker, len(tl.tables))
+func (tl TableList) TableNames() []*moniker.Moniker {
+	names := make([]*moniker.Moniker, len(tl))
 	i := 0
-	for _, tab := range tl.tables {
+	for _, tab := range tl {
 
 		names[i] = tab.Name
 		i++
@@ -165,23 +163,25 @@ func (tl *TableList) TableNames() []*moniker.Moniker {
 }
 
 // NewTableList - Initialize a new TableList
-func NewTableList(profile *sqprofile.SQProfile, tables []TableRef) *TableList {
-	tl := TableList{tables: make(map[string]*TableRef)}
+func NewTableList(profile *sqprofile.SQProfile, tables []TableRef) TableList {
+	var tl TableList
+	tl = make(map[string]*TableRef)
 	for _, ft := range tables {
 		tl.Add(profile, ft)
 	}
-	return &tl
+	return tl
 }
 
 // NewTableListFromTableDef - Initialize a new TableList
-func NewTableListFromTableDef(profile *sqprofile.SQProfile, tabs ...*TableDef) *TableList {
-	tl := TableList{tables: make(map[string]*TableRef)}
+func NewTableListFromTableDef(profile *sqprofile.SQProfile, tabs ...*TableDef) TableList {
+	var tl TableList
+	tl = make(map[string]*TableRef)
 	for _, tab := range tabs {
 		ft := TableRef{Name: moniker.New(tab.GetName(profile), ""), Table: tab}
 		tl.Add(profile, ft)
 	}
 
-	return &tl
+	return tl
 }
 
 // Ternary is an implementation of a ternary operator for strings
@@ -190,4 +190,18 @@ func Ternary(cond bool, a, b string) string {
 		return a
 	}
 	return b
+}
+
+// Equal tests to see if the tablelists have the same tables
+func (tl TableList) Equal(tlb TableList) bool {
+	if len(tl) != len(tlb) {
+		return false
+	}
+	for key := range tl {
+		_, ok := tlb[key]
+		if !ok {
+			return false
+		}
+	}
+	return true
 }

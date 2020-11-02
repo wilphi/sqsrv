@@ -12,7 +12,7 @@ import (
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetTableList - get a comma separated list of Tables ended by a terminatorID token.
-func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminators ...tokens.TokenID) (*sqtables.TableList, error) {
+func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminators ...tokens.TokenID) (sqtables.TableList, error) {
 	var err error
 	isHangingComma := false
 	tables := sqtables.NewTableList(profile, nil)
@@ -65,7 +65,7 @@ func GetTableList(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminat
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ParseFromClause - parses the tables and the join conditions of a From Clause
-func ParseFromClause(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminators ...tokens.TokenID) (*sqtables.TableList, []sqtables.JoinInfo, error) {
+func ParseFromClause(profile *sqprofile.SQProfile, tkns *tokens.TokenList, terminators ...tokens.TokenID) (sqtables.TableList, []sqtables.JoinInfo, error) {
 	var err error
 	var joinExprs []sqtables.JoinInfo
 	var join *sqtables.JoinInfo
@@ -147,7 +147,7 @@ func parseMoniker(tkns *tokens.TokenList) *moniker.Moniker {
 	return moniker.New(name, alias)
 }
 
-func parseJoin(profile *sqprofile.SQProfile, tkns *tokens.TokenList, tables *sqtables.TableList, lastTName *moniker.Moniker,
+func parseJoin(profile *sqprofile.SQProfile, tkns *tokens.TokenList, tables sqtables.TableList, lastTName *moniker.Moniker,
 	terminators ...tokens.TokenID) (*moniker.Moniker, *sqtables.JoinInfo, error) {
 
 	var joinType tokens.TokenID

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/wilphi/sqsrv/assertions"
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"
@@ -49,7 +50,7 @@ type Expr interface {
 	ColRefs(names ...*moniker.Moniker) []column.Ref
 	Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...RowInterface) (sqtypes.Value, error)
 	Reduce() (Expr, error)
-	ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error
+	ValidateCols(profile *sqprofile.SQProfile, tables TableList) error
 	Encode() *sqbin.Codec
 	Decode(*sqbin.Codec)
 	SetAlias(alias string)
@@ -132,7 +133,7 @@ func (e *ValueExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *ValueExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+func (e *ValueExpr) ValidateCols(profile *sqprofile.SQProfile, tables TableList) error {
 	return nil
 }
 
@@ -288,7 +289,8 @@ func (e *ColExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+func (e *ColExpr) ValidateCols(profile *sqprofile.SQProfile, tables TableList) error {
+	// If the col table name is the DataSetMoniker, it is not linked to a table so it does not need validating
 	if moniker.Equal(e.col.TableName, DataSetMoniker) {
 		return nil
 	}
@@ -427,19 +429,13 @@ func (e *OpExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...Ro
 	if err != nil {
 		return nil, err
 	}
-	if vL == nil && !partial {
-		return nil, nil
-		//return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
-	}
+	assertions.Assert(!(vL == nil && !partial), "Left Value is nil")
 
 	vR, err := e.exR.Evaluate(profile, partial, rows...)
 	if err != nil {
 		return nil, err
 	}
-	if vR == nil && !partial {
-		return nil, nil
-		//		return nil, sqerr.Newf("Unable to evaluate %q", e.exR.Name())
-	}
+	assertions.Assert(!(vR == nil && !partial), "Right Value is nil")
 
 	if partial {
 		if boolresult {
@@ -487,7 +483,7 @@ func (e *OpExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *OpExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+func (e *OpExpr) ValidateCols(profile *sqprofile.SQProfile, tables TableList) error {
 	err := e.exL.ValidateCols(profile, tables)
 	if err != nil {
 		return err
@@ -655,7 +651,7 @@ func (e *NegateExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *NegateExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+func (e *NegateExpr) ValidateCols(profile *sqprofile.SQProfile, tables TableList) error {
 	err := e.exL.ValidateCols(profile, tables)
 
 	return err
@@ -785,16 +781,13 @@ func (e *FuncExpr) Evaluate(profile *sqprofile.SQProfile, partial bool, rows ...
 		if e.Cmd == tokens.Count {
 			return sqtypes.NewSQNull(), nil
 		}
-		return nil, nil
+		return nil, sqerr.Newf("%s does not have an argument to evaluate", tokens.IDName(e.Cmd))
 	}
 	vL, err = e.exL.Evaluate(profile, partial, rows...)
 	if err != nil {
 		return
 	}
-	if vL == nil {
-		return nil, nil
-		//return nil, sqerr.Newf("Unable to evaluate %q", e.exL.Name())
-	}
+	assertions.Assert(vL != nil, "Evaluate must have a value")
 
 	retVal, err = evalFunc(e.Cmd, vL)
 	if err != nil {
@@ -849,7 +842,7 @@ func (e *FuncExpr) Reduce() (Expr, error) {
 }
 
 // ValidateCols make sure that the cols in the expression match the tabledef
-func (e *FuncExpr) ValidateCols(profile *sqprofile.SQProfile, tables *TableList) error {
+func (e *FuncExpr) ValidateCols(profile *sqprofile.SQProfile, tables TableList) error {
 	if e.exL != nil {
 		return e.exL.ValidateCols(profile, tables)
 	}

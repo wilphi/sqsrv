@@ -31,10 +31,10 @@ type OrderItem struct {
 
 // DataSet - structure that contains a row/column set including column definitions
 type DataSet struct {
-	Vals       [][]sqtypes.Value
+	Vals       sqtypes.ValueMatrix
 	usePtrs    bool
 	Ptrs       sqptr.SQPtrs
-	tables     *TableList
+	tables     TableList
 	order      SortOrder
 	validOrder bool
 	eList      *ExprList
@@ -47,7 +47,7 @@ func (d *DataSet) GetColNames() []string {
 }
 
 //NewDataSet creates a dataset based on a list of expressions
-func NewDataSet(profile *sqprofile.SQProfile, tables *TableList, eList *ExprList) (*DataSet, error) {
+func NewDataSet(profile *sqprofile.SQProfile, tables TableList, eList *ExprList) (*DataSet, error) {
 	var err error
 
 	if eList == nil || eList.Len() == 0 {
@@ -76,7 +76,7 @@ func (d *DataSet) GetColList() *column.List {
 }
 
 // GetTables -
-func (d *DataSet) GetTables() *TableList {
+func (d *DataSet) GetTables() TableList {
 	return d.tables
 }
 

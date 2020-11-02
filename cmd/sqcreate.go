@@ -16,7 +16,7 @@ type CreateTableStmt struct {
 }
 
 // CreateTable - Wraps CreateTableFromTokens
-func CreateTable(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func CreateTable(trans sqtables.Transaction, tkns *tokens.TokenList) (string, *sqtables.DataSet, error) {
 
 	if !trans.Auto() {
 		return "", nil, sqerr.New("DDL statements cannot be executed within a transaction")
@@ -33,7 +33,7 @@ func CreateTable(trans *sqtables.Transaction, tkns *tokens.TokenList) (string, *
 }
 
 // ParseCreateTable - Creates a table from array of tokens that represent a CREATE TABLE statement
-func ParseCreateTable(trans *sqtables.Transaction, tkns *tokens.TokenList) (*CreateTableStmt, error) {
+func ParseCreateTable(trans sqtables.Transaction, tkns *tokens.TokenList) (*CreateTableStmt, error) {
 	var err error
 	var stmt CreateTableStmt
 
@@ -114,15 +114,15 @@ func ParseCreateTable(trans *sqtables.Transaction, tkns *tokens.TokenList) (*Cre
 	return &stmt, nil
 }
 
-func executeCreateTable(trans *sqtables.Transaction, stmt *CreateTableStmt) (string, error) {
+func executeCreateTable(trans sqtables.Transaction, stmt *CreateTableStmt) (string, error) {
 
 	log.Debug("Creating table ", stmt.TableName)
 	table := sqtables.CreateTableDef(stmt.TableName, stmt.Cols)
-	err := table.AddConstraints(trans.Profile, stmt.Constraints)
+	err := table.AddConstraints(trans.Profile(), stmt.Constraints)
 	if err != nil {
 		return "", err
 	}
-	err = sqtables.CreateTable(trans.Profile, table)
+	err = sqtables.CreateTable(trans.Profile(), table)
 	if err != nil {
 		return "", err
 	}

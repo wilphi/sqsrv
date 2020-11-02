@@ -257,7 +257,7 @@ func writeDBTableData(profile *sqprofile.SQProfile, tName string) error {
 		row.isModified = false
 	}
 
-	err = td.DeleteRowsFromPtrs(profile, deletePtrs, HardDelete)
+	err = td.HardDeleteRowsFromPtrs(profile, deletePtrs)
 	if err != nil {
 		return err
 	}

@@ -21,7 +21,7 @@ type EvalListData struct {
 	TestName    string
 	List        []sqtables.Expr
 	profile     *sqprofile.SQProfile
-	Tables      *sqtables.TableList
+	Tables      sqtables.TableList
 	rows        []sqtables.RowInterface
 	ExpVals     []sqtypes.Raw
 	ExpErr      string
@@ -51,7 +51,8 @@ func testEvalListFunc(d EvalListData) func(*testing.T) {
 			return
 		}
 		evals := sqtypes.CreateValueArrayFromRaw(d.ExpVals)
-		if !reflect.DeepEqual(retVals, evals) {
+
+		if !reflect.DeepEqual(sqtypes.ValueArray(retVals), evals) {
 			t.Errorf("Actual values %q does not match Expected values %q", retVals, evals)
 			return
 		}
@@ -211,7 +212,7 @@ func testPopFunc(eList *sqtables.ExprList, ExpExpr sqtables.Expr) func(*testing.
 }
 */
 
-func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqprofile.SQProfile, tables *sqtables.TableList) func(*testing.T) {
+func testValidateColsFunc(eList *sqtables.ExprList, ExpErr string, profile *sqprofile.SQProfile, tables sqtables.TableList) func(*testing.T) {
 	return func(t *testing.T) {
 		defer sqtest.PanicTestRecovery(t, "")
 
@@ -271,7 +272,7 @@ func TestEvalListMisc(t *testing.T) {
 			t.Errorf("Unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(actValues, vals) {
+		if !reflect.DeepEqual(sqtypes.ValueArray(actValues), vals) {
 			t.Error("ExprList does not match Values given")
 			return
 		}

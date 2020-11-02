@@ -174,3 +174,23 @@ func (r *RowDef) IsDeleted(profile *sqprofile.SQProfile) bool {
 func (r *RowDef) GetVals(profile *sqprofile.SQProfile) []sqtypes.Value {
 	return r.Data
 }
+
+// Clone creates a new deep copy of the row
+func (r *RowDef) Clone() *RowDef {
+	var nData []sqtypes.Value
+	for _, val := range r.Data {
+		nData = append(nData, val)
+	}
+	nRow := RowDef{
+		RowPtr:     r.RowPtr,
+		Data:       nData,
+		isModified: r.isModified,
+		isDeleted:  r.isDeleted,
+		offset:     r.offset,
+		alloc:      r.alloc,
+		size:       r.size,
+		Table:      r.Table,
+		ColNum:     r.ColNum,
+	}
+	return &nRow
+}

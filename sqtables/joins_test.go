@@ -82,7 +82,7 @@ func testJoinRowTypesFunc(d JoinRowTypesData) func(*testing.T) {
 		actVals := d.Row.GetVals(profile)
 		expVals := sqtypes.CreateValueArrayFromRaw(d.ExpVals)
 
-		if !reflect.DeepEqual(actVals, expVals) {
+		if !reflect.DeepEqual(sqtypes.ValueArray(actVals), expVals) {
 			if !(len(actVals) == 0 && len(expVals) == 0) {
 				t.Error("GetVals does not match Expected Vals")
 				return

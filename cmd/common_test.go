@@ -762,7 +762,7 @@ type GetTableListData struct {
 	Terminators    []tokens.TokenID
 	Command        string
 	ExpErr         string
-	ExpTab         *sqtables.TableList
+	ExpTab         sqtables.TableList
 	ExpectedTables []*moniker.Moniker
 	ExpTokenLen    int
 }

@@ -20,23 +20,22 @@ type InsertStmt struct {
 }
 
 // InsertInto -
-func InsertInto(trans *sqtables.Transaction, tl *tokens.TokenList) (string, *sqtables.DataSet, error) {
+func InsertInto(trans sqtables.Transaction, tl *tokens.TokenList) (string, *sqtables.DataSet, error) {
 
 	ins := InsertStmt{tkns: tl}
 
-	err := ins.Parse(trans.Profile)
+	err := ins.Parse(trans.Profile())
 	if err != nil {
 		return "Zero rows inserted", nil, err
 	}
 	i, err := ins.executeInsert(trans)
 
-	if trans.Auto() {
-		if err != nil {
-			trans.Rollback()
-			return fmt.Sprintf("%d rows inserted into %s", i, ins.tableName), nil, err
-		}
-		err = trans.Commit()
+	if err != nil {
+		trans.RollbackIfAuto()
+		return fmt.Sprintf("%d rows inserted into %s", i, ins.tableName), nil, err
 	}
+	err = trans.CommitIfAuto()
+
 	return fmt.Sprintf("%d rows inserted into %s", i, ins.tableName), nil, err
 }
 
@@ -145,9 +144,9 @@ func (ins *InsertStmt) getValuesRow() ([]sqtypes.Value, error) {
 	return vals, err
 }
 
-func (ins *InsertStmt) executeInsert(trans *sqtables.Transaction) (int, error) {
+func (ins *InsertStmt) executeInsert(trans sqtables.Transaction) (int, error) {
 	// make sure there is a valid table
-	tab, err := sqtables.GetTable(trans.Profile, ins.tableName)
+	tab, err := sqtables.GetTable(trans.Profile(), ins.tableName)
 	if err != nil {
 		return 0, err
 	}
