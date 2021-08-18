@@ -14,9 +14,9 @@ type TableMap map[string]*TableDef
 type STransaction struct {
 	profile  *sqprofile.SQProfile
 	TData    TableMap
-	auto     bool
 	WLocks   TableMap
 	RLocks   TableMap
+	auto     bool
 	complete bool
 }
 
