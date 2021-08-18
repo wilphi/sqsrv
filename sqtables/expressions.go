@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/wilphi/sqsrv/assertions"
+	"github.com/wilphi/assertions"
 	"github.com/wilphi/sqsrv/sqbin"
 	"github.com/wilphi/sqsrv/sqerr"
 	"github.com/wilphi/sqsrv/sqprofile"

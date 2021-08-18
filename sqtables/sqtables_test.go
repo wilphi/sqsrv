@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wilphi/sqsrv/assertions"
+	"github.com/wilphi/assertions"
 	"github.com/wilphi/sqsrv/sqmutex"
 	"github.com/wilphi/sqsrv/sqprofile"
 	"github.com/wilphi/sqsrv/sqptr"
