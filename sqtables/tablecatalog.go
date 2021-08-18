@@ -135,7 +135,33 @@ func CatalogTables(profile *sqprofile.SQProfile) ([]string, error) {
 		}
 	}
 	sort.Strings(tNames)
+
 	return tNames, nil
+
+}
+
+// CatalogTablesWithCount returns a sorted list of tablenames and the number of rows in each table
+func CatalogTablesWithCount(profile *sqprofile.SQProfile) ([]string, []uint64, error) {
+	tNames, err := CatalogTables(profile)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var tCount []uint64
+
+	for _, tabN := range tNames {
+		tab, err := GetTable(profile, tabN)
+		if err != nil {
+			return nil, nil, err
+		}
+		num, err := tab.RowCount(profile)
+		if err != nil {
+			return nil, nil, err
+		}
+		tCount = append(tCount, uint64(num))
+
+	}
+	return tNames, tCount, nil
 
 }
 

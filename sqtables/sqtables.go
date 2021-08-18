@@ -29,6 +29,7 @@ type TableDef struct {
 	tableName   string       // immutable
 	tableCols   []column.Def // immutable
 	rowm        map[sqptr.SQPtr]RowInterface
+	rowCnt      int
 	constraints []Constraint
 	nextOffset  int64
 	nextRowID   *uint64
@@ -127,22 +128,14 @@ func (t *TableDef) GetName(profile *sqprofile.SQProfile) string {
 
 // RowCount - returns the number of rows - softdeleted rows
 func (t *TableDef) RowCount(profile *sqprofile.SQProfile) (int, error) {
-	cnt := 0
+
 	err := t.RLock(profile)
 	if err != nil {
 		return -1, err
 	}
 	defer t.RUnlock(profile)
-	if t.rowm != nil {
 
-		for rowid := range t.rowm {
-			if !t.rowm[rowid].IsDeleted(profile) {
-				cnt++
-			}
-
-		}
-	}
-	return cnt, nil
+	return t.rowCnt, nil
 }
 
 //RawCount - returns the total number of rows including the soft deleted rows
@@ -207,6 +200,7 @@ func (t *TableDef) AddRows(trans Transaction, data *DataSet) (int, error) {
 		data.Ptrs[i] = r.RowPtr
 	}
 
+	t.rowCnt += len(newRows)
 	return len(newRows), trans.CommitIfAuto()
 }
 
@@ -249,7 +243,12 @@ func (t *TableDef) DeleteRowsFromPtrs(trans Transaction, ptrs sqptr.SQPtrs) erro
 			return err
 		}
 	}
-	return trans.CommitIfAuto()
+	err = trans.CommitIfAuto()
+	if err != nil {
+		return err
+	}
+	t.rowCnt -= len(ptrs)
+	return nil
 }
 
 //HardDeleteRowsFromPtrs deletes rows from a table based on the given list of pointers
@@ -266,6 +265,7 @@ func (t *TableDef) HardDeleteRowsFromPtrs(profile *sqprofile.SQProfile, ptrs sqp
 			return sqerr.NewInternalf("Row Ptr %d does not exist", idx)
 		}
 		delete(t.rowm, idx)
+		t.rowCnt--
 	}
 	return nil
 }

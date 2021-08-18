@@ -475,6 +475,9 @@ func readDBTableData(profile *sqprofile.SQProfile, tab *TableDef) error {
 			row.SetStorage(profile, offset, alloc, size)
 			row.isModified = false
 			tab.rowm[row.RowPtr] = row
+			if !row.isDeleted {
+				tab.rowCnt++
+			}
 		}
 		offset += alloc
 	}

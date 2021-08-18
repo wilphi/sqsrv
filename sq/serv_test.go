@@ -245,7 +245,7 @@ func TestGetCmdFunction(t *testing.T) {
 			TestName:    "Show Tables",
 			Command:     "show tables",
 			NilFunc:     false,
-			ExpMsg:      "Table List\n----------------------\n",
+			ExpMsg:      "Table List\n--------------------------------------------\n",
 			ExpShutDown: NoAction,
 			ExpErr:      "",
 		},

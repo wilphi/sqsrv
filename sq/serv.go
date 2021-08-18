@@ -279,14 +279,14 @@ func cmdUnLock(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol
 }
 
 func cmdShowTables(profile *sqprofile.SQProfile, tkns *tokens.TokenList) (sqprotocol.ResponseToClient, ShutdownType, error) {
-	tables, err := sqtables.CatalogTables(profile)
+	tables, rows, err := sqtables.CatalogTablesWithCount(profile)
 	if err != nil {
 		resp := sqprotocol.ResponseToClient{Msg: err.Error(), IsErr: true, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 		return resp, NoAction, nil
 	}
-	str := "Table List\n----------------------\n"
-	for _, tab := range tables {
-		str += fmt.Sprintf("  %-20s\n", tab)
+	str := "Table List\n--------------------------------------------\n"
+	for i, tab := range tables {
+		str += fmt.Sprintf("  %-20s %20s\n", tab, format(rows[i]))
 	}
 	resp := sqprotocol.ResponseToClient{Msg: str, IsErr: false, HasData: false, NRows: 0, NCols: 0, CMDResponse: true}
 	return resp, NoAction, nil

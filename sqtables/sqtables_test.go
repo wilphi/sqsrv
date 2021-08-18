@@ -822,6 +822,8 @@ func testDeleteRowsFromPtrsFunc(tableName string, d *DeleteRowsFromPtrsData) fun
 		}
 		tr := tab.TableRef(profile)
 		data, err := tr.GetRowData(profile, sqtables.ColsToExpr(tab.GetCols(profile)), nil)
+		assertions.AssertNoErr(err, "Error Verifying data")
+
 		expVals := d.ExpVals.ValueMatrix()
 		if str := sqtypes.CompareValueMatrix(data.Vals, expVals, "Actual", "Expected", true); str != "" {
 			t.Error(str)
@@ -844,6 +846,7 @@ func TestDeleteRowsFromPtrs(t *testing.T) {
 		{
 			TestName: "Empty Ptr list",
 			ExpErr:   "",
+			LockTest: false,
 			Ptrs:     sqptr.SQPtrs{},
 			ExpVals: sqtypes.RawVals{
 				{1, 25, "row1"},
@@ -856,6 +859,7 @@ func TestDeleteRowsFromPtrs(t *testing.T) {
 		{
 			TestName: "Delete first Row",
 			ExpErr:   "",
+			LockTest: false,
 			Ptrs:     sqptr.SQPtrs{1},
 			ExpVals: sqtypes.RawVals{
 				{2, 50, "row2"},
@@ -867,6 +871,7 @@ func TestDeleteRowsFromPtrs(t *testing.T) {
 		{
 			TestName: "Delete Last Row",
 			ExpErr:   "",
+			LockTest: false,
 			Ptrs:     sqptr.SQPtrs{5},
 			ExpVals: sqtypes.RawVals{
 				{1, 25, "row1"},
@@ -878,11 +883,13 @@ func TestDeleteRowsFromPtrs(t *testing.T) {
 		{
 			TestName: "Invalid Ptr",
 			ExpErr:   "Internal Error: Row Ptr 100 does not exist",
+			LockTest: false,
 			Ptrs:     sqptr.SQPtrs{100},
 		},
 		{
 			TestName:     "Transaction Delete Error",
 			ExpErr:       "Internal Error: Transaction is already complete",
+			LockTest:     false,
 			Ptrs:         sqptr.SQPtrs{100},
 			InvalidTrans: true,
 		},
